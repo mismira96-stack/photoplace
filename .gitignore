@@ -1,0 +1,24 @@
+.gradle/
+build/
+app/build/
+local.properties
+.idea/
+*.iml
+
+# Local build/test artifacts
+*.log
+*.apk
+*.aab
+*.bak
+
+# Device repair/debug artifacts
+.debug/
+date-repair-*
+date-repair-skipped-files/
+debug-dumps/
+reports/
+decompiled-last-release/
+scripts/
+
+# Local screenshots and UI drafts
+/*.png

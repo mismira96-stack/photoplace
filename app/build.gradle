@@ -1,0 +1,42 @@
+plugins {
+    id "com.android.application"
+}
+
+def localProps = new Properties()
+def localPropsFile = rootProject.file("local.properties")
+if (localPropsFile.exists()) {
+    localPropsFile.withInputStream { localProps.load(it) }
+}
+
+android {
+    namespace "com.example.gallerysorter"
+    compileSdk 35
+
+    defaultConfig {
+        applicationId "com.photoplace.app"
+        minSdk 29
+        targetSdk 35
+        versionCode 15
+        versionName "1.1.6"
+    }
+
+    signingConfigs {
+        release {
+            storeFile file(localProps.getProperty("RELEASE_STORE_FILE"))
+            storePassword localProps.getProperty("RELEASE_STORE_PASSWORD")
+            keyAlias localProps.getProperty("RELEASE_KEY_ALIAS")
+            keyPassword localProps.getProperty("RELEASE_KEY_PASSWORD")
+        }
+    }
+
+    buildTypes {
+        release {
+            signingConfig signingConfigs.release
+            minifyEnabled false
+        }
+    }
+}
+
+dependencies {
+    implementation "androidx.documentfile:documentfile:1.0.1"
+}
