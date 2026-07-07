@@ -38,6 +38,7 @@ import android.os.Bundle;
 import android.os.Environment;
 import android.os.ParcelFileDescriptor;
 import android.provider.MediaStore;
+import android.provider.Settings;
 import android.text.InputFilter;
 import android.text.SpannableString;
 import android.text.TextUtils;
@@ -48,6 +49,7 @@ import android.util.LruCache;
 import android.util.Size;
 import android.view.View;
 import android.view.Window;
+import android.view.WindowInsets;
 import android.widget.Button;
 import android.widget.CheckBox;
 import android.widget.CompoundButton;
@@ -158,6 +160,7 @@ public class MainActivity extends Activity {
     private StoredAlbumSummary activePlaceDetailSummary = null;
     private int recentPlacesScrollY = 0;
     private boolean copyCompletedMode = false;
+    private boolean copyStoppedMode = false;
     private boolean originalsTrashCompleted = false;
     private boolean videoWritePermissionGranted = false;
     private String workingMessage = null;
@@ -328,7 +331,7 @@ public class MainActivity extends Activity {
         updateSourceFoldersText();
         Button button4 = new Button(this);
         this.cancelButton = button4;
-        button4.setText("중지");
+        button4.setText("멈추기");
         this.cancelButton.setEnabled(false);
         this.cancelButton.setVisibility(8);
         this.cancelButton.setOnClickListener(new View.OnClickListener() { // from class: com.example.gallerysorter.MainActivity$$ExternalSyntheticLambda17
@@ -459,7 +462,7 @@ public class MainActivity extends Activity {
         horizontalScrollView.addView(this.unclassifiedPreviewRow);
         TextView textView10 = new TextView(this);
         this.logText = textView10;
-        textView10.setText("위치 정보가 없는 사진/동영상은 여기에 표시됩니다.");
+        textView10.setText("위치 정보가 없는 사진/동영상은 정리 제외로 표시됩니다.\n사진은 삭제되지 않아요.");
         this.logText.setTextSize(12.0f);
         this.logText.setTextColor(-7035976);
         this.logText.setPadding(0, dp(8), 0, 0);
@@ -538,23 +541,27 @@ public class MainActivity extends Activity {
                 i2++;
             }
         }
-        int iCountRecentlySortedItems = this.copyCompletedMode ? countRecentlySortedItems(this.previewItems) : countCopyableItems(this.previewItems);
+        int iCountRecentlySortedItems = (this.copyCompletedMode || this.copyStoppedMode) ? countRecentlySortedItems(this.previewItems) : countCopyableItems(this.previewItems);
         int iCountRecentlySortedGroups = this.copyCompletedMode ? countRecentlySortedGroups(this.previewItems) : countNewFolderItems(this.previewItems);
         int iCountNewFolderItems = countNewFolderItems(this.previewItems);
         int iCountAlreadySortedItems = countAlreadySortedItems(this.previewItems);
-        String str = this.copyCompletedMode ? "정리 완료" : "확인 완료";
+        String str = this.copyStoppedMode ? "정리 멈춤" : this.copyCompletedMode ? "정리 완료" : "확인 완료";
         String strValueOf = String.valueOf(iCountRecentlySortedGroups);
         String strValueOf2 = String.valueOf(i2);
         if (this.copyCompletedMode) {
             iCountAlreadySortedItems = iCountRecentlySortedItems;
+        } else if (this.copyStoppedMode) {
+            iCountAlreadySortedItems = countCopyableItems(this.previewItems);
         }
         setStatus(str, strValueOf, strValueOf2, String.valueOf(iCountAlreadySortedItems));
         TextView textView = this.resultSummaryTitle;
         if (textView != null) {
-            textView.setText(this.copyCompletedMode ? "정리 결과" : "확인 필요");
+            textView.setText(this.copyStoppedMode ? "정리 멈춤" : this.copyCompletedMode ? "정리 결과" : "확인 필요");
         }
         TextView textView2 = this.summaryText;
-        if (this.copyCompletedMode) {
+        if (this.copyStoppedMode) {
+            strCompactResultSummary = stoppedResultSummary(iCountRecentlySortedItems, countCopyableItems(this.previewItems), i2);
+        } else if (this.copyCompletedMode) {
             strCompactResultSummary = completedResultSummary(iCountRecentlySortedGroups, i2, iCountRecentlySortedItems, this.copiedOriginalUris.size());
         } else {
             strCompactResultSummary = compactResultSummary(iCountRecentlySortedItems, i2, iCountNewFolderItems);
@@ -616,6 +623,7 @@ public class MainActivity extends Activity {
         }
         this.cancelRequested = false;
         this.copyCompletedMode = false;
+        this.copyStoppedMode = false;
         this.originalsTrashCompleted = false;
         this.videoWritePermissionGranted = false;
         this.previewItems.clear();
@@ -692,7 +700,7 @@ public class MainActivity extends Activity {
 
     /* renamed from: lambda$runPreview$10$com-example-gallerysorter-MainActivity, reason: not valid java name */
     /* synthetic */ void m44lambda$runPreview$10$comexamplegallerysorterMainActivity() {
-        this.summaryText.setText("항목 확인을 취소했습니다.");
+        this.summaryText.setText("항목 확인을 멈췄어요.");
         this.logText.setText("");
         setWorking(false, null);
     }
@@ -784,8 +792,11 @@ public class MainActivity extends Activity {
         linearLayout.addView(linearLayout2, matchWidthWithBottom(dp(16)));
         addDialogStat(linearLayout2, "앨범으로 정리", i + "개", -15293622);
         addDialogStat(linearLayout2, "새로 만들 앨범", i3 + "개", -14326805);
-        addDialogStat(linearLayout2, "위치 확인 필요", i2 + "개", -680437);
+        addDialogStat(linearLayout2, "정리 제외", i2 + "개", -680437);
         addDialogStat(linearLayout2, "이미 정리됨", i4 + "개", -10193781);
+        TextView textView3 = bodyText(shouldMoveVideos() ? "사진은 위치별 앨범으로 복사되고 원본은 삭제되지 않아요.\n동영상은 앨범으로 이동됩니다." : "사진은 위치별 앨범으로 복사되고 원본은 삭제되지 않아요.");
+        textView3.setGravity(17);
+        linearLayout.addView(textView3, matchWidthWithBottom(dp(14)));
         if (i > 0) {
             addDialogAlbumPreview(linearLayout);
         }
@@ -822,11 +833,14 @@ public class MainActivity extends Activity {
             }
         });
         linearLayout3.addView(button3, dialogButtonParams(false));
-        dialog.setContentView(linearLayout);
+        ScrollView dialogScrollView = new ScrollView(this);
+        dialogScrollView.setVerticalScrollBarEnabled(false);
+        dialogScrollView.addView(linearLayout);
+        dialog.setContentView(dialogScrollView);
         Window window = dialog.getWindow();
         if (window != null) {
             window.setBackgroundDrawable(new ColorDrawable(0));
-            window.setLayout((int) (getResources().getDisplayMetrics().widthPixels * 0.9d), -2);
+            window.setLayout(Math.min((int) (getResources().getDisplayMetrics().widthPixels * 0.9d), dp(480)), -2);
         }
         dialog.show();
     }
@@ -1199,6 +1213,7 @@ public class MainActivity extends Activity {
         }
         this.cancelRequested = false;
         this.copyCompletedMode = false;
+        this.copyStoppedMode = false;
         this.originalsTrashCompleted = false;
         this.copiedOriginalUris.clear();
         this.pendingTrashOriginalUris.clear();
@@ -1229,7 +1244,7 @@ public class MainActivity extends Activity {
                 break;
             }
             if (this.cancelRequested) {
-                sb.append("사용자 취소\n");
+                sb.append("사용자 멈춤\n");
                 break;
             }
             final PhotoItem photoItem = (PhotoItem) list.get(i);
@@ -1271,13 +1286,14 @@ public class MainActivity extends Activity {
         final int i6 = i2;
         final int i7 = i3;
         final int i8 = i4;
+        final boolean z2 = this.cancelRequested;
         runOnUiThread(new Runnable() { // from class: com.example.gallerysorter.MainActivity$$ExternalSyntheticLambda64
             @Override // java.lang.Runnable
             public final void run() {
                 try {
-                    MainActivity.this.m40lambda$runCopy$22$comexamplegallerysorterMainActivity(arrayList, i6, i7, i8);
-                } catch (JSONException e) {
-                    throw new RuntimeException(e);
+                    MainActivity.this.m40lambda$runCopy$22$comexamplegallerysorterMainActivity(arrayList, i6, i7, i8, z2);
+                } catch (Throwable e) {
+                    MainActivity.this.handleCopyCompletionError(e, i6, i7, i8, z2);
                 }
             }
         });
@@ -1287,11 +1303,11 @@ public class MainActivity extends Activity {
     /* synthetic */ void m39lambda$runCopy$21$comexamplegallerysorterMainActivity(int i, List list, boolean z, PhotoItem photoItem) {
         this.summaryText.setText("앨범으로 정리 중... " + i + " / " + list.size() + "개");
         this.logText.setText(z ? "사진은 복사하고 동영상은 앨범으로 이동하고 있어요." : "사진만 앨범으로 복사하고 있어요.");
-        updateProgress("앨범으로 정리 중", i, list.size(), photoItem.noLocation ? "위치 정보 없음" : albumCandidateTitle(albumCandidateGroupKey(photoItem)));
+        updateProgress("앨범으로 정리 중", i, list.size(), photoItem.noLocation ? "정리 제외: 위치 정보 없음" : albumCandidateTitle(albumCandidateGroupKey(photoItem)));
     }
 
     /* renamed from: lambda$runCopy$22$com-example-gallerysorter-MainActivity, reason: not valid java name */
-    /* synthetic */ void m40lambda$runCopy$22$comexamplegallerysorterMainActivity(List list, int i, int i2, int i3) throws JSONException {
+    /* synthetic */ void m40lambda$runCopy$22$comexamplegallerysorterMainActivity(List list, int i, int i2, int i3, boolean z) throws JSONException {
         rememberRecentlySortedItems(list);
         markItemsAsSorted(list);
         saveAlbumSummaryHistory(this.previewItems, list, i, i2, i3);
@@ -1299,17 +1315,78 @@ public class MainActivity extends Activity {
         int iCountNoLocationItems = countNoLocationItems(this.previewItems);
         countAlreadySortedItems(this.previewItems);
         int iCountRecentlySortedGroups = countRecentlySortedGroups(this.previewItems);
-        this.copyCompletedMode = true;
-        setStatus("정리 완료", String.valueOf(iCountRecentlySortedGroups), String.valueOf(iCountNoLocationItems), String.valueOf(iCountRecentlySortedItems));
-        this.summaryText.setText("정리 결과\n정리됨 " + i + "개\n건너뜀 " + i2 + "개\n실패 " + i3 + "개");
-        this.logText.setText("앨범 정리가 끝났어요. 결과 보기에서 앨범별 내용을 확인할 수 있어요.");
+        int iCountCopyableItems = countCopyableItems(this.previewItems);
+        this.copyCompletedMode = !z;
+        this.copyStoppedMode = z;
+        setStatus(z ? "정리 멈춤" : "정리 완료", String.valueOf(iCountRecentlySortedGroups), String.valueOf(iCountNoLocationItems), z ? String.valueOf(iCountCopyableItems) : String.valueOf(iCountRecentlySortedItems));
+        if (z) {
+            this.summaryText.setText("정리를 멈췄어요.\n이미 만들어진 폴더와 정리된 사진은 유지됩니다.");
+            this.logText.setText("다시 바로 정리하기를 누르면 남은 사진만 계속 정리해요.");
+        } else {
+            this.summaryText.setText("정리 결과\n정리됨 " + i + "개\n건너뜀 " + i2 + "개\n실패 " + i3 + "개");
+            this.logText.setText("앨범 정리가 끝났어요. 다시 누르지 않아도 됩니다.");
+        }
         setWorking(false, null);
-        this.copyCompletedMode = true;
-        this.summaryText.setText(completedResultSummary(iCountRecentlySortedGroups, iCountNoLocationItems, iCountRecentlySortedItems, this.copiedOriginalUris.size()));
-        this.copyButton.setEnabled(false);
-        this.copyButton.setVisibility(8);
-        this.deleteOriginalsButton.setEnabled(!this.copiedOriginalUris.isEmpty());
-        showResultScreen();
+        this.copyCompletedMode = !z;
+        this.copyStoppedMode = z;
+        if (z) {
+            this.summaryText.setText(stoppedResultSummary(iCountRecentlySortedItems, iCountCopyableItems, iCountNoLocationItems));
+            this.copyButton.setEnabled(iCountCopyableItems > 0);
+            this.copyButton.setVisibility(iCountCopyableItems > 0 ? 0 : 8);
+            this.deleteOriginalsButton.setEnabled(false);
+        } else {
+            this.summaryText.setText(completedResultSummary(iCountRecentlySortedGroups, iCountNoLocationItems, iCountRecentlySortedItems, this.copiedOriginalUris.size()));
+            this.copyButton.setEnabled(false);
+            this.copyButton.setVisibility(8);
+            this.deleteOriginalsButton.setEnabled(!this.copiedOriginalUris.isEmpty());
+        }
+        try {
+            showResultScreen();
+        } catch (Throwable e) {
+            handleResultScreenError(e, z, iCountRecentlySortedItems, iCountCopyableItems, iCountNoLocationItems);
+        }
+    }
+
+    private void handleCopyCompletionError(Throwable th, int i, int i2, int i3, boolean z) {
+        setWorking(false, null);
+        this.copyCompletedMode = !z;
+        this.copyStoppedMode = z;
+        this.summaryText.setText("정리 작업은 처리됐지만 결과 화면을 여는 중 문제가 생겼어요.");
+        this.logText.setText("다시 확인하기를 눌러 남은 항목을 확인해 주세요. 오류: " + safeErrorMessage(th));
+        this.copyButton.setEnabled(hasCopyableItems(this.previewItems));
+        this.copyButton.setVisibility(hasCopyableItems(this.previewItems) ? 0 : 8);
+        this.deleteOriginalsButton.setEnabled(!z && !this.copiedOriginalUris.isEmpty());
+        showToast("결과 표시 중 문제가 생겼어요. 앱은 계속 사용할 수 있습니다.");
+    }
+
+    private void handleResultScreenError(Throwable th, boolean z, int i, int i2, int i3) {
+        setWorking(false, null);
+        this.copyCompletedMode = !z;
+        this.copyStoppedMode = z;
+        this.resultScreenMode = false;
+        this.recentPlacesScreenMode = false;
+        this.recentPlaceDetailMode = false;
+        buildUi();
+        ensureReadPermission();
+        restoreMainUiFromState();
+        if (z) {
+            this.summaryText.setText(stoppedResultSummary(i, i2, i3));
+        } else {
+            this.summaryText.setText("정리 완료 · 결과 화면을 여는 중 문제가 생겼어요.\n정리된 앨범은 갤러리에서 확인할 수 있습니다.");
+        }
+        this.logText.setText("결과 화면 오류: " + safeErrorMessage(th));
+        showToast("정리는 유지됐어요. 결과 화면만 다시 확인해 주세요.");
+    }
+
+    private String safeErrorMessage(Throwable th) {
+        if (th == null) {
+            return "알 수 없는 오류";
+        }
+        String str = th.getMessage();
+        if (str == null || str.trim().isEmpty()) {
+            return th.getClass().getSimpleName();
+        }
+        return th.getClass().getSimpleName() + ": " + str;
     }
 
     private List<PhotoItem> loadSourcePhotos(List<AlbumFolder> list) throws Throwable {
@@ -1732,7 +1809,7 @@ public class MainActivity extends Activity {
         LinearLayout linearLayout2 = new LinearLayout(this);
         linearLayout2.setOrientation(1);
         scrollView.addView(linearLayout2);
-        linearLayout.addView(scrollView, new LinearLayout.LayoutParams(-1, dp(420)));
+        linearLayout.addView(scrollView, new LinearLayout.LayoutParams(-1, Math.min(dp(420), (int) (getResources().getDisplayMetrics().heightPixels * 0.45d))));
         final TextView textView2 = new TextView(this);
         textView2.setTextSize(13.0f);
         textView2.setTypeface(Typeface.DEFAULT_BOLD);
@@ -1858,6 +1935,7 @@ public class MainActivity extends Activity {
         }
         saveSelectedSourcePaths(arrayList);
         this.copyCompletedMode = false;
+        this.copyStoppedMode = false;
         this.videoWritePermissionGranted = false;
         this.previewItems.clear();
         this.copiedOriginalUris.clear();
@@ -2692,6 +2770,7 @@ public class MainActivity extends Activity {
         this.copiedOriginalUris.clear();
         this.originalsTrashCompleted = true;
         this.copyCompletedMode = false;
+        this.copyStoppedMode = false;
         this.resultScreenMode = false;
         this.previewItems.clear();
         this.recentlySortedUriKeys.clear();
@@ -3481,17 +3560,18 @@ public class MainActivity extends Activity {
 
     private String completedResultSummary(int i, int i2, int i3, int i4) {
         if (System.currentTimeMillis() >= 0) {
-            StringBuilder sb = new StringBuilder("새 장소 ");
-            sb.append(i).append("개");
-            if (i2 > 0) {
-                sb.append(" · 위치 없음 ").append(i2).append("개");
-            }
+            StringBuilder sb = new StringBuilder("정리가 끝났어요 · 정리 완료 ");
+            sb.append(i3).append("개");
             if (i3 > 0) {
-                sb.append(" · 정리 완료 ").append(i3).append("개");
+                sb.append(" · 새 장소 ").append(i).append("개");
+            }
+            if (i2 > 0) {
+                sb.append("\n위치 정보 없는 ").append(i2).append("개는 정리 대상에서 제외됐어요. 사진은 삭제되지 않아요.");
             }
             if (i4 > 0) {
                 sb.append(" · 남은 원본 ").append(i4).append("개");
             }
+            sb.append("\n정리 기록 탭에서 앨범을 확인할 수 있어요.");
             return sb.toString();
         }
         StringBuilder sb2 = new StringBuilder("이미 정리됨 ");
@@ -3506,6 +3586,19 @@ public class MainActivity extends Activity {
             return sb2.toString();
         }
         return "추가 확인 " + i + "개 · " + ((Object) sb2);
+    }
+
+    private String stoppedResultSummary(int i, int i2, int i3) {
+        StringBuilder sb = new StringBuilder("정리를 멈췄어요 · 정리됨 ");
+        sb.append(i).append("개");
+        if (i2 > 0) {
+            sb.append(" · 남은 항목 ").append(i2).append("개");
+        }
+        if (i3 > 0) {
+            sb.append(" · 위치 없음 ").append(i3).append("개");
+        }
+        sb.append("\n이미 만들어진 폴더와 정리된 사진은 유지됩니다.");
+        return sb.toString();
     }
 
     private String buildPreviewLog(List<PhotoItem> list) {
@@ -3836,7 +3929,7 @@ public class MainActivity extends Activity {
         textView2.setTextColor(-13418155);
         linearLayout2.addView(textView2);
         TextView textView3 = new TextView(this);
-        textView3.setText("앨범 정리 시작을 누르면 장소별로 정리해드릴게요.");
+        textView3.setText("앨범 정리 시작을 누르면 장소별로 정리해드릴게요.\n사진은 삭제되지 않아요.");
         textView3.setTextSize(13.0f);
         textView3.setTextColor(-7035976);
         textView3.setPadding(0, dp(2), 0, 0);
@@ -4648,7 +4741,7 @@ public class MainActivity extends Activity {
                 addOriginalDeleteAction(arrayList2.size(), arrayList2);
             }
             if (i2 > 0) {
-                addResultRow(arrayList3.isEmpty() ? photoItem : (PhotoItem) arrayList3.get(0), "alert", "확인 필요", "위치 정보 없음", i2 + "개", formatDateRange(dateRange2), -2067, -680437);
+                addResultRow(arrayList3.isEmpty() ? photoItem : (PhotoItem) arrayList3.get(0), "alert", "정리 제외", "위치 정보가 없어 앨범 정리 안 함", i2 + "개", formatDateRange(dateRange2), -2067, -680437);
             }
             renderNoLocationSamples(arrayList3, i2);
             return;
@@ -5117,6 +5210,7 @@ public class MainActivity extends Activity {
         addWorkingBanner(linearLayout);
         addSettingsSourceFolderCard(linearLayout);
         addSettingsVideoMoveCard(linearLayout);
+        addSettingsPermissionCard(linearLayout);
         linearLayout.addView(sectionTitle("데이터 관리"), matchWidthWithBottom(dp(10)));
         LinearLayout linearLayout2 = new LinearLayout(this);
         linearLayout2.setOrientation(0);
@@ -5257,6 +5351,66 @@ public class MainActivity extends Activity {
         setMoveVideos(z);
     }
 
+    private void addSettingsPermissionCard(LinearLayout linearLayout) {
+        LinearLayout linearLayout2 = new LinearLayout(this);
+        linearLayout2.setOrientation(0);
+        linearLayout2.setGravity(16);
+        linearLayout2.setPadding(dp(16), dp(14), dp(14), dp(14));
+        linearLayout2.setClickable(true);
+        linearLayout2.setFocusable(true);
+        linearLayout2.setOnClickListener(new View.OnClickListener() { // from class: com.example.gallerysorter.MainActivity$$ExternalSyntheticLambda73
+            @Override // android.view.View.OnClickListener
+            public final void onClick(View view) {
+                MainActivity.this.openAppPermissionSettings();
+            }
+        });
+        linearLayout.addView(linearLayout2, matchWidthWithBottom(dp(18)));
+        applyCardBackground(linearLayout2);
+        TextView textView = new TextView(this);
+        textView.setText("권한");
+        textView.setTextSize(20.0f);
+        textView.setGravity(17);
+        textView.setTextColor(-14326805);
+        GradientDrawable gradientDrawable = new GradientDrawable();
+        gradientDrawable.setColor(-1050881);
+        gradientDrawable.setCornerRadius(dp(16));
+        textView.setBackground(gradientDrawable);
+        linearLayout2.addView(textView, squareParams(dp(46)));
+        LinearLayout linearLayout3 = new LinearLayout(this);
+        linearLayout3.setOrientation(1);
+        linearLayout3.setPadding(dp(14), 0, dp(8), 0);
+        linearLayout2.addView(linearLayout3, weightedParams(1));
+        TextView textView2 = new TextView(this);
+        textView2.setText("앱 권한 설정");
+        textView2.setTextSize(16.0f);
+        textView2.setTypeface(Typeface.DEFAULT_BOLD);
+        textView2.setTextColor(-15656921);
+        linearLayout3.addView(textView2);
+        TextView textView3 = new TextView(this);
+        textView3.setText("사진/동영상, 위치 정보 권한을 휴대폰 설정에서 변경합니다.");
+        textView3.setTextSize(13.0f);
+        textView3.setTextColor(-10193781);
+        textView3.setLineSpacing(dp(2), 1.0f);
+        textView3.setPadding(0, dp(3), 0, 0);
+        linearLayout3.addView(textView3);
+        TextView textView4 = new TextView(this);
+        textView4.setText("›");
+        textView4.setTextSize(28.0f);
+        textView4.setTextColor(-7035976);
+        textView4.setGravity(17);
+        linearLayout2.addView(textView4, squareParams(dp(30)));
+    }
+
+    private void openAppPermissionSettings() {
+        Intent intent = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
+        intent.setData(Uri.fromParts("package", getPackageName(), null));
+        try {
+            startActivity(intent);
+        } catch (ActivityNotFoundException unused) {
+            showToast("앱 권한 설정 화면을 열 수 없습니다.");
+        }
+    }
+
     private void addBottomTabs(LinearLayout linearLayout, int i) {
         LinearLayout linearLayout2 = new LinearLayout(this);
         linearLayout2.setOrientation(0);
@@ -5304,11 +5458,32 @@ public class MainActivity extends Activity {
         linearLayout.setOrientation(1);
         linearLayout.setBackgroundColor(-197377);
         linearLayout.addView(scrollView, new LinearLayout.LayoutParams(-1, 0, 1.0f));
-        LinearLayout linearLayout2 = new LinearLayout(this);
+        final LinearLayout linearLayout2 = new LinearLayout(this);
         linearLayout2.setOrientation(1);
         linearLayout2.setPadding(dp(18), dp(8), dp(18), dp(34));
         linearLayout.addView(linearLayout2, matchWidth());
         addBottomTabs(linearLayout2, i);
+        linearLayout.setOnApplyWindowInsetsListener(new View.OnApplyWindowInsetsListener() {
+            @Override // android.view.View.OnApplyWindowInsetsListener
+            public WindowInsets onApplyWindowInsets(View view, WindowInsets windowInsets) {
+                int left;
+                int right;
+                int bottom;
+                if (Build.VERSION.SDK_INT >= 30) {
+                    android.graphics.Insets bars = windowInsets.getInsets(WindowInsets.Type.systemBars() | WindowInsets.Type.displayCutout());
+                    left = bars.left;
+                    right = bars.right;
+                    bottom = bars.bottom;
+                } else {
+                    left = windowInsets.getSystemWindowInsetLeft();
+                    right = windowInsets.getSystemWindowInsetRight();
+                    bottom = windowInsets.getSystemWindowInsetBottom();
+                }
+                view.setPadding(left, 0, right, 0);
+                linearLayout2.setPadding(dp(18), dp(8), dp(18), Math.max(dp(34), dp(8) + bottom));
+                return windowInsets;
+            }
+        });
         setContentView(linearLayout);
     }
 
@@ -5698,22 +5873,27 @@ public class MainActivity extends Activity {
         linearLayout3.setPadding(dp(18), dp(18), dp(18), dp(18));
         linearLayout.addView(linearLayout3, matchWidthWithBottom(dp(14)));
         boolean z = this.copyCompletedMode;
-        applyGradientBackground(linearLayout3, z ? -11550817 : -8477448, z ? -13652327 : -10780696, dp(16));
+        boolean z2 = this.copyStoppedMode;
+        applyGradientBackground(linearLayout3, z ? -11550817 : z2 ? -11553849 : -8477448, z ? -13652327 : z2 ? -1378321 : -10780696, dp(16));
         TextView textView3 = new TextView(this);
-        textView3.setText(z ? "✓ 정리 완료" : "✓ 확인 완료");
+        textView3.setText(z ? "✓ 정리 완료" : z2 ? "정리를 멈췄어요" : "✓ 확인 완료");
         textView3.setTextSize(20.0f);
         textView3.setTypeface(Typeface.DEFAULT_BOLD);
         textView3.setTextColor(-1);
         textView3.setGravity(17);
         linearLayout3.addView(textView3, matchWidthWithBottom(dp(8)));
         TextView textView4 = new TextView(this);
-        if (this.copyCompletedMode) {
+        if (this.copyStoppedMode) {
+            str = "정리됨 " + iCountRecentlySortedItems + "개 · 남은 항목 " + iCountCopyableItems + "개";
+        } else if (this.copyCompletedMode) {
             str = "총 " + iCountRecentlySortedItems + "개 정리됨";
         } else {
             str = z ? "앨범에서 결과를 확인해요." : "정리할 항목을 확인해요.";
         }
         textView4.setText(str);
-        if (this.copyCompletedMode) {
+        if (this.copyStoppedMode) {
+            textView4.setText("이미 만들어진 폴더와 정리된 사진은 유지됩니다.\n다시 실행하면 남은 사진만 정리해요.");
+        } else if (this.copyCompletedMode) {
             textView4.setText("새로 발견한 장소 " + iCountRecentlySortedGroups + "개\n총 " + iCountRecentlySortedItems + "개 사진 정리");
         }
         textView4.setTextSize(13.0f);
@@ -5725,7 +5905,12 @@ public class MainActivity extends Activity {
         linearLayout4.setPadding(dp(14), dp(12), dp(14), dp(12));
         linearLayout.addView(linearLayout4, matchWidthWithBottom(dp(14)));
         applyCardBackground(linearLayout4);
-        if (this.copyCompletedMode) {
+        if (this.copyStoppedMode) {
+            i = 12;
+            addPlainStat(linearLayout4, "folder", "정리됨", iCountRecentlySortedItems + "개", -15293622, true);
+            addPlainStat(linearLayout4, "check", "남은 항목", iCountCopyableItems + "개", -14326805, true);
+            addPlainStat(linearLayout4, "alert", "위치 없음", i2 + "개", -680437, false);
+        } else if (this.copyCompletedMode) {
             i = 12;
             addPlainStat(linearLayout4, "folder", "정리됨", iCountRecentlySortedItems + "개", -15293622, true);
             addPlainStat(linearLayout4, "alert", "위치 없음", i2 + "개", -680437, false);
@@ -5743,10 +5928,10 @@ public class MainActivity extends Activity {
                     MainActivity.this.m58x7b9318a7(view);
                 }
             });
-            styleActionButton(button, actionText("바로 정리하기", "사진은 복사하고 동영상은 이동"), "folder", -3542826, -10236022, -15368131);
+            styleActionButton(button, actionText("바로 정리하기", this.copyStoppedMode ? "남은 사진만 계속 정리" : "사진은 복사, 원본은 유지"), "folder", -3542826, -10236022, -15368131);
             linearLayout.addView(button, matchWidthWithBottom(dp(14)));
         }
-        linearLayout.addView(sectionTitle(this.copyCompletedMode ? "이번에 발견한 장소" : "정리될 앨범"), matchWidthWithBottom(dp(10)));
+        linearLayout.addView(sectionTitle(this.copyCompletedMode ? "이번에 발견한 장소" : this.copyStoppedMode ? "남은 정리 대상" : "정리될 앨범"), matchWidthWithBottom(dp(10)));
         LinearLayout linearLayout5 = new LinearLayout(this);
         this.resultList = linearLayout5;
         linearLayout5.setOrientation(1);
