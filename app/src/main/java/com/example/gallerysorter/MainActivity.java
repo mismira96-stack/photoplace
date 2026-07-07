@@ -5040,35 +5040,44 @@ public class MainActivity extends Activity {
 
     private void addOriginalDeleteAction(int i, final List<Uri> list) {
         LinearLayout linearLayout = new LinearLayout(this);
-        linearLayout.setOrientation(0);
-        linearLayout.setGravity(16);
-        linearLayout.setPadding(dp(50), dp(4), 0, dp(8));
+        linearLayout.setOrientation(1);
+        linearLayout.setPadding(dp(14), dp(14), dp(14), dp(14));
         this.resultList.addView(linearLayout, matchWidth());
-        TextView textView = new TextView(this);
-        textView.setText("원본 사진 " + i + "개가 갤러리에 남아 있어요");
-        textView.setTextSize(12.0f);
-        textView.setTextColor(-7035976);
-        textView.setSingleLine(true);
-        linearLayout.addView(textView, weightedParams(1));
-        TextView textView2 = new TextView(this);
-        textView2.setText("원본 휴지통 이동");
-        textView2.setTextSize(12.0f);
-        textView2.setTypeface(Typeface.DEFAULT_BOLD);
-        textView2.setTextColor(-2024120);
-        textView2.setGravity(17);
-        textView2.setPadding(dp(12), dp(6), dp(12), dp(6));
         GradientDrawable gradientDrawable = new GradientDrawable();
         gradientDrawable.setColor(-3598);
-        gradientDrawable.setCornerRadius(dp(14));
+        gradientDrawable.setCornerRadius(dp(16));
         gradientDrawable.setStroke(1, -13099);
-        textView2.setBackground(gradientDrawable);
-        textView2.setOnClickListener(new View.OnClickListener() { // from class: com.example.gallerysorter.MainActivity$$ExternalSyntheticLambda48
+        linearLayout.setBackground(gradientDrawable);
+        TextView textView = new TextView(this);
+        textView.setText("원본 사진 " + i + "개가 갤러리에 남아 있어요");
+        textView.setTextSize(15.0f);
+        textView.setTypeface(Typeface.DEFAULT_BOLD);
+        textView.setTextColor(-11382190);
+        linearLayout.addView(textView, matchWidthWithBottom(dp(4)));
+        TextView textView2 = new TextView(this);
+        textView2.setText("정리된 앨범은 유지되고, 원본 사진만 휴지통으로 이동합니다.");
+        textView2.setTextSize(12.0f);
+        textView2.setTextColor(-7035976);
+        textView2.setLineSpacing(dp(2), 1.0f);
+        linearLayout.addView(textView2, matchWidthWithBottom(dp(12)));
+        TextView textView3 = new TextView(this);
+        textView3.setText("원본 사진 휴지통으로 이동");
+        textView3.setTextSize(15.0f);
+        textView3.setTypeface(Typeface.DEFAULT_BOLD);
+        textView3.setTextColor(-1);
+        textView3.setGravity(17);
+        textView3.setPadding(dp(14), dp(11), dp(14), dp(11));
+        GradientDrawable gradientDrawable2 = new GradientDrawable();
+        gradientDrawable2.setColor(-8635667);
+        gradientDrawable2.setCornerRadius(dp(16));
+        textView3.setBackground(gradientDrawable2);
+        textView3.setOnClickListener(new View.OnClickListener() { // from class: com.example.gallerysorter.MainActivity$$ExternalSyntheticLambda48
             @Override // android.view.View.OnClickListener
             public final void onClick(View view) {
                 MainActivity.this.m7xd0eada1c(list, view);
             }
         });
-        linearLayout.addView(textView2);
+        linearLayout.addView(textView3, matchWidth());
     }
 
     /* renamed from: lambda$addOriginalDeleteAction$56$com-example-gallerysorter-MainActivity, reason: not valid java name */
