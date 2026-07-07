@@ -112,6 +112,7 @@ public class MainActivity extends Activity {
     private static final String PREF_ALBUM_ALIAS_PREFIX = "album_alias_";
     private static final String PREF_ALBUM_MEMORY_PREFIX = "album_memory_";
     private static final String PREF_MOVE_VIDEOS = "move_videos";
+    private static final String PREF_PENDING_ORIGINAL_CLEANUP = "pending_original_cleanup";
     private static final String PREF_SOURCE_PATHS = "source_paths";
     private static final int REQUEST_DELETE_ORIGINALS = 21;
     private static final int REQUEST_READ_IMAGES = 20;
@@ -192,13 +193,21 @@ public class MainActivity extends Activity {
     @Override // android.app.Activity
     protected void onCreate(Bundle bundle) {
         super.onCreate(bundle);
+        loadPendingOriginalCleanup();
         buildUi();
         ensureReadPermission();
+        restoreMainUiFromState();
     }
 
     @Override // android.app.Activity
     protected void onResume() {
         super.onResume();
+        if (!this.isWorking) {
+            loadPendingOriginalCleanup();
+            if (!this.resultScreenMode && !this.recentPlacesScreenMode && !this.recentPlaceDetailMode) {
+                restoreMainUiFromState();
+            }
+        }
         refreshActivePlaceDetailAfterExternalChange();
     }
 
@@ -218,6 +227,7 @@ public class MainActivity extends Activity {
     }
 
     private void returnToMainScreen() {
+        loadPendingOriginalCleanup();
         buildUi();
         ensureReadPermission();
         restoreMainUiFromState();
@@ -524,7 +534,28 @@ public class MainActivity extends Activity {
             setStatus("준비됨", "0", "0", "0");
             LinearLayout linearLayout = this.resultSummaryCard;
             if (linearLayout != null) {
-                linearLayout.setVisibility(8);
+                if (!hasPendingOriginalCleanup()) {
+                    linearLayout.setVisibility(8);
+                    return;
+                }
+                linearLayout.setVisibility(0);
+                TextView textView = this.resultSummaryTitle;
+                if (textView != null) {
+                    textView.setText("원본 사진 정리 필요");
+                }
+                TextView textView2 = this.summaryText;
+                if (textView2 != null) {
+                    textView2.setText(pendingOriginalCleanupSummary());
+                }
+                Button button = this.copyButton;
+                if (button != null) {
+                    button.setVisibility(8);
+                    button.setEnabled(false);
+                }
+                Button button2 = this.deleteOriginalsButton;
+                if (button2 != null) {
+                    button2.setEnabled(!this.isWorking);
+                }
                 return;
             }
             return;
@@ -627,7 +658,6 @@ public class MainActivity extends Activity {
         this.originalsTrashCompleted = false;
         this.videoWritePermissionGranted = false;
         this.previewItems.clear();
-        this.copiedOriginalUris.clear();
         this.pendingTrashOriginalUris.clear();
         this.recentlySortedUriKeys.clear();
         this.locationCache.clear();
@@ -709,7 +739,6 @@ public class MainActivity extends Activity {
     /* synthetic */ void m45lambda$runPreview$11$comexamplegallerysorterMainActivity(List list, int i, int i2, int i3) {
         this.previewItems.clear();
         this.previewItems.addAll(list);
-        this.copiedOriginalUris.clear();
         setStatus("확인 완료", String.valueOf(i), String.valueOf(i2), String.valueOf(i3));
         this.summaryText.setText(compactResultSummary(countCopyableItems(list), i2, i));
         renderPreviewResults(list);
@@ -1217,6 +1246,7 @@ public class MainActivity extends Activity {
         this.originalsTrashCompleted = false;
         this.copiedOriginalUris.clear();
         this.pendingTrashOriginalUris.clear();
+        savePendingOriginalCleanup();
         this.recentlySortedUriKeys.clear();
         final boolean zShouldMoveVideos = shouldMoveVideos();
         setStatus("정리 중", String.valueOf(countCopyableItems(this.previewItems)), String.valueOf(countNoLocationItems(this.previewItems)), String.valueOf(countAlreadySortedItems(this.previewItems)));
@@ -1333,12 +1363,14 @@ public class MainActivity extends Activity {
             this.summaryText.setText(stoppedResultSummary(iCountRecentlySortedItems, iCountCopyableItems, iCountNoLocationItems));
             this.copyButton.setEnabled(iCountCopyableItems > 0);
             this.copyButton.setVisibility(iCountCopyableItems > 0 ? 0 : 8);
-            this.deleteOriginalsButton.setEnabled(false);
+            savePendingOriginalCleanup();
+            this.deleteOriginalsButton.setEnabled(hasPendingOriginalCleanup());
         } else {
             this.summaryText.setText(completedResultSummary(iCountRecentlySortedGroups, iCountNoLocationItems, iCountRecentlySortedItems, this.copiedOriginalUris.size()));
             this.copyButton.setEnabled(false);
             this.copyButton.setVisibility(8);
-            this.deleteOriginalsButton.setEnabled(!this.copiedOriginalUris.isEmpty());
+            savePendingOriginalCleanup();
+            this.deleteOriginalsButton.setEnabled(hasPendingOriginalCleanup());
         }
         try {
             showResultScreen();
@@ -2319,7 +2351,8 @@ public class MainActivity extends Activity {
 
     private String preferredLocationName(Address address) {
         if (!isSeoulAddress(address)) {
-            return firstNonEmpty(address.getLocality(), address.getSubAdminArea(), address.getAdminArea(), address.getCountryName());
+            String strCleanPoiLocationName = cleanPoiLocationName(address.getFeatureName(), address.getAddressLine(0), address.getSubLocality(), address.getThoroughfare());
+            return strCleanPoiLocationName != null ? strCleanPoiLocationName : firstNonEmpty(address.getLocality(), address.getSubAdminArea(), address.getAdminArea(), address.getCountryName());
         }
         String strCleanSeoulDetailName = cleanSeoulDetailName(address.getSubLocality(), address.getThoroughfare(), address.getFeatureName(), address.getAddressLine(0));
         if (strCleanSeoulDetailName != null) {
@@ -2391,6 +2424,67 @@ public class MainActivity extends Activity {
     private boolean isNoisySeoulDetailName(String str) {
         String strNormalizeForMatch = normalizeForMatch(str);
         return strNormalizeForMatch.contains("mall") || strNormalizeForMatch.contains("센터") || strNormalizeForMatch.contains("건물") || strNormalizeForMatch.contains("층") || strNormalizeForMatch.contains("대로") || strNormalizeForMatch.contains("로") || strNormalizeForMatch.contains("길") || strNormalizeForMatch.contains("어린이집") || strNormalizeForMatch.contains("아파트") || strNormalizeForMatch.contains("오피스텔") || strNormalizeForMatch.contains("상가") || strNormalizeForMatch.contains("b1") || strNormalizeForMatch.contains("b2") || strNormalizeForMatch.contains("bf") || strNormalizeForMatch.matches(".*\\d+f.*") || strNormalizeForMatch.matches(".*\\d+호.*");
+    }
+
+    private String cleanPoiLocationName(String... strArr) {
+        String str = null;
+        int i = -1;
+        for (String str2 : strArr) {
+            String strCleanPoiLocationName = cleanPoiLocationName(str2);
+            if (strCleanPoiLocationName != null) {
+                int iPoiScore = poiScore(strCleanPoiLocationName);
+                if (iPoiScore > i) {
+                    str = strCleanPoiLocationName;
+                    i = iPoiScore;
+                }
+            }
+        }
+        return str;
+    }
+
+    private String cleanPoiLocationName(String str) {
+        if (str == null || str.trim().isEmpty()) {
+            return null;
+        }
+        String strReplaceAll = str.trim().replace("대한민국", "").replaceAll("[,()\\[\\]]", " ").replaceAll("\\s+", " ");
+        String[] split = strReplaceAll.split("\\s+");
+        for (String str2 : split) {
+            String strSafeFolderName = safeFolderName(str2);
+            if (looksLikePoiName(strSafeFolderName)) {
+                return strSafeFolderName;
+            }
+        }
+        String strSafeFolderName2 = safeFolderName(strReplaceAll);
+        return looksLikePoiName(strSafeFolderName2) ? strSafeFolderName2 : null;
+    }
+
+    private boolean looksLikePoiName(String str) {
+        if (str == null || str.length() < 4 || str.length() > 24) {
+            return false;
+        }
+        String strNormalizeForMatch = normalizeForMatch(str);
+        return !strNormalizeForMatch.matches(".*\\d+.*") && !isAdministrativeOnlyName(strNormalizeForMatch) && poiScore(str) > 0;
+    }
+
+    private boolean isAdministrativeOnlyName(String str) {
+        return str.endsWith("도") || str.endsWith("시") || str.endsWith("군") || str.endsWith("구") || str.endsWith("동") || str.endsWith("읍") || str.endsWith("면") || str.endsWith("리");
+    }
+
+    private int poiScore(String str) {
+        String strNormalizeForMatch = normalizeForMatch(str);
+        if (strNormalizeForMatch.contains("대학교병원") || strNormalizeForMatch.contains("종합병원")) {
+            return 100;
+        }
+        if (strNormalizeForMatch.contains("병원") || strNormalizeForMatch.contains("대학교")) {
+            return 90;
+        }
+        if (strNormalizeForMatch.contains("공항") || strNormalizeForMatch.contains("역")) {
+            return 80;
+        }
+        if (strNormalizeForMatch.contains("공원") || strNormalizeForMatch.contains("미술관") || strNormalizeForMatch.contains("박물관") || strNormalizeForMatch.contains("예술의전당")) {
+            return 70;
+        }
+        return 0;
     }
 
     private String roundedLocationKey(double d, double d2) {
@@ -2731,7 +2825,7 @@ public class MainActivity extends Activity {
         if (this.copiedOriginalUris.isEmpty()) {
             showToast("휴지통으로 보낼 사진 원본이 없습니다.");
         } else {
-            new AlertDialog.Builder(this).setTitle("복사된 사진 원본 휴지통 이동").setMessage("앨범으로 복사된 카메라 사진 원본 " + this.copiedOriginalUris.size() + "개를 휴지통으로 보냅니다. 휴지통에서 복구할 수 있어요. 동영상은 정리할 때 이동되므로 여기서 따로 처리하지 않습니다.").setNegativeButton("취소", (DialogInterface.OnClickListener) null).setPositiveButton("휴지통 이동", new DialogInterface.OnClickListener() { // from class: com.example.gallerysorter.MainActivity$$ExternalSyntheticLambda5
+            new AlertDialog.Builder(this).setTitle("원본 사진 휴지통 이동").setMessage("정리된 앨범은 그대로 유지되고, 갤러리에 남아 있는 사진 원본 " + this.copiedOriginalUris.size() + "개만 휴지통으로 이동합니다.\n\n사진이 중복된 것처럼 보일 때 이 작업을 실행하면 됩니다. 휴지통에서는 복구할 수 있어요.").setNegativeButton("취소", (DialogInterface.OnClickListener) null).setPositiveButton("원본 휴지통 이동", new DialogInterface.OnClickListener() { // from class: com.example.gallerysorter.MainActivity$$ExternalSyntheticLambda5
                 @Override // android.content.DialogInterface.OnClickListener
                 public final void onClick(DialogInterface dialogInterface, int i) {
                     MainActivity.this.m26x20d84b9a(dialogInterface, i);
@@ -2750,6 +2844,11 @@ public class MainActivity extends Activity {
             showToast("휴지통으로 보낼 사진 원본이 없습니다.");
             return;
         }
+        int iPruneMissingPendingOriginals = pruneMissingPendingOriginals();
+        if (this.copiedOriginalUris.isEmpty()) {
+            showToast(iPruneMissingPendingOriginals > 0 ? "남아 있는 원본 사진이 없습니다." : "휴지통으로 보낼 사진 원본이 없습니다.");
+            return;
+        }
         this.pendingTrashOriginalUris.clear();
         this.pendingTrashOriginalUris.addAll(this.copiedOriginalUris);
         try {
@@ -2765,9 +2864,52 @@ public class MainActivity extends Activity {
         }
     }
 
+    private int pruneMissingPendingOriginals() {
+        if (this.copiedOriginalUris.isEmpty()) {
+            return 0;
+        }
+        ArrayList arrayList = new ArrayList();
+        int i = 0;
+        for (Uri uri : this.copiedOriginalUris) {
+            if (mediaUriStillExists(uri)) {
+                arrayList.add(uri);
+            } else {
+                i++;
+            }
+        }
+        if (i > 0) {
+            this.copiedOriginalUris.clear();
+            this.copiedOriginalUris.addAll(arrayList);
+            savePendingOriginalCleanup();
+            TextView textView = this.summaryText;
+            if (textView != null) {
+                textView.setText("이미 사라진 원본 " + i + "개는 제외했어요.\n남은 원본만 휴지통으로 이동합니다.");
+            }
+        }
+        return i;
+    }
+
+    private boolean mediaUriStillExists(Uri uri) {
+        if (uri == null) {
+            return false;
+        }
+        Cursor cursor = null;
+        try {
+            cursor = getContentResolver().query(uri, new String[]{"_id"}, null, null, null);
+            return cursor != null && cursor.moveToFirst();
+        } catch (Exception unused) {
+            return true;
+        } finally {
+            if (cursor != null) {
+                cursor.close();
+            }
+        }
+    }
+
     private void applyOriginalTrashState(String str) {
         this.pendingTrashOriginalUris.clear();
         this.copiedOriginalUris.clear();
+        savePendingOriginalCleanup();
         this.originalsTrashCompleted = true;
         this.copyCompletedMode = false;
         this.copyStoppedMode = false;
@@ -3444,6 +3586,75 @@ public class MainActivity extends Activity {
         list.add(uri);
     }
 
+    private boolean hasPendingOriginalCleanup() {
+        return !this.originalsTrashCompleted && !this.copiedOriginalUris.isEmpty();
+    }
+
+    private String pendingOriginalCleanupSummary() {
+        return "원본 사진 " + this.copiedOriginalUris.size() + "개가 아직 갤러리에 남아 있어요.\n정리된 앨범은 유지되고, 원본만 휴지통으로 이동할 수 있습니다.";
+    }
+
+    private void loadPendingOriginalCleanup() {
+        if (this.isWorking || !this.copiedOriginalUris.isEmpty()) {
+            return;
+        }
+        String string = getSharedPreferences(PREFS_NAME, 0).getString(PREF_PENDING_ORIGINAL_CLEANUP, "");
+        if (string == null || string.trim().isEmpty()) {
+            return;
+        }
+        try {
+            JSONObject jSONObject = new JSONObject(string);
+            if (!jSONObject.optBoolean("pending", false)) {
+                return;
+            }
+            JSONArray jSONArrayOptJSONArray = jSONObject.optJSONArray("uris");
+            if (jSONArrayOptJSONArray == null) {
+                return;
+            }
+            for (int i = 0; i < jSONArrayOptJSONArray.length(); i++) {
+                String strOptString = jSONArrayOptJSONArray.optString(i, "");
+                if (!strOptString.trim().isEmpty()) {
+                    addUniqueUri(this.copiedOriginalUris, Uri.parse(strOptString));
+                }
+            }
+            this.originalsTrashCompleted = this.copiedOriginalUris.isEmpty();
+            this.copyCompletedMode = !this.copiedOriginalUris.isEmpty();
+        } catch (Exception unused) {
+            clearPendingOriginalCleanup();
+        }
+    }
+
+    private void savePendingOriginalCleanup() {
+        SharedPreferences.Editor editorEdit = getSharedPreferences(PREFS_NAME, 0).edit();
+        if (this.copiedOriginalUris.isEmpty()) {
+            editorEdit.remove(PREF_PENDING_ORIGINAL_CLEANUP).apply();
+            return;
+        }
+        try {
+            JSONObject jSONObject = new JSONObject();
+            JSONArray jSONArray = new JSONArray();
+            for (Uri uri : this.copiedOriginalUris) {
+                if (uri != null) {
+                    jSONArray.put(uri.toString());
+                }
+            }
+            jSONObject.put("schemaVersion", 1);
+            jSONObject.put("pending", jSONArray.length() > 0);
+            jSONObject.put("savedAt", formatTimestamp(System.currentTimeMillis()));
+            jSONObject.put("savedAtMillis", System.currentTimeMillis());
+            jSONObject.put("uris", jSONArray);
+            editorEdit.putString(PREF_PENDING_ORIGINAL_CLEANUP, jSONObject.toString()).apply();
+        } catch (Exception unused) {
+            editorEdit.remove(PREF_PENDING_ORIGINAL_CLEANUP).apply();
+        }
+    }
+
+    private void clearPendingOriginalCleanup() {
+        this.copiedOriginalUris.clear();
+        this.pendingTrashOriginalUris.clear();
+        getSharedPreferences(PREFS_NAME, 0).edit().remove(PREF_PENDING_ORIGINAL_CLEANUP).apply();
+    }
+
     @Override // android.app.Activity
     protected void onActivityResult(int i, int i2, Intent intent) {
         super.onActivityResult(i, i2, intent);
@@ -3454,6 +3665,7 @@ public class MainActivity extends Activity {
             } else {
                 this.pendingTrashOriginalUris.clear();
                 this.summaryText.setText("원본 휴지통 이동을 취소했습니다.");
+                savePendingOriginalCleanup();
                 return;
             }
         }
@@ -3571,7 +3783,11 @@ public class MainActivity extends Activity {
             if (i4 > 0) {
                 sb.append(" · 남은 원본 ").append(i4).append("개");
             }
-            sb.append("\n정리 기록 탭에서 앨범을 확인할 수 있어요.");
+            if (i4 > 0) {
+                sb.append("\n원본은 갤러리에 남아 있어요. 필요하면 원본 휴지통 이동을 실행하세요.");
+            } else {
+                sb.append("\n정리 기록 탭에서 앨범을 확인할 수 있어요.");
+            }
             return sb.toString();
         }
         StringBuilder sb2 = new StringBuilder("이미 정리됨 ");
@@ -4829,13 +5045,13 @@ public class MainActivity extends Activity {
         linearLayout.setPadding(dp(50), dp(4), 0, dp(8));
         this.resultList.addView(linearLayout, matchWidth());
         TextView textView = new TextView(this);
-        textView.setText("사진 원본 " + i + "개가 남아 있어요");
+        textView.setText("원본 사진 " + i + "개가 갤러리에 남아 있어요");
         textView.setTextSize(12.0f);
         textView.setTextColor(-7035976);
         textView.setSingleLine(true);
         linearLayout.addView(textView, weightedParams(1));
         TextView textView2 = new TextView(this);
-        textView2.setText("휴지통 이동");
+        textView2.setText("원본 휴지통 이동");
         textView2.setTextSize(12.0f);
         textView2.setTypeface(Typeface.DEFAULT_BOLD);
         textView2.setTextColor(-2024120);
@@ -4859,6 +5075,8 @@ public class MainActivity extends Activity {
     /* synthetic */ void m7xd0eada1c(List list, View view) {
         this.copiedOriginalUris.clear();
         this.copiedOriginalUris.addAll(list);
+        this.originalsTrashCompleted = false;
+        savePendingOriginalCleanup();
         deleteCopiedOriginals();
     }
 
@@ -5855,6 +6073,11 @@ public class MainActivity extends Activity {
         textView2.setTextColor(-15656921);
         linearLayout2.addView(textView2, weightedParams(1));
         addWorkingBanner(linearLayout);
+        if (this.previewItems.isEmpty() && hasPendingOriginalCleanup()) {
+            addPendingOriginalCleanupScreen(linearLayout);
+            setContentViewWithBottomTabs(scrollView, -1);
+            return;
+        }
         int size = this.previewItems.size();
         Iterator<PhotoItem> it = this.previewItems.iterator();
         int i2 = 0;
@@ -5982,6 +6205,59 @@ public class MainActivity extends Activity {
         styleActionButton(button3, "다시 확인하기", "refresh", -658433, -2238722, -8635667);
         linearLayout.addView(button3, matchWidth());
         setContentViewWithBottomTabs(scrollView, -1);
+    }
+
+    private void addPendingOriginalCleanupScreen(LinearLayout linearLayout) {
+        LinearLayout linearLayout2 = new LinearLayout(this);
+        linearLayout2.setOrientation(1);
+        linearLayout2.setPadding(dp(18), dp(18), dp(18), dp(18));
+        linearLayout.addView(linearLayout2, matchWidthWithBottom(dp(14)));
+        applyGradientBackground(linearLayout2, -11550817, -13652327, dp(16));
+        TextView textView = new TextView(this);
+        textView.setText("원본 사진 정리 필요");
+        textView.setTextSize(20.0f);
+        textView.setTypeface(Typeface.DEFAULT_BOLD);
+        textView.setTextColor(-1);
+        textView.setGravity(17);
+        linearLayout2.addView(textView, matchWidthWithBottom(dp(8)));
+        TextView textView2 = new TextView(this);
+        textView2.setText("지난 정리에서 만든 앨범은 유지됩니다.\n갤러리에 남은 원본 사진만 휴지통으로 이동할 수 있어요.");
+        textView2.setTextSize(13.0f);
+        textView2.setTextColor(-268435457);
+        textView2.setGravity(17);
+        linearLayout2.addView(textView2, matchWidth());
+
+        LinearLayout linearLayout3 = new LinearLayout(this);
+        linearLayout3.setOrientation(0);
+        linearLayout3.setPadding(dp(14), dp(12), dp(14), dp(12));
+        linearLayout.addView(linearLayout3, matchWidthWithBottom(dp(14)));
+        applyCardBackground(linearLayout3);
+        addPlainStat(linearLayout3, "folder", "앨범", "유지됨", -15293622, true);
+        addPlainStat(linearLayout3, "alert", "원본", this.copiedOriginalUris.size() + "개", -680437, false);
+
+        TextView textView3 = bodyText("사진이 중복된 것처럼 보이면 아래 버튼으로 원본만 정리하세요. 정리된 앨범 사진은 삭제되지 않습니다.");
+        textView3.setGravity(17);
+        linearLayout.addView(textView3, matchWidthWithBottom(dp(12)));
+
+        Button button = new Button(this);
+        button.setOnClickListener(new View.OnClickListener() {
+            @Override // android.view.View.OnClickListener
+            public void onClick(View view) {
+                MainActivity.this.deleteCopiedOriginals();
+            }
+        });
+        styleActionButton(button, actionText("원본 사진 휴지통으로 이동", this.copiedOriginalUris.size() + "개 원본만 이동"), "alert", -658433, -2238722, -8635667);
+        linearLayout.addView(button, matchWidthWithBottom(dp(10)));
+
+        Button button2 = new Button(this);
+        button2.setOnClickListener(new View.OnClickListener() {
+            @Override // android.view.View.OnClickListener
+            public void onClick(View view) {
+                MainActivity.this.runPreview();
+            }
+        });
+        styleActionButton(button2, "새로 정리 시작", "refresh", -1050881, -4203522, -14326805);
+        linearLayout.addView(button2, matchWidth());
     }
 
     /* renamed from: lambda$showResultScreen$68$com-example-gallerysorter-MainActivity, reason: not valid java name */
@@ -6281,7 +6557,7 @@ public class MainActivity extends Activity {
         }
         Button button2 = this.deleteOriginalsButton;
         if (button2 != null) {
-            button2.setEnabled((this.isWorking || !this.copyCompletedMode || this.copiedOriginalUris.isEmpty()) ? false : true);
+            button2.setEnabled(!this.isWorking && hasPendingOriginalCleanup());
         }
         Button button3 = this.cancelButton;
         if (button3 != null) {
