@@ -108,6 +108,10 @@ public class MainActivity extends Activity {
     private static final int MAX_STORED_SUMMARY_SESSIONS = 20;
     private static final int MAX_VALID_TAKEN_YEAR = 2035;
     private static final int MIN_VALID_TAKEN_YEAR = 2000;
+    private static final int RESULT_FOCUS_ALL = 0;
+    private static final int RESULT_FOCUS_PLACES = 1;
+    private static final int RESULT_FOCUS_NO_LOCATION = 2;
+    private static final int RESULT_FOCUS_SORTED = 3;
     private static final String PREFS_NAME = "album_sorter";
     private static final String PREF_ALBUM_ALIAS_PREFIX = "album_alias_";
     private static final String PREF_ALBUM_MEMORY_PREFIX = "album_memory_";
@@ -156,6 +160,7 @@ public class MainActivity extends Activity {
     private volatile boolean cancelRequested = false;
     private boolean isWorking = false;
     private boolean resultScreenMode = false;
+    private int resultFocusMode = RESULT_FOCUS_ALL;
     private boolean recentPlacesScreenMode = false;
     private boolean recentPlaceDetailMode = false;
     private StoredAlbumSummary activePlaceDetailSummary = null;
@@ -499,6 +504,7 @@ public class MainActivity extends Activity {
 
     /* renamed from: lambda$buildUi$3$com-example-gallerysorter-MainActivity, reason: not valid java name */
     /* synthetic */ void m19lambda$buildUi$3$comexamplegallerysorterMainActivity(View view) {
+        this.resultFocusMode = RESULT_FOCUS_ALL;
         showResultScreen();
     }
 
@@ -514,11 +520,13 @@ public class MainActivity extends Activity {
 
     /* renamed from: lambda$buildUi$6$com-example-gallerysorter-MainActivity, reason: not valid java name */
     /* synthetic */ void m22lambda$buildUi$6$comexamplegallerysorterMainActivity(View view) {
+        this.resultFocusMode = RESULT_FOCUS_ALL;
         showResultScreen();
     }
 
     /* renamed from: lambda$buildUi$7$com-example-gallerysorter-MainActivity, reason: not valid java name */
     /* synthetic */ void m23lambda$buildUi$7$comexamplegallerysorterMainActivity(View view) {
+        this.resultFocusMode = RESULT_FOCUS_ALL;
         showResultScreen();
     }
 
@@ -3973,6 +3981,14 @@ public class MainActivity extends Activity {
         linearLayout2.setOrientation(1);
         linearLayout2.setGravity(17);
         linearLayout2.setPadding(dp(4), 0, dp(4), 0);
+        linearLayout2.setClickable(true);
+        linearLayout2.setFocusable(true);
+        linearLayout2.setOnClickListener(new View.OnClickListener() {
+            @Override // android.view.View.OnClickListener
+            public void onClick(View view) {
+                MainActivity.this.openResultFocus(str);
+            }
+        });
         linearLayout.addView(linearLayout2, new LinearLayout.LayoutParams(0, -2, 1.0f));
         if (str2 != null && !str2.isEmpty()) {
             ImageView imageView = new ImageView(this);
@@ -4003,6 +4019,20 @@ public class MainActivity extends Activity {
         textView2.setTextColor(-10193781);
         textView2.setPadding(0, dp(2), 0, 0);
         linearLayout2.addView(textView2);
+        TextView textView3 = new TextView(this);
+        textView3.setText("보기");
+        textView3.setTextSize(10.0f);
+        textView3.setTypeface(Typeface.DEFAULT_BOLD);
+        textView3.setTextColor(-14326805);
+        textView3.setGravity(17);
+        textView3.setPadding(dp(8), dp(3), dp(8), dp(3));
+        GradientDrawable gradientDrawable = new GradientDrawable();
+        gradientDrawable.setColor(-1050881);
+        gradientDrawable.setCornerRadius(dp(10));
+        textView3.setBackground(gradientDrawable);
+        LinearLayout.LayoutParams viewChipParams = new LinearLayout.LayoutParams(-2, -2);
+        viewChipParams.setMargins(0, dp(5), 0, 0);
+        linearLayout2.addView(textView3, viewChipParams);
         rememberStatLabel(str, textView2);
         if (z) {
             View view = new View(this);
@@ -4012,6 +4042,21 @@ public class MainActivity extends Activity {
             linearLayout.addView(view, layoutParams);
         }
         return textView;
+    }
+
+    private void openResultFocus(String str) {
+        if (this.isWorking) {
+            showToast("정리 중에는 결과를 볼 수 없어요.");
+            return;
+        }
+        if ("위치 없음".equals(str)) {
+            this.resultFocusMode = RESULT_FOCUS_NO_LOCATION;
+        } else if ("정리 완료".equals(str)) {
+            this.resultFocusMode = RESULT_FOCUS_SORTED;
+        } else {
+            this.resultFocusMode = RESULT_FOCUS_PLACES;
+        }
+        showResultScreen();
     }
 
     private void rememberStatLabel(String str, TextView textView) {
@@ -4830,6 +4875,9 @@ public class MainActivity extends Activity {
 
     /* JADX WARN: Multi-variable type inference failed */
     private void renderPreviewResults(List<PhotoItem> list) {
+        boolean zFocusPlaces = this.resultScreenMode && this.resultFocusMode == RESULT_FOCUS_PLACES;
+        boolean zFocusNoLocation = this.resultScreenMode && this.resultFocusMode == RESULT_FOCUS_NO_LOCATION;
+        boolean zFocusSorted = this.resultScreenMode && this.resultFocusMode == RESULT_FOCUS_SORTED;
         int i;
         DateRange dateRange;
         ArrayList arrayList;
@@ -4909,7 +4957,11 @@ public class MainActivity extends Activity {
         String str = "개 앨범";
         String str2 = "나머지 ";
         if (this.copyCompletedMode) {
-            if (linkedHashMap.isEmpty()) {
+            if (zFocusNoLocation) {
+                i2 = i4;
+                photoItem = photoItem2;
+                dateRange2 = dateRange3;
+            } else if (linkedHashMap.isEmpty()) {
                 i2 = i4;
                 photoItem = null;
                 dateRange2 = dateRange3;
@@ -4951,9 +5003,9 @@ public class MainActivity extends Activity {
                     });
                 }
             }
-            if (!this.originalsTrashCompleted && !this.copiedOriginalUris.isEmpty()) {
+            if (!zFocusNoLocation && !this.originalsTrashCompleted && !this.copiedOriginalUris.isEmpty()) {
                 addOriginalDeleteAction(this.copiedOriginalUris.size(), new ArrayList(this.copiedOriginalUris));
-            } else if (!this.originalsTrashCompleted && !arrayList2.isEmpty()) {
+            } else if (!zFocusNoLocation && !this.originalsTrashCompleted && !arrayList2.isEmpty()) {
                 addOriginalDeleteAction(arrayList2.size(), arrayList2);
             }
             if (i2 > 0) {
@@ -4967,7 +5019,11 @@ public class MainActivity extends Activity {
         int i8 = i4;
         DateRange dateRange6 = dateRange3;
         String str6 = "나머지 ";
-        if (linkedHashMap.isEmpty()) {
+        if (zFocusNoLocation) {
+            i = i3;
+            dateRange = dateRange6;
+            arrayList = arrayList2;
+        } else if (linkedHashMap.isEmpty()) {
             i = i3;
             addResultRow(null, "▣", "완료", "정리할 항목 없음", "0개", "", -1117441, -12619789);
             dateRange = dateRange6;
@@ -5005,11 +5061,11 @@ public class MainActivity extends Activity {
                 });
             }
         }
-        if (this.resultScreenMode || i8 > 0) {
+        if (!zFocusPlaces && !zFocusSorted && (this.resultScreenMode || i8 > 0)) {
             addResultRow(arrayList3.isEmpty() ? null : (PhotoItem) arrayList3.get(0), "!", "확인 필요", "위치 정보 없음", i8 + "개", formatDateRange(dateRange), -2067, -680437);
         }
         int i12 = i;
-        if (this.resultScreenMode || i12 > 0) {
+        if (((this.resultScreenMode && !zFocusNoLocation && !zFocusPlaces) || i12 > 0) && !zFocusNoLocation) {
             addResultRow(null, "✓", "이미 정리됨", "복사본이 있는 항목", i12 + "개", "", -920071, -10193781);
             if (!arrayList.isEmpty()) {
                 addOriginalDeleteAction(arrayList.size(), arrayList);
@@ -5090,6 +5146,9 @@ public class MainActivity extends Activity {
     }
 
     private void renderNoLocationSamples(List<PhotoItem> list, int i) {
+        if (this.unclassifiedPreviewRow == null || this.logText == null) {
+            return;
+        }
         String str;
         Iterator<PhotoItem> it = list.iterator();
         while (it.hasNext()) {
@@ -5106,6 +5165,32 @@ public class MainActivity extends Activity {
         }
         textView.setText(str);
         this.logText.setVisibility(8);
+    }
+
+    private String resultScreenTitle() {
+        if (this.resultFocusMode == RESULT_FOCUS_PLACES) {
+            return "장소 리스트";
+        }
+        if (this.resultFocusMode == RESULT_FOCUS_NO_LOCATION) {
+            return "위치 없는 사진";
+        }
+        if (this.resultFocusMode == RESULT_FOCUS_SORTED) {
+            return "생성된 앨범";
+        }
+        return "정리 결과";
+    }
+
+    private String resultPrimarySectionTitle() {
+        if (this.resultFocusMode == RESULT_FOCUS_PLACES) {
+            return "장소 리스트";
+        }
+        if (this.resultFocusMode == RESULT_FOCUS_NO_LOCATION) {
+            return "위치 정보 없는 항목";
+        }
+        if (this.resultFocusMode == RESULT_FOCUS_SORTED) {
+            return "생성된 앨범";
+        }
+        return this.copyCompletedMode ? "이번에 발견한 장소" : this.copyStoppedMode ? "남은 정리 대상" : "정리될 앨범";
     }
 
     private void addResultRow(PhotoItem photoItem, String str, String str2, String str3, String str4, String str5, int i, int i2) {
@@ -6076,7 +6161,7 @@ public class MainActivity extends Activity {
         });
         linearLayout2.addView(textView, squareParams(dp(44)));
         TextView textView2 = new TextView(this);
-        textView2.setText("정리 결과");
+        textView2.setText(resultScreenTitle());
         textView2.setTextSize(22.0f);
         textView2.setTypeface(Typeface.DEFAULT_BOLD);
         textView2.setTextColor(-15656921);
@@ -6163,35 +6248,40 @@ public class MainActivity extends Activity {
             styleActionButton(button, actionText("바로 정리하기", this.copyStoppedMode ? "남은 사진만 계속 정리" : "사진은 복사, 원본은 유지"), "folder", -3542826, -10236022, -15368131);
             linearLayout.addView(button, matchWidthWithBottom(dp(14)));
         }
-        linearLayout.addView(sectionTitle(this.copyCompletedMode ? "이번에 발견한 장소" : this.copyStoppedMode ? "남은 정리 대상" : "정리될 앨범"), matchWidthWithBottom(dp(10)));
+        linearLayout.addView(sectionTitle(resultPrimarySectionTitle()), matchWidthWithBottom(dp(10)));
         LinearLayout linearLayout5 = new LinearLayout(this);
         this.resultList = linearLayout5;
         linearLayout5.setOrientation(1);
         this.resultList.setPadding(dp(14), dp(6), dp(14), dp(6));
         linearLayout.addView(this.resultList, matchWidthWithBottom(dp(14)));
         applyCardBackground(this.resultList);
-        linearLayout.addView(sectionTitle("위치 정보 없는 항목"), matchWidthWithBottom(dp(10)));
-        LinearLayout linearLayout6 = new LinearLayout(this);
-        linearLayout6.setOrientation(1);
-        linearLayout6.setPadding(dp(i), dp(i), dp(i), dp(i));
-        linearLayout.addView(linearLayout6, matchWidthWithBottom(dp(14)));
-        applyCardBackground(linearLayout6);
-        HorizontalScrollView horizontalScrollView = new HorizontalScrollView(this);
-        horizontalScrollView.setHorizontalScrollBarEnabled(false);
-        linearLayout6.addView(horizontalScrollView, matchWidth());
-        LinearLayout linearLayout7 = new LinearLayout(this);
-        this.unclassifiedPreviewRow = linearLayout7;
-        linearLayout7.setOrientation(0);
-        horizontalScrollView.addView(this.unclassifiedPreviewRow);
-        TextView textView5 = new TextView(this);
-        this.logText = textView5;
-        textView5.setTextSize(13.0f);
-        this.logText.setTextColor(-9735552);
-        this.logText.setPadding(0, dp(10), 0, 0);
-        linearLayout6.addView(this.logText, matchWidth());
+        boolean zShowNoLocationSection = this.resultFocusMode == RESULT_FOCUS_ALL || this.resultFocusMode == RESULT_FOCUS_NO_LOCATION;
+        if (zShowNoLocationSection) {
+            linearLayout.addView(sectionTitle("위치 정보 없는 항목"), matchWidthWithBottom(dp(10)));
+            LinearLayout linearLayout6 = new LinearLayout(this);
+            linearLayout6.setOrientation(1);
+            linearLayout6.setPadding(dp(i), dp(i), dp(i), dp(i));
+            linearLayout.addView(linearLayout6, matchWidthWithBottom(dp(14)));
+            applyCardBackground(linearLayout6);
+            HorizontalScrollView horizontalScrollView = new HorizontalScrollView(this);
+            horizontalScrollView.setHorizontalScrollBarEnabled(false);
+            linearLayout6.addView(horizontalScrollView, matchWidth());
+            LinearLayout linearLayout7 = new LinearLayout(this);
+            this.unclassifiedPreviewRow = linearLayout7;
+            linearLayout7.setOrientation(0);
+            horizontalScrollView.addView(this.unclassifiedPreviewRow);
+            TextView textView5 = new TextView(this);
+            this.logText = textView5;
+            textView5.setTextSize(13.0f);
+            this.logText.setTextColor(-9735552);
+            this.logText.setPadding(0, dp(10), 0, 0);
+            linearLayout6.addView(this.logText, matchWidth());
+        }
         if (this.previewItems.isEmpty()) {
             addEmptyResultHint();
-            this.logText.setText("아직 분석한 항목이 없습니다.");
+            if (this.logText != null) {
+                this.logText.setText("아직 분석한 항목이 없습니다.");
+            }
         } else {
             renderPreviewResults(this.previewItems);
         }
