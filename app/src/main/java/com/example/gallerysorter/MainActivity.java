@@ -104,6 +104,7 @@ public class MainActivity extends Activity {
     private static final String CAMERA_PATH = "DCIM/Camera/";
     private static final String LOCATION_NONE = "위치없음";
     private static final int MAX_MAIN_RESULT_GROUPS = 3;
+    private static final int MAX_NO_LOCATION_RESULT_ROWS = 120;
     private static final int MAX_RESULT_SCREEN_GROUPS = 60;
     private static final int MAX_STORED_SUMMARY_SESSIONS = 20;
     private static final int MAX_VALID_TAKEN_YEAR = 2035;
@@ -1918,11 +1919,11 @@ public class MainActivity extends Activity {
                 dialog.dismiss();
             }
         });
+        styleDialogSecondaryButton(button);
         linearLayout5.addView(button, new LinearLayout.LayoutParams(dp(86), dp(48)));
         Button button2 = new Button(this);
         button2.setText("저장");
-        button2.setTextColor(-1);
-        applyGradientBackground(button2, -9609738, -8635667, dp(14));
+        styleDialogPrimaryButton(button2);
         LinearLayout.LayoutParams layoutParams = new LinearLayout.LayoutParams(dp(92), dp(48));
         layoutParams.setMargins(dp(8), 0, 0, 0);
         linearLayout5.addView(button2, layoutParams);
@@ -2833,18 +2834,61 @@ public class MainActivity extends Activity {
         if (this.copiedOriginalUris.isEmpty()) {
             showToast("휴지통으로 보낼 사진 원본이 없습니다.");
         } else {
-            new AlertDialog.Builder(this).setTitle("원본 사진 휴지통 이동").setMessage("정리된 앨범은 그대로 유지되고, 갤러리에 남아 있는 사진 원본 " + this.copiedOriginalUris.size() + "개만 휴지통으로 이동합니다.\n\n사진이 중복된 것처럼 보일 때 이 작업을 실행하면 됩니다. 휴지통에서는 복구할 수 있어요.").setNegativeButton("취소", (DialogInterface.OnClickListener) null).setPositiveButton("원본 휴지통 이동", new DialogInterface.OnClickListener() { // from class: com.example.gallerysorter.MainActivity$$ExternalSyntheticLambda5
-                @Override // android.content.DialogInterface.OnClickListener
-                public final void onClick(DialogInterface dialogInterface, int i) {
-                    MainActivity.this.m26x20d84b9a(dialogInterface, i);
-                }
-            }).show();
+            showOriginalTrashConfirmDialog();
         }
     }
 
-    /* renamed from: lambda$deleteCopiedOriginals$36$com-example-gallerysorter-MainActivity, reason: not valid java name */
-    /* synthetic */ void m26x20d84b9a(DialogInterface dialogInterface, int i) {
-        requestTrashCopiedOriginals();
+    private void showOriginalTrashConfirmDialog() {
+        final Dialog dialog = new Dialog(this);
+        dialog.requestWindowFeature(1);
+        LinearLayout linearLayout = new LinearLayout(this);
+        linearLayout.setOrientation(1);
+        linearLayout.setPadding(dp(22), dp(20), dp(22), dp(18));
+        GradientDrawable gradientDrawable = new GradientDrawable();
+        gradientDrawable.setColor(-1);
+        gradientDrawable.setCornerRadius(dp(24));
+        linearLayout.setBackground(gradientDrawable);
+        TextView textView = new TextView(this);
+        textView.setText("원본 사진 휴지통 이동");
+        textView.setTextSize(21.0f);
+        textView.setTypeface(Typeface.DEFAULT_BOLD);
+        textView.setTextColor(-15656921);
+        linearLayout.addView(textView, matchWidthWithBottom(dp(8)));
+        TextView textView2 = bodyText("정리된 앨범은 그대로 유지되고, 갤러리에 남아 있는 사진 원본 " + this.copiedOriginalUris.size() + "개만 휴지통으로 이동합니다.\n\n사진이 중복된 것처럼 보일 때 이 작업을 실행하면 됩니다. 휴지통에서는 복구할 수 있어요.");
+        textView2.setLineSpacing(dp(2), 1.0f);
+        linearLayout.addView(textView2, matchWidthWithBottom(dp(16)));
+        LinearLayout linearLayout2 = new LinearLayout(this);
+        linearLayout2.setOrientation(0);
+        linearLayout2.setGravity(16);
+        linearLayout.addView(linearLayout2, matchWidth());
+        Button button = new Button(this);
+        button.setText("취소");
+        styleDialogSecondaryButton(button);
+        button.setOnClickListener(new View.OnClickListener() {
+            @Override // android.view.View.OnClickListener
+            public void onClick(View view) {
+                dialog.dismiss();
+            }
+        });
+        linearLayout2.addView(button, dialogButtonParams(true));
+        Button button2 = new Button(this);
+        button2.setText("원본 휴지통 이동");
+        styleDialogPrimaryButton(button2);
+        button2.setOnClickListener(new View.OnClickListener() {
+            @Override // android.view.View.OnClickListener
+            public void onClick(View view) {
+                dialog.dismiss();
+                MainActivity.this.requestTrashCopiedOriginals();
+            }
+        });
+        linearLayout2.addView(button2, dialogButtonParams(false));
+        dialog.setContentView(linearLayout);
+        Window window = dialog.getWindow();
+        if (window != null) {
+            window.setBackgroundDrawable(new ColorDrawable(0));
+            window.setLayout(Math.min((int) (getResources().getDisplayMetrics().widthPixels * 0.9d), dp(480)), -2);
+        }
+        dialog.show();
     }
 
     private void requestTrashCopiedOriginals() {
@@ -3430,10 +3474,22 @@ public class MainActivity extends Activity {
     }
 
     private void showAlbumMemoryEditor(final StoredAlbumSummary storedAlbumSummary) {
+        final Dialog dialog = new Dialog(this);
+        dialog.requestWindowFeature(1);
         LinearLayout linearLayout = new LinearLayout(this);
         linearLayout.setOrientation(1);
-        linearLayout.setPadding(dp(20), dp(8), dp(20), 0);
-        linearLayout.addView(bodyText("원본 앨범: " + storedAlbumSummary.albumName), matchWidthWithBottom(dp(12)));
+        linearLayout.setPadding(dp(22), dp(20), dp(22), dp(18));
+        GradientDrawable gradientDrawable = new GradientDrawable();
+        gradientDrawable.setColor(-1);
+        gradientDrawable.setCornerRadius(dp(24));
+        linearLayout.setBackground(gradientDrawable);
+        TextView textView = new TextView(this);
+        textView.setText("기억 편집");
+        textView.setTextSize(21.0f);
+        textView.setTypeface(Typeface.DEFAULT_BOLD);
+        textView.setTextColor(-15656921);
+        linearLayout.addView(textView, matchWidthWithBottom(dp(6)));
+        linearLayout.addView(bodyText("원본 앨범: " + storedAlbumSummary.albumName), matchWidthWithBottom(dp(14)));
         TextView textViewBodyText = bodyText("기억 한 줄");
         textViewBodyText.setTypeface(Typeface.DEFAULT_BOLD);
         linearLayout.addView(textViewBodyText, matchWidthWithBottom(dp(5)));
@@ -3444,45 +3500,59 @@ public class MainActivity extends Activity {
         editText.setHint("이 장소에 대한 기억을 남겨보세요");
         editText.setInputType(16385);
         editText.setFilters(new InputFilter[]{new InputFilter.LengthFilter(80)});
-        linearLayout.addView(editText, matchWidth());
-        final AlertDialog alertDialogCreate = new AlertDialog.Builder(this).setTitle("기억 편집").setView(linearLayout).setNegativeButton("취소", (DialogInterface.OnClickListener) null).setNeutralButton("기억 삭제", (DialogInterface.OnClickListener) null).setPositiveButton("저장", (DialogInterface.OnClickListener) null).create();
-        alertDialogCreate.setOnShowListener(new DialogInterface.OnShowListener() { // from class: com.example.gallerysorter.MainActivity$$ExternalSyntheticLambda70
+        editText.setTextSize(15.0f);
+        editText.setPadding(dp(12), dp(8), dp(12), dp(8));
+        GradientDrawable gradientDrawable2 = new GradientDrawable();
+        gradientDrawable2.setColor(-197377);
+        gradientDrawable2.setCornerRadius(dp(14));
+        gradientDrawable2.setStroke(1, -1709326);
+        editText.setBackground(gradientDrawable2);
+        linearLayout.addView(editText, matchWidthWithBottom(dp(16)));
+        LinearLayout linearLayout2 = new LinearLayout(this);
+        linearLayout2.setOrientation(0);
+        linearLayout2.setGravity(16);
+        linearLayout.addView(linearLayout2, matchWidth());
+        Button button = new Button(this);
+        button.setText("삭제");
+        styleDialogSecondaryButton(button);
+        button.setOnClickListener(new View.OnClickListener() {
             @Override // android.content.DialogInterface.OnShowListener
-            public final void onShow(DialogInterface dialogInterface) {
-                MainActivity.this.m50x55cae6eb(alertDialogCreate, storedAlbumSummary, editText, dialogInterface);
+            public void onClick(View view) {
+                MainActivity.this.saveAlbumMemory(storedAlbumSummary, "");
+                dialog.dismiss();
+                MainActivity.this.showRecentPlaceDetailScreen(storedAlbumSummary);
             }
         });
-        alertDialogCreate.show();
-    }
-
-    /* renamed from: lambda$showAlbumMemoryEditor$43$com-example-gallerysorter-MainActivity, reason: not valid java name */
-    /* synthetic */ void m50x55cae6eb(final AlertDialog alertDialog, final StoredAlbumSummary storedAlbumSummary, final EditText editText, DialogInterface dialogInterface) {
-        alertDialog.getButton(-1).setOnClickListener(new View.OnClickListener() { // from class: com.example.gallerysorter.MainActivity$$ExternalSyntheticLambda29
+        linearLayout2.addView(button, dialogButtonParams(true));
+        Button button2 = new Button(this);
+        button2.setText("취소");
+        styleDialogSecondaryButton(button2);
+        button2.setOnClickListener(new View.OnClickListener() {
             @Override // android.view.View.OnClickListener
-            public final void onClick(View view) {
-                MainActivity.this.m48xa78f052d(storedAlbumSummary, editText, alertDialog, view);
+            public void onClick(View view) {
+                dialog.dismiss();
             }
         });
-        alertDialog.getButton(-3).setOnClickListener(new View.OnClickListener() { // from class: com.example.gallerysorter.MainActivity$$ExternalSyntheticLambda30
+        linearLayout2.addView(button2, dialogButtonParams(true));
+        Button button3 = new Button(this);
+        button3.setText("저장");
+        styleDialogPrimaryButton(button3);
+        button3.setOnClickListener(new View.OnClickListener() {
             @Override // android.view.View.OnClickListener
-            public final void onClick(View view) {
-                MainActivity.this.m49xfeacf60c(storedAlbumSummary, alertDialog, view);
+            public void onClick(View view) {
+                MainActivity.this.saveAlbumMemory(storedAlbumSummary, editText.getText().toString());
+                dialog.dismiss();
+                MainActivity.this.showRecentPlaceDetailScreen(storedAlbumSummary);
             }
         });
-    }
-
-    /* renamed from: lambda$showAlbumMemoryEditor$41$com-example-gallerysorter-MainActivity, reason: not valid java name */
-    /* synthetic */ void m48xa78f052d(StoredAlbumSummary storedAlbumSummary, EditText editText, AlertDialog alertDialog, View view) {
-        saveAlbumMemory(storedAlbumSummary, editText.getText().toString());
-        alertDialog.dismiss();
-        showRecentPlaceDetailScreen(storedAlbumSummary);
-    }
-
-    /* renamed from: lambda$showAlbumMemoryEditor$42$com-example-gallerysorter-MainActivity, reason: not valid java name */
-    /* synthetic */ void m49xfeacf60c(StoredAlbumSummary storedAlbumSummary, AlertDialog alertDialog, View view) {
-        saveAlbumMemory(storedAlbumSummary, "");
-        alertDialog.dismiss();
-        showRecentPlaceDetailScreen(storedAlbumSummary);
+        linearLayout2.addView(button3, dialogButtonParams(false));
+        dialog.setContentView(linearLayout);
+        Window window = dialog.getWindow();
+        if (window != null) {
+            window.setBackgroundDrawable(new ColorDrawable(0));
+            window.setLayout(Math.min((int) (getResources().getDisplayMetrics().widthPixels * 0.9d), dp(480)), -2);
+        }
+        dialog.show();
     }
 
     private String formatDateForJson(Date date) {
@@ -4021,14 +4091,14 @@ public class MainActivity extends Activity {
         linearLayout2.addView(textView2);
         TextView textView3 = new TextView(this);
         textView3.setText("보기");
-        textView3.setTextSize(10.0f);
+        textView3.setTextSize(12.0f);
         textView3.setTypeface(Typeface.DEFAULT_BOLD);
         textView3.setTextColor(-14326805);
         textView3.setGravity(17);
-        textView3.setPadding(dp(8), dp(3), dp(8), dp(3));
+        textView3.setPadding(dp(10), dp(5), dp(10), dp(5));
         GradientDrawable gradientDrawable = new GradientDrawable();
         gradientDrawable.setColor(-1050881);
-        gradientDrawable.setCornerRadius(dp(10));
+        gradientDrawable.setCornerRadius(dp(12));
         textView3.setBackground(gradientDrawable);
         LinearLayout.LayoutParams viewChipParams = new LinearLayout.LayoutParams(-2, -2);
         viewChipParams.setMargins(0, dp(5), 0, 0);
@@ -4909,7 +4979,7 @@ public class MainActivity extends Activity {
             if (photoItem3.noLocation) {
                 i4++;
                 dateRange3.include(photoItem3.takenAt);
-                if (arrayList3.size() < 8) {
+                if (arrayList3.size() < (zFocusNoLocation ? MAX_NO_LOCATION_RESULT_ROWS : 8)) {
                     arrayList3.add(photoItem3);
                 }
             } else if (this.copyCompletedMode && wasRecentlySorted(photoItem3)) {
@@ -5008,6 +5078,10 @@ public class MainActivity extends Activity {
             } else if (!zFocusNoLocation && !this.originalsTrashCompleted && !arrayList2.isEmpty()) {
                 addOriginalDeleteAction(arrayList2.size(), arrayList2);
             }
+            if (zFocusNoLocation) {
+                addNoLocationResultRows(arrayList3, i2, dateRange2);
+                return;
+            }
             if (i2 > 0) {
                 addResultRow(arrayList3.isEmpty() ? photoItem : (PhotoItem) arrayList3.get(0), "alert", "정리 제외", "위치 정보가 없어 앨범 정리 안 함", i2 + "개", formatDateRange(dateRange2), -2067, -680437);
             }
@@ -5062,6 +5136,10 @@ public class MainActivity extends Activity {
             }
         }
         if (!zFocusPlaces && !zFocusSorted && (this.resultScreenMode || i8 > 0)) {
+            if (zFocusNoLocation) {
+                addNoLocationResultRows(arrayList3, i8, dateRange);
+                return;
+            }
             addResultRow(arrayList3.isEmpty() ? null : (PhotoItem) arrayList3.get(0), "!", "확인 필요", "위치 정보 없음", i8 + "개", formatDateRange(dateRange), -2067, -680437);
         }
         int i12 = i;
@@ -5167,6 +5245,25 @@ public class MainActivity extends Activity {
         this.logText.setVisibility(8);
     }
 
+    private void addNoLocationResultRows(List<PhotoItem> list, int i, DateRange dateRange) {
+        addResultRow(list.isEmpty() ? null : list.get(0), "alert", "위치 정보 없음", "정리 제외된 항목", i + "개", formatDateRange(dateRange), -2067, -680437);
+        if (i <= 0) {
+            addResultRow(null, "✓", "없음", "위치 정보 없는 항목이 없습니다", "0개", "", -920071, -10193781);
+            return;
+        }
+        addResultSectionLabel("항목 목록");
+        int i2 = 0;
+        for (PhotoItem photoItem : list) {
+            String str = photoItem != null && photoItem.video ? "동영상" : "사진";
+            String str2 = photoItem == null ? "파일명 없음" : firstNonEmpty(photoItem.name, "파일명 없음");
+            addResultRow(photoItem, "alert", "정리 제외", str2, str, photoItem != null && photoItem.takenAt != null ? new SimpleDateFormat("yyyy-MM-dd", Locale.KOREA).format(photoItem.takenAt) : "날짜 정보 없음", -2067, -680437);
+            i2++;
+        }
+        if (i > i2) {
+            addResultRow(null, "+", "더 있음", "위치 정보 없는 항목 " + (i - i2) + "개가 더 있어요", "총 " + i + "개", "", -1050881, -14326805);
+        }
+    }
+
     private String resultScreenTitle() {
         if (this.resultFocusMode == RESULT_FOCUS_PLACES) {
             return "장소 리스트";
@@ -5178,6 +5275,19 @@ public class MainActivity extends Activity {
             return "생성된 앨범";
         }
         return "정리 결과";
+    }
+
+    private String resultScreenSubtitle() {
+        if (this.resultFocusMode == RESULT_FOCUS_PLACES) {
+            return "새로 발견한 장소와 정리될 앨범을 확인합니다.";
+        }
+        if (this.resultFocusMode == RESULT_FOCUS_NO_LOCATION) {
+            return "위치 정보가 없어 정리에서 제외된 사진과 동영상을 확인합니다.";
+        }
+        if (this.resultFocusMode == RESULT_FOCUS_SORTED) {
+            return "이미 생성된 앨범과 정리 완료된 항목을 확인합니다.";
+        }
+        return "";
     }
 
     private String resultPrimarySectionTitle() {
@@ -6166,6 +6276,12 @@ public class MainActivity extends Activity {
         textView2.setTypeface(Typeface.DEFAULT_BOLD);
         textView2.setTextColor(-15656921);
         linearLayout2.addView(textView2, weightedParams(1));
+        String strResultScreenSubtitle = resultScreenSubtitle();
+        if (!strResultScreenSubtitle.isEmpty()) {
+            TextView textViewSubtitle = bodyText(strResultScreenSubtitle);
+            textViewSubtitle.setPadding(dp(4), 0, dp(4), dp(12));
+            linearLayout.addView(textViewSubtitle, matchWidth());
+        }
         addWorkingBanner(linearLayout);
         if (this.previewItems.isEmpty() && hasPendingOriginalCleanup()) {
             addPendingOriginalCleanupScreen(linearLayout);
@@ -6255,7 +6371,7 @@ public class MainActivity extends Activity {
         this.resultList.setPadding(dp(14), dp(6), dp(14), dp(6));
         linearLayout.addView(this.resultList, matchWidthWithBottom(dp(14)));
         applyCardBackground(this.resultList);
-        boolean zShowNoLocationSection = this.resultFocusMode == RESULT_FOCUS_ALL || this.resultFocusMode == RESULT_FOCUS_NO_LOCATION;
+        boolean zShowNoLocationSection = this.resultFocusMode == RESULT_FOCUS_ALL;
         if (zShowNoLocationSection) {
             linearLayout.addView(sectionTitle("위치 정보 없는 항목"), matchWidthWithBottom(dp(10)));
             LinearLayout linearLayout6 = new LinearLayout(this);
