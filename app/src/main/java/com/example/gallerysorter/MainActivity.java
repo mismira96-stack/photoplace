@@ -444,6 +444,34 @@ public class MainActivity extends Activity {
         this.resultList.setPadding(0, 0, 0, 0);
         this.resultList.setVisibility(8);
         linearLayout7.addView(this.resultList, matchWidth());
+        LinearLayout linearLayoutResultCta = new LinearLayout(this);
+        linearLayoutResultCta.setOrientation(0);
+        linearLayoutResultCta.setGravity(16);
+        linearLayoutResultCta.setPadding(0, dp(12), 0, 0);
+        linearLayout7.addView(linearLayoutResultCta, matchWidth());
+        TextView textViewResultHint = new TextView(this);
+        textViewResultHint.setText("결과를 자세히 확인할 수 있어요");
+        textViewResultHint.setTextSize(12.0f);
+        textViewResultHint.setTextColor(-10193781);
+        linearLayoutResultCta.addView(textViewResultHint, weightedParams(1));
+        TextView textViewResultAction = new TextView(this);
+        textViewResultAction.setText("자세히 보기");
+        textViewResultAction.setTextSize(12.0f);
+        textViewResultAction.setTypeface(Typeface.DEFAULT_BOLD);
+        textViewResultAction.setTextColor(-14326805);
+        textViewResultAction.setGravity(17);
+        textViewResultAction.setPadding(dp(10), dp(6), dp(10), dp(6));
+        GradientDrawable gradientDrawableResultAction = new GradientDrawable();
+        gradientDrawableResultAction.setColor(-1050881);
+        gradientDrawableResultAction.setCornerRadius(dp(14));
+        textViewResultAction.setBackground(gradientDrawableResultAction);
+        textViewResultAction.setOnClickListener(new View.OnClickListener() {
+            @Override // android.view.View.OnClickListener
+            public void onClick(View view) {
+                MainActivity.this.showResultScreen();
+            }
+        });
+        linearLayoutResultCta.addView(textViewResultAction);
         LinearLayout linearLayout11 = new LinearLayout(this);
         this.unclassifiedSectionCard = linearLayout11;
         linearLayout11.setOrientation(1);
@@ -3850,21 +3878,10 @@ public class MainActivity extends Activity {
 
     private String completedResultSummary(int i, int i2, int i3, int i4) {
         if (System.currentTimeMillis() >= 0) {
-            StringBuilder sb = new StringBuilder("정리가 끝났어요 · 정리 완료 ");
-            sb.append(i3).append("개");
-            if (i3 > 0) {
-                sb.append(" · 새 장소 ").append(i).append("개");
-            }
+            StringBuilder sb = new StringBuilder("정리가 끝났어요\n정리 완료 ");
+            sb.append(i3).append("개 · 새 장소 ").append(i).append("개");
             if (i2 > 0) {
-                sb.append("\n위치 정보 없는 ").append(i2).append("개는 정리 대상에서 제외됐어요. 사진은 삭제되지 않아요.");
-            }
-            if (i4 > 0) {
-                sb.append(" · 남은 원본 ").append(i4).append("개");
-            }
-            if (i4 > 0) {
-                sb.append("\n원본은 갤러리에 남아 있어요. 필요하면 원본 휴지통 이동을 실행하세요.");
-            } else {
-                sb.append("\n정리 기록 탭에서 앨범을 확인할 수 있어요.");
+                sb.append(" · 정리 제외 ").append(i2).append("개");
             }
             return sb.toString();
         }
