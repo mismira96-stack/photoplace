@@ -2416,7 +2416,20 @@ public class MainActivity extends Activity {
     }
 
     private boolean isSeoulAddress(Address address) {
-        return normalizeForMatch(address.getAdminArea()).contains("서울") || normalizeForMatch(address.getLocality()).contains("서울") || normalizeForMatch(address.getAddressLine(0)).contains("서울");
+        return normalizeForMatch(address.getAdminArea()).contains("서울") || normalizeForMatch(address.getLocality()).contains("서울") || isSeoulAddressLine(address.getAddressLine(0));
+    }
+
+    private boolean isSeoulAddressLine(String str) {
+        String strNormalizeForMatch = normalizeForMatch(str);
+        if (strNormalizeForMatch.contains("서울특별시") || strNormalizeForMatch.contains("서울시")) {
+            return true;
+        }
+        for (String str2 : SEOUL_DISTRICTS) {
+            if (strNormalizeForMatch.contains("서울" + normalizeForMatch(str2))) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private String firstDistrictName(String... strArr) {
