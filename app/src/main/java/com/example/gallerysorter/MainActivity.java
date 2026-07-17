@@ -2369,21 +2369,37 @@ public class MainActivity extends Activity {
 
     private String resolveLocationKey(double d, double d2, Locale locale) throws IOException {
         try {
-            List<Address> fromLocation = new Geocoder(this, locale).getFromLocation(d, d2, 1);
+            List<Address> fromLocation = new Geocoder(this, locale).getFromLocation(d, d2, 5);
             if (fromLocation != null && !fromLocation.isEmpty()) {
-                Address address = fromLocation.get(0);
-                String strPreferredLocationName = preferredLocationName(address);
-                if (strPreferredLocationName == null) {
-                    strPreferredLocationName = address.getAddressLine(0);
+                String str = null;
+                for (Address address : fromLocation) {
+                    String strPreferredLocationName = preferredLocationName(address);
+                    if (strPreferredLocationName == null) {
+                        strPreferredLocationName = address.getAddressLine(0);
+                    }
+                    if (strPreferredLocationName != null) {
+                        String strNormalizeLocationKey = normalizeLocationKey(strPreferredLocationName);
+                        if (!LOCATION_NONE.equals(strNormalizeLocationKey)) {
+                            if (!isGenericSeoulLocationKey(strNormalizeLocationKey)) {
+                                return strNormalizeLocationKey;
+                            }
+                            if (str == null) {
+                                str = strNormalizeLocationKey;
+                            }
+                        }
+                    }
                 }
-                if (strPreferredLocationName == null) {
-                    return LOCATION_NONE;
+                if (str != null) {
+                    return str;
                 }
-                return normalizeLocationKey(strPreferredLocationName);
             }
         } catch (Exception unused) {
         }
         return LOCATION_NONE;
+    }
+
+    private boolean isGenericSeoulLocationKey(String str) {
+        return "서울".equals(str) || "서울특별".equals(str);
     }
 
     private String preferredLocationName(Address address) {

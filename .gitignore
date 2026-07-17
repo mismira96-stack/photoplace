@@ -16,6 +16,8 @@ local.properties
 date-repair-*
 date-repair-skipped-files/
 debug-dumps/
+debug-*/
+debug-screen.png
 reports/
 decompiled-last-release/
 scripts/
