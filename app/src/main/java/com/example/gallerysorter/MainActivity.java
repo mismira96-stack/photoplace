@@ -2798,187 +2798,59 @@ public class MainActivity extends Activity {
     }
 
     private boolean isSeoulAddressLine(String str) {
-        String strNormalizeForMatch = normalizeForMatch(str);
-        if (strNormalizeForMatch.contains("서울특별시") || strNormalizeForMatch.contains("서울시") || strNormalizeForMatch.contains("seoul")) {
-            return true;
-        }
-        for (String str2 : SEOUL_DISTRICTS) {
-            if (strNormalizeForMatch.contains("서울" + normalizeForMatch(str2))) {
-                return true;
-            }
-        }
-        return romanizedSeoulDistrictName(strNormalizeForMatch) != null;
+        return PlaceNamePolicy.isSeoulAddressLine(str);
     }
 
     private String romanizedSeoulDistrictName(String str) {
-        if (str == null) {
-            return null;
-        }
-        String normalized = str.replace("-", "").replace("_", "");
-        String[][] districts = {
-                {"gangnamgu", "강남구"}, {"gangdonggu", "강동구"}, {"gangbukgu", "강북구"}, {"gangseogu", "강서구"},
-                {"gwanakgu", "관악구"}, {"gwangjingu", "광진구"}, {"gurogu", "구로구"}, {"geumcheongu", "금천구"},
-                {"nowongu", "노원구"}, {"dobonggu", "도봉구"}, {"dongdaemungu", "동대문구"}, {"dongjakgu", "동작구"},
-                {"mapogu", "마포구"}, {"seodaemungu", "서대문구"}, {"seochogu", "서초구"}, {"seongdonggu", "성동구"},
-                {"seongbukgu", "성북구"}, {"songpagu", "송파구"}, {"yangcheongu", "양천구"}, {"yeongdeungpogu", "영등포구"},
-                {"yongsangu", "용산구"}, {"eunpyeonggu", "은평구"}, {"jongnogu", "종로구"}, {"junggu", "중구"},
-                {"jungnanggu", "중랑구"}
-        };
-        for (String[] district : districts) {
-            if (normalized.contains(district[0])) {
-                return district[1];
-            }
-        }
-        return null;
+        return PlaceNamePolicy.romanizedSeoulDistrictName(str);
     }
 
     private String firstDistrictName(String... strArr) {
-        for (String str : strArr) {
-            String strExtractDistrictName = extractDistrictName(str);
-            if (strExtractDistrictName != null) {
-                return strExtractDistrictName;
-            }
-        }
-        return null;
+        return PlaceNamePolicy.firstDistrictName(strArr);
     }
 
     private String extractDistrictName(String str) {
-        if (str != null && !str.trim().isEmpty()) {
-            String strNormalizeForMatch = normalizeForMatch(str);
-            String romanizedDistrict = romanizedSeoulDistrictName(strNormalizeForMatch);
-            if (romanizedDistrict != null) {
-                return romanizedDistrict;
-            }
-            for (String str2 : SEOUL_DISTRICTS) {
-                if (strNormalizeForMatch.contains(normalizeForMatch(str2))) {
-                    return str2;
-                }
-            }
-            for (String str3 : str.trim().split("[\\s,]+")) {
-                String strSafeFolderName = safeFolderName(str3);
-                if (strSafeFolderName.endsWith("구") && strSafeFolderName.length() >= 2) {
-                    return strSafeFolderName;
-                }
-            }
-        }
-        return null;
+        return PlaceNamePolicy.extractDistrictName(str);
     }
 
     private String cleanSeoulDetailName(String... strArr) {
-        for (String str : strArr) {
-            String strCleanSeoulDetailName = cleanSeoulDetailName(str);
-            if (strCleanSeoulDetailName != null) {
-                return strCleanSeoulDetailName;
-            }
-        }
-        return null;
+        return PlaceNamePolicy.cleanSeoulDetailName(strArr);
     }
 
     private String cleanSeoulDetailName(String str) {
-        if (str != null && !str.trim().isEmpty()) {
-            String strReplace = str.trim().replace("대한민국", "").replace("서울특별시", "").replace("서울시", "").replace("서울", "");
-            for (String str2 : SEOUL_DISTRICTS) {
-                strReplace = strReplace.replace(str2, "");
-            }
-            String strTrim = strReplace.replaceAll("\\d+[\\-\\d]*", "").replaceAll("(대로|로|길)$", "").replaceAll("[,()\\[\\]]", " ").replaceAll("\\s+", " ").trim();
-            if (normalizeForMatch(strTrim).contains("예술의전당")) {
-                return "예술의전당";
-            }
-            String normalizedDetail = normalizeForMatch(strTrim);
-            String knownPlaceName = knownPlaceName(normalizedDetail);
-            if (knownPlaceName != null) {
-                return knownPlaceName;
-            }
-            String romanizedDistrict = romanizedSeoulDistrictName(normalizeForMatch(strTrim));
-            if (romanizedDistrict != null) {
-                return romanizedDistrict;
-            }
-            if (strTrim.length() >= 2 && !isAdministrativeOnlyName(normalizeForMatch(strTrim)) && !isNoisySeoulDetailName(strTrim)) {
-                return strTrim;
-            }
-        }
-        return null;
+        return PlaceNamePolicy.cleanSeoulDetailName(str);
     }
 
     private boolean isNoisySeoulDetailName(String str) {
-        String strNormalizeForMatch = normalizeForMatch(str);
-        return strNormalizeForMatch.contains("mall") || strNormalizeForMatch.contains("센터") || strNormalizeForMatch.contains("건물") || strNormalizeForMatch.contains("층") || strNormalizeForMatch.contains("지하") || strNormalizeForMatch.contains("대로") || strNormalizeForMatch.contains("로") || strNormalizeForMatch.contains("길") || strNormalizeForMatch.contains("어린이집") || strNormalizeForMatch.contains("아파트") || strNormalizeForMatch.contains("오피스텔") || strNormalizeForMatch.contains("상가") || hasAccessPointNoise(strNormalizeForMatch) || strNormalizeForMatch.contains("b1") || strNormalizeForMatch.contains("b2") || strNormalizeForMatch.contains("bf") || strNormalizeForMatch.matches(".*\\d+f.*") || strNormalizeForMatch.matches(".*\\d+호.*");
+        return PlaceNamePolicy.isNoisySeoulDetailName(str);
     }
 
     private String cleanPoiLocationName(String... strArr) {
-        String str = null;
-        int i = -1;
-        for (String str2 : strArr) {
-            String strCleanPoiLocationName = cleanPoiLocationName(str2);
-            if (strCleanPoiLocationName != null) {
-                int iPoiScore = poiScore(strCleanPoiLocationName);
-                if (iPoiScore > i) {
-                    str = strCleanPoiLocationName;
-                    i = iPoiScore;
-                }
-            }
-        }
-        return str;
+        return PlaceNamePolicy.cleanPoiLocationName(strArr);
     }
 
     private String cleanPoiLocationName(String str) {
-        if (str == null || str.trim().isEmpty()) {
-            return null;
-        }
-        String strReplaceAll = str.trim().replace("대한민국", "").replaceAll("[,()\\[\\]]", " ").replaceAll("\\s+", " ");
-        String knownPlaceName = knownPlaceName(normalizeForMatch(strReplaceAll));
-        if (knownPlaceName != null) {
-            return knownPlaceName;
-        }
-        String[] split = strReplaceAll.split("\\s+");
-        for (String str2 : split) {
-            String strSafeFolderName = safeFolderName(str2);
-            if (looksLikePoiName(strSafeFolderName)) {
-                return strSafeFolderName;
-            }
-        }
-        String strSafeFolderName2 = safeFolderName(strReplaceAll);
-        return looksLikePoiName(strSafeFolderName2) ? strSafeFolderName2 : null;
+        return PlaceNamePolicy.cleanPoiLocationName(str);
     }
 
     private boolean looksLikePoiName(String str) {
-        if (str == null || str.length() < 4 || str.length() > 24) {
-            return false;
-        }
-        String strNormalizeForMatch = normalizeForMatch(str);
-        return !strNormalizeForMatch.matches(".*\\d+.*") && !isAdministrativeOnlyName(strNormalizeForMatch) && !isNoisyPlaceCandidate(strNormalizeForMatch) && poiScore(str) > 0;
+        return PlaceNamePolicy.looksLikePoiName(str);
     }
 
     private boolean isNoisyPlaceCandidate(String str) {
-        return str.contains("militopiacity") || str.contains("밀리토피아시티") || str.contains("지하") || str.contains("상가") || str.contains("아파트") || str.contains("오피스텔") || hasAccessPointNoise(str);
+        return PlaceNamePolicy.isNoisyPlaceCandidate(str);
     }
 
     private boolean hasAccessPointNoise(String str) {
-        return str.contains("북문") || str.contains("남문") || str.contains("동문") || str.contains("서문") || str.contains("출입구") || str.contains("입구") || str.contains("northgate") || str.contains("southgate") || str.contains("eastgate") || str.contains("westgate") || str.contains("gate");
+        return PlaceNamePolicy.hasAccessPointNoise(str);
     }
 
     private boolean isAdministrativeOnlyName(String str) {
-        return str.endsWith("도") || str.endsWith("시") || str.endsWith("군") || str.endsWith("구") || str.endsWith("동") || str.endsWith("읍") || str.endsWith("면") || str.endsWith("리");
+        return PlaceNamePolicy.isAdministrativeOnlyName(str);
     }
 
     private int poiScore(String str) {
-        String strNormalizeForMatch = normalizeForMatch(str);
-        if (strNormalizeForMatch.contains("에버랜드") || strNormalizeForMatch.contains("everland") || strNormalizeForMatch.contains("롯데월드") || strNormalizeForMatch.contains("lotteworld")) {
-            return 110;
-        }
-        if (strNormalizeForMatch.contains("대학교병원") || strNormalizeForMatch.contains("종합병원")) {
-            return 100;
-        }
-        if (strNormalizeForMatch.contains("병원") || strNormalizeForMatch.contains("대학교")) {
-            return 90;
-        }
-        if (strNormalizeForMatch.contains("공항") || strNormalizeForMatch.contains("역")) {
-            return 80;
-        }
-        if (strNormalizeForMatch.contains("공원") || strNormalizeForMatch.contains("미술관") || strNormalizeForMatch.contains("박물관") || strNormalizeForMatch.contains("예술의전당")) {
-            return 70;
-        }
-        return 0;
+        return PlaceNamePolicy.poiScore(str);
     }
 
     private String roundedLocationKey(double d, double d2) {
@@ -2986,45 +2858,15 @@ public class MainActivity extends Activity {
     }
 
     private String normalizeLocationKey(String str) {
-        String knownPlaceName = knownPlaceName(normalizeForMatch(str));
-        if (knownPlaceName != null) {
-            return knownPlaceName;
-        }
-        String strSafeFolderName = safeFolderName(stripAdministrativeSuffix(str.trim().replace("대한민국", "").replace("특별자치도", "").replace("특별자치시", "").replace("특별시", "").replace("광역시", "").replace("자치시", "")).replaceAll("\\s+", ""));
-        return strSafeFolderName.isEmpty() ? LOCATION_NONE : strSafeFolderName;
+        return PlaceNamePolicy.normalizeLocationKey(str);
     }
 
     private String knownPlaceName(String normalized) {
-        if (normalized == null || normalized.isEmpty()) {
-            return null;
-        }
-        if (hasAccessPointNoise(normalized)) {
-            return null;
-        }
-        if (normalized.contains("에버랜드") || normalized.contains("everland")) {
-            return "에버랜드";
-        }
-        if (normalized.contains("롯데월드") || normalized.contains("lotteworld")) {
-            return "롯데월드";
-        }
-        if (normalized.contains("코엑스") || normalized.contains("coex")) {
-            return "코엑스";
-        }
-        if (normalized.contains("봉은사") || normalized.contains("bongeunsa")) {
-            return "봉은사";
-        }
-        if (normalized.contains("예술의전당")) {
-            return "예술의전당";
-        }
-        return null;
+        return PlaceNamePolicy.knownPlaceName(normalized);
     }
 
     private String stripAdministrativeSuffix(String str) {
-        if (str == null) {
-            return "";
-        }
-        String strTrim = str.trim();
-        return strTrim.length() <= 2 ? strTrim : (!strTrim.endsWith("구") || strTrim.length() > 3) ? strTrim.replaceAll("(시|군|구)$", "") : strTrim;
+        return PlaceNamePolicy.stripAdministrativeSuffix(str);
     }
 
     private List<AlbumFolder> loadAlbumFolders() {

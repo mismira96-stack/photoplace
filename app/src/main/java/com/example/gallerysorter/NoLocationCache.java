@@ -57,15 +57,6 @@ final class NoLocationCache {
     }
 
     private static String signature(Uri uri, String name, long modifiedSeconds, long addedSeconds, long mediaTakenMillis, boolean video) {
-        return (video ? "v|" : "i|")
-                + (uri == null ? "" : uri.toString())
-                + "|" + safe(name)
-                + "|" + modifiedSeconds
-                + "|" + addedSeconds
-                + "|" + mediaTakenMillis;
-    }
-
-    private static String safe(String value) {
-        return value == null ? "" : value;
+        return MediaAnalysisSignature.buildForNoLocation(uri, name, modifiedSeconds, addedSeconds, mediaTakenMillis, video);
     }
 }

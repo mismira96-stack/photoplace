@@ -5,6 +5,9 @@
 - 설치된 APK:
   - `app/build/outputs/apk/debug/app-debug.apk`
   - 마지막 설치 확인: 2026-07-25 새벽, Galaxy 기기 `R5KYB048EER`
+- 테스트 데이터:
+  - 사용자가 테스트용 폴더를 남겨둠.
+  - 약 4087개 파일이 중복 상태로 있어 `이미 정리됨`, 재탐색 비용, 결과 화면 성능 검증에 사용 가능.
 - 먼저 확인할 것:
   1. 앱 첫 진입 속도
      - 기대: 홈은 즉시 뜨고, 해외 기록/최근 발견한 장소는 약간 뒤에 자연스럽게 표시.
@@ -27,6 +30,10 @@
      - `송파동/장지동/Songpagu/Mapo-gu`가 새 앨범으로 갈라지지 않고 구 단위로 모이는지 확인.
      - `에버랜드`는 유지.
      - `봉은사 코엑스 북문`은 새로 다시 생성되는지 여부만 확인. 기존 앨범으로만 보이면 과거 테스트 흔적으로 분류.
+- 자동 테스트:
+  - `PlaceNamePolicyTest` 추가.
+  - `MediaAnalysisSignatureTest` 추가.
+  - `testDebugUnitTest assembleDebug` 통과.
 
 ## 남은 핵심 TODO 우선순위
 
@@ -49,6 +56,10 @@
 - 현재:
   - 복사/이동 단계에서는 이미 정리된 항목을 중복 처리하지 않음.
   - 하지만 preview 단계는 전체 파일을 다시 훑어서 4000장 이상에서 시간이 걸림.
+- 준비 완료:
+  - `MediaAnalysisSignature` 추가.
+  - 기존 `NoLocationCache`도 같은 signature builder를 사용하도록 정리.
+  - signature 테스트로 파일 수정일, media type, source folder 변경 시 캐시 키가 달라지는지 검증.
 - 다음 목표:
   - `AnalyzedMediaStore` 또는 `SortHistoryStore` 추가.
   - 원본 uri/displayName/dateModified/dateTaken/mediaType/sourceFolder/targetRelativePath 기반 signature 저장.
@@ -68,6 +79,9 @@
 
 ### P1. 위치 품질 / 이동 중 기록 표시
 
+- 준비 완료:
+  - `PlaceNamePolicy`로 장소명 정책을 `MainActivity`에서 분리.
+  - 서울 로마자 구명, 서울 행정동, 강한 POI, 출입구/북문 노이즈, 밀리토피아시티 회귀 테스트 추가.
 - 비행 중 사진:
   - 자동 제외하지 말고 `비행 중` 또는 `이동 중`으로 표시하는 방향.
   - 후보 신호: altitude, 시간 간격, GPS 점프 거리/속도.
