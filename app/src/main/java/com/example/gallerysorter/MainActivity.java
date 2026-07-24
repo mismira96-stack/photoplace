@@ -176,6 +176,7 @@ public class MainActivity extends Activity {
     private long recentAlbumSummaryCacheMillis = 0L;
     private NoLocationCache noLocationCache = null;
     private AlbumSummaryHistoryStore albumSummaryHistoryStore = null;
+    private MediaCopyEngine mediaCopyEngine = null;
     private boolean existingAlbumBackfillScheduled = false;
     private int recentPlacesScrollY = 0;
     private boolean copyCompletedMode = false;
@@ -215,6 +216,7 @@ public class MainActivity extends Activity {
         super.onCreate(bundle);
         this.noLocationCache = new NoLocationCache(getSharedPreferences(PREFS_NAME, 0));
         this.albumSummaryHistoryStore = new AlbumSummaryHistoryStore(this);
+        this.mediaCopyEngine = new MediaCopyEngine(this);
         loadPendingOriginalCleanup();
         buildUi();
         ensureReadPermission();
@@ -1501,7 +1503,7 @@ public class MainActivity extends Activity {
                 sb.append("복사본 있음, 건너뜀: ").append(photoItem.name).append(" -> ").append(photoItem.targetRelativePath).append("\n");
             } else {
                 try {
-                    copyMediaItem(photoItem);
+                    this.mediaCopyEngine.copy(photoItem);
                     i2++;
                     arrayList.add(photoItem.uri);
                     if (!photoItem.video) {
