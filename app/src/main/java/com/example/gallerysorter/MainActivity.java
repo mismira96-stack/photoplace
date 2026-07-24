@@ -7422,40 +7422,6 @@ public class MainActivity extends Activity {
         }
     }
 
-    private static class LocationResult {
-        final String folderKey;
-        final Date takenAt;
-        final String countryName;
-        final String adminArea;
-        final String addressLine;
-
-        LocationResult(Date date, String str, String str2, String str3, String str4) {
-            this.takenAt = date;
-            this.folderKey = str;
-            this.countryName = str2 == null ? "" : str2;
-            this.adminArea = str3 == null ? "" : str3;
-            this.addressLine = str4 == null ? "" : str4;
-        }
-    }
-
-    private static class ExifReadResult {
-        double latitude;
-        double longitude;
-        Date takenAt;
-
-        private ExifReadResult() {
-        }
-    }
-
-    private static class VideoMetadataResult {
-        double latitude;
-        double longitude;
-        Date takenAt;
-
-        private VideoMetadataResult() {
-        }
-    }
-
     /* JADX INFO: Access modifiers changed from: private */
     static class SourceFolder {
         final int count;
