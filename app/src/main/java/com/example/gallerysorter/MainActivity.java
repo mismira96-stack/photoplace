@@ -7422,19 +7422,6 @@ public class MainActivity extends Activity {
         }
     }
 
-    /* JADX INFO: Access modifiers changed from: private */
-    static class SourceFolder {
-        final int count;
-        final String displayName;
-        final String relativePath;
-
-        SourceFolder(String str, String str2, int i) {
-            this.relativePath = str;
-            this.displayName = str2;
-            this.count = i;
-        }
-    }
-
     private static class IconBubbleDrawable extends Drawable {
         private final int backgroundColor;
         private final String icon;
