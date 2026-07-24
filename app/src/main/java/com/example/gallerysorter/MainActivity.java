@@ -36,6 +36,7 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
+import android.os.Looper;
 import android.os.ParcelFileDescriptor;
 import android.provider.MediaStore;
 import android.provider.Settings;
@@ -50,6 +51,8 @@ import android.util.Size;
 import android.view.View;
 import android.view.Window;
 import android.view.WindowInsets;
+import android.window.OnBackInvokedCallback;
+import android.window.OnBackInvokedDispatcher;
 import android.widget.Button;
 import android.widget.CheckBox;
 import android.widget.CompoundButton;
@@ -113,9 +116,14 @@ public class MainActivity extends Activity {
     private static final int RESULT_FOCUS_PLACES = 1;
     private static final int RESULT_FOCUS_NO_LOCATION = 2;
     private static final int RESULT_FOCUS_SORTED = 3;
+    private static final int DETAIL_BACK_HOME = 0;
+    private static final int DETAIL_BACK_RECENT = 1;
+    private static final int DETAIL_BACK_OVERSEAS = 2;
+    private static final int DETAIL_BACK_RESULT = 3;
     private static final String PREFS_NAME = "album_sorter";
     private static final String PREF_ALBUM_ALIAS_PREFIX = "album_alias_";
     private static final String PREF_ALBUM_MEMORY_PREFIX = "album_memory_";
+    private static final String PREF_EXISTING_ALBUM_BACKFILL_DONE = "existing_album_backfill_v2_done";
     private static final String PREF_MOVE_VIDEOS = "move_videos";
     private static final String PREF_PENDING_ORIGINAL_CLEANUP = "pending_original_cleanup";
     private static final String PREF_SOURCE_PATHS = "source_paths";
@@ -157,14 +165,24 @@ public class MainActivity extends Activity {
     private final Set<String> recentlySortedUriKeys = new HashSet();
     private final Map<String, Long> pendingDateRepairs = new LinkedHashMap();
     private final Map<String, String> locationCache = new LinkedHashMap();
+    private final Map<String, LocationLookupResult> locationDetailCache = new LinkedHashMap();
     private final Map<String, Long> albumDateFallbackCache = new LinkedHashMap();
+    private final List<Integer> topLevelBackStack = new ArrayList();
     private volatile boolean cancelRequested = false;
     private boolean isWorking = false;
     private boolean resultScreenMode = false;
     private int resultFocusMode = RESULT_FOCUS_ALL;
+    private int currentTopLevelTab = 0;
     private boolean recentPlacesScreenMode = false;
     private boolean recentPlaceDetailMode = false;
+    private boolean overseasMemoryScreenMode = false;
     private StoredAlbumSummary activePlaceDetailSummary = null;
+    private MemoryGroup activeOverseasMemoryGroup = null;
+    private int detailBackTarget = DETAIL_BACK_HOME;
+    private List<StoredAlbumSummary> recentAlbumSummaryCache = null;
+    private long recentAlbumSummaryCacheMillis = 0L;
+    private NoLocationCache noLocationCache = null;
+    private boolean existingAlbumBackfillScheduled = false;
     private int recentPlacesScrollY = 0;
     private boolean copyCompletedMode = false;
     private boolean copyStoppedMode = false;
@@ -175,6 +193,8 @@ public class MainActivity extends Activity {
     private String activeProgressContext = null;
     private int activeProgressCurrent = 0;
     private int activeProgressTotal = 0;
+    private long lastBackPressedAtMillis = 0L;
+    private OnBackInvokedCallback backInvokedCallback = null;
 
     private int actionTextColor(int i) {
         if (i == -15368131) {
@@ -199,10 +219,13 @@ public class MainActivity extends Activity {
     @Override // android.app.Activity
     protected void onCreate(Bundle bundle) {
         super.onCreate(bundle);
+        this.noLocationCache = new NoLocationCache(getSharedPreferences(PREFS_NAME, 0));
         loadPendingOriginalCleanup();
         buildUi();
         ensureReadPermission();
         restoreMainUiFromState();
+        scheduleExistingAlbumBackfillIfNeeded();
+        registerBackInvokedCallbackIfNeeded();
     }
 
     @Override // android.app.Activity
@@ -220,7 +243,15 @@ public class MainActivity extends Activity {
     @Override // android.app.Activity
     public void onBackPressed() {
         if (this.recentPlaceDetailMode) {
-            returnToRecentPlacesScreen();
+            returnFromRecentPlaceDetail();
+            return;
+        }
+        if (this.overseasMemoryScreenMode) {
+            returnToMainScreen();
+            return;
+        }
+        if (isOnTopLevelSecondaryTab()) {
+            returnToPreviousTopLevelTab();
             return;
         }
         if (this.resultScreenMode) {
@@ -228,11 +259,48 @@ public class MainActivity extends Activity {
         } else if (this.isWorking) {
             showToast("백그라운드에서 계속 진행됩니다.");
         } else {
-            super.onBackPressed();
+            long now = System.currentTimeMillis();
+            if (now - this.lastBackPressedAtMillis < 1800L) {
+                finish();
+            } else {
+                this.lastBackPressedAtMillis = now;
+                showToast("한 번 더 누르면 종료됩니다.");
+            }
         }
     }
 
+    private void registerBackInvokedCallbackIfNeeded() {
+        if (Build.VERSION.SDK_INT < 33 || this.backInvokedCallback != null) {
+            return;
+        }
+        this.backInvokedCallback = new OnBackInvokedCallback() {
+            @Override
+            public void onBackInvoked() {
+                MainActivity.this.onBackPressed();
+            }
+        };
+        getOnBackInvokedDispatcher().registerOnBackInvokedCallback(OnBackInvokedDispatcher.PRIORITY_DEFAULT, this.backInvokedCallback);
+    }
+
+    private boolean isOnTopLevelSecondaryTab() {
+        return this.currentTopLevelTab != 0 && !this.recentPlaceDetailMode && !this.overseasMemoryScreenMode && (this.recentPlacesScreenMode || this.resultScreenMode);
+    }
+
+    private void returnToPreviousTopLevelTab() {
+        int target = 0;
+        while (!this.topLevelBackStack.isEmpty()) {
+            int lastIndex = this.topLevelBackStack.size() - 1;
+            int candidate = this.topLevelBackStack.remove(lastIndex).intValue();
+            if (candidate != this.currentTopLevelTab) {
+                target = candidate;
+                break;
+            }
+        }
+        showTopLevelTab(target);
+    }
+
     private void returnToMainScreen() {
+        this.topLevelBackStack.clear();
         loadPendingOriginalCleanup();
         buildUi();
         ensureReadPermission();
@@ -243,18 +311,21 @@ public class MainActivity extends Activity {
         this.resultScreenMode = false;
         this.recentPlacesScreenMode = false;
         this.recentPlaceDetailMode = false;
+        this.overseasMemoryScreenMode = false;
         this.activePlaceDetailSummary = null;
+        this.activeOverseasMemoryGroup = null;
+        this.detailBackTarget = DETAIL_BACK_HOME;
         this.recentPlacesScrollView = null;
         ScrollView scrollView = new ScrollView(this);
         scrollView.setBackgroundColor(-197377);
         LinearLayout linearLayout = new LinearLayout(this);
         linearLayout.setOrientation(1);
-        linearLayout.setPadding(dp(18), dp(64), dp(18), dp(REQUEST_WRITE_VIDEOS));
+        linearLayout.setPadding(dp(18), dp(48), dp(18), dp(REQUEST_WRITE_VIDEOS));
         scrollView.addView(linearLayout);
         LinearLayout linearLayout2 = new LinearLayout(this);
         linearLayout2.setOrientation(1);
         linearLayout2.setMinimumHeight(dp(44));
-        linearLayout.addView(linearLayout2, matchWidthWithBottom(dp(28)));
+        linearLayout.addView(linearLayout2, matchWidthWithBottom(dp(16)));
         LinearLayout linearLayout3 = new LinearLayout(this);
         linearLayout3.setOrientation(0);
         linearLayout3.setGravity(16);
@@ -296,7 +367,7 @@ public class MainActivity extends Activity {
         linearLayout4.setOrientation(0);
         linearLayout4.setGravity(17);
         linearLayout4.setPadding(dp(10), dp(12), dp(10), dp(12));
-        linearLayout.addView(linearLayout4, matchWidthWithBottom(dp(24)));
+        linearLayout.addView(linearLayout4, matchWidthWithBottom(dp(14)));
         applyCardBackground(linearLayout4);
         this.statTotalText = statBlock(linearLayout4, "새 장소", "photoLibrary", "0개", -1, -10788888, true);
         this.statReadyText = statBlock(linearLayout4, "위치 없음", "locationOff", "0개", -1, -34257, true);
@@ -310,10 +381,10 @@ public class MainActivity extends Activity {
                 MainActivity.this.m17lambda$buildUi$1$comexamplegallerysorterMainActivity(view);
             }
         });
-        linearLayout.addView(this.previewButton, fullWidthButtonParams(dp(20), dp(138)));
+        linearLayout.addView(this.previewButton, fullWidthButtonParams(dp(10), dp(94)));
         Button button = new Button(this);
         this.copyButton = button;
-        button.setText("바로 정리하기");
+        button.setText("장소별 앨범 만들기");
         this.copyButton.setEnabled(false);
         this.copyButton.setVisibility(8);
         this.copyButton.setOnClickListener(new View.OnClickListener() { // from class: com.example.gallerysorter.MainActivity$$ExternalSyntheticLambda14
@@ -322,7 +393,7 @@ public class MainActivity extends Activity {
                 MainActivity.this.m18lambda$buildUi$2$comexamplegallerysorterMainActivity(view);
             }
         });
-        styleActionButton(this.copyButton, actionText("바로 정리하기", "확인한 항목을 앨범으로 정리"), "folder", -3542826, -10236022, -15368131);
+        styleActionButton(this.copyButton, actionText("장소별 앨범 만들기", "사진을 복사해 앨범을 만들고 원본은 유지"), "folder", -3542826, -10236022, -15368131);
         linearLayout.addView(this.copyButton, fullWidthButtonParams(dp(10), dp(82)));
         Button button2 = new Button(this);
         this.galleryButton = button2;
@@ -393,7 +464,9 @@ public class MainActivity extends Activity {
         textView6.setTextSize(13.0f);
         this.progressDetailText.setTextColor(-10193781);
         linearLayout5.addView(this.progressDetailText, matchWidth());
-        addRecentPlacesSection(linearLayout);
+        List<StoredAlbumSummary> homeAlbumSummaries = loadRecentAlbumSummariesForUi();
+        addOverseasMemoriesSection(linearLayout, homeAlbumSummaries);
+        addRecentPlacesSection(linearLayout, homeAlbumSummaries);
         LinearLayout linearLayout7 = new LinearLayout(this);
         this.resultSummaryCard = linearLayout7;
         linearLayout7.setOrientation(1);
@@ -613,6 +686,18 @@ public class MainActivity extends Activity {
         int iCountRecentlySortedGroups = this.copyCompletedMode ? countRecentlySortedGroups(this.previewItems) : countNewFolderItems(this.previewItems);
         int iCountNewFolderItems = countNewFolderItems(this.previewItems);
         int iCountAlreadySortedItems = countAlreadySortedItems(this.previewItems);
+        if (!this.copyCompletedMode && !this.copyStoppedMode && iCountRecentlySortedItems == 0 && iCountNewFolderItems == 0 && !hasPendingOriginalCleanup()) {
+            if (linearLayout2 != null) {
+                linearLayout2.setVisibility(8);
+            }
+            setStatus("확인 완료", "0", String.valueOf(i2), String.valueOf(iCountAlreadySortedItems));
+            Button button3 = this.copyButton;
+            if (button3 != null) {
+                button3.setVisibility(8);
+                button3.setEnabled(false);
+            }
+            return;
+        }
         String str = this.copyStoppedMode ? "정리 멈춤" : this.copyCompletedMode ? "정리 완료" : "확인 완료";
         String strValueOf = String.valueOf(iCountRecentlySortedGroups);
         String strValueOf2 = String.valueOf(i2);
@@ -668,6 +753,7 @@ public class MainActivity extends Activity {
             requestPermissions((String[]) arrayList.toArray(new String[0]), 20);
         } else {
             this.previewButton.setEnabled(true);
+            requestNotificationPermissionIfNeeded();
             setStatus("준비됨", "0", "0", "0");
         }
     }
@@ -682,6 +768,65 @@ public class MainActivity extends Activity {
             }
             this.previewButton.setEnabled(z);
             setStatus(z ? "준비됨" : "권한 필요", "0", "0", "0");
+            if (z) {
+                requestNotificationPermissionIfNeeded();
+                scheduleExistingAlbumBackfillIfNeeded();
+            }
+        }
+    }
+
+    private void requestNotificationPermissionIfNeeded() {
+        if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission("android.permission.POST_NOTIFICATIONS") != 0) {
+            requestPermissions(new String[]{"android.permission.POST_NOTIFICATIONS"}, 21);
+        }
+    }
+
+    private boolean hasReadPermissions() {
+        if (Build.VERSION.SDK_INT >= 33) {
+            return checkSelfPermission("android.permission.READ_MEDIA_IMAGES") == 0 && checkSelfPermission("android.permission.READ_MEDIA_VIDEO") == 0 && checkSelfPermission("android.permission.ACCESS_MEDIA_LOCATION") == 0;
+        }
+        return checkSelfPermission("android.permission.READ_EXTERNAL_STORAGE") == 0 && checkSelfPermission("android.permission.ACCESS_MEDIA_LOCATION") == 0;
+    }
+
+    private void scheduleExistingAlbumBackfillIfNeeded() {
+        final SharedPreferences sharedPreferences = getSharedPreferences(PREFS_NAME, 0);
+        if (this.existingAlbumBackfillScheduled || this.isWorking || !hasReadPermissions() || sharedPreferences.getBoolean(PREF_EXISTING_ALBUM_BACKFILL_DONE, false)) {
+            return;
+        }
+        this.existingAlbumBackfillScheduled = true;
+        this.worker.execute(new Runnable() {
+            @Override
+            public void run() {
+                MainActivity.this.runExistingAlbumBackfill(sharedPreferences);
+            }
+        });
+    }
+
+    private void runExistingAlbumBackfill(final SharedPreferences sharedPreferences) {
+        try {
+            Map<String, AlbumSummary> map = collectExistingAlbumSummaries();
+            if (!map.isEmpty()) {
+                writeRebuiltAlbumSummaryHistory(map);
+            }
+            sharedPreferences.edit().putBoolean(PREF_EXISTING_ALBUM_BACKFILL_DONE, true).apply();
+            runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    MainActivity.this.existingAlbumBackfillScheduled = false;
+                    if (!MainActivity.this.isWorking && !MainActivity.this.resultScreenMode && !MainActivity.this.recentPlacesScreenMode && !MainActivity.this.recentPlaceDetailMode && !MainActivity.this.overseasMemoryScreenMode) {
+                        MainActivity.this.buildUi();
+                        MainActivity.this.ensureReadPermission();
+                        MainActivity.this.restoreMainUiFromState();
+                    }
+                }
+            });
+        } catch (Exception unused) {
+            runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    MainActivity.this.existingAlbumBackfillScheduled = false;
+                }
+            });
         }
     }
 
@@ -1394,6 +1539,7 @@ public class MainActivity extends Activity {
             this.logText.setText("앨범 정리가 끝났어요. 다시 누르지 않아도 됩니다.");
         }
         setWorking(false, null);
+        notifySortCompleted(iCountRecentlySortedGroups, iCountNoLocationItems, iCountRecentlySortedItems, z);
         this.copyCompletedMode = !z;
         this.copyStoppedMode = z;
         if (z) {
@@ -1517,7 +1663,17 @@ public class MainActivity extends Activity {
                     int i7 = columnIndex2;
                     int i8 = columnIndex3;
                     try {
-                        final PhotoItem photoItemBuildPhotoItem = buildPhotoItem(uriWithAppendedPath, strSafeName, cursorQuery.getString(columnIndexOrThrow3), readLocation(uriWithAppendedPath, strSafeName, cursorQuery.getLong(columnIndexOrThrow4), readOptionalLong(cursorQuery, columnIndex), readOptionalLong(cursorQuery, columnIndex2), readOptionalDouble(cursorQuery, columnIndex3), readOptionalDouble(cursorQuery, columnIndex4), false), list2, false);
+                        long modifiedSeconds = cursorQuery.getLong(columnIndexOrThrow4);
+                        long addedSeconds = readOptionalLong(cursorQuery, columnIndex);
+                        long mediaTakenMillis = readOptionalLong(cursorQuery, columnIndex2);
+                        Double mediaLatitude = readOptionalDouble(cursorQuery, columnIndex3);
+                        Double mediaLongitude = readOptionalDouble(cursorQuery, columnIndex4);
+                        LocationResult locationResult = cachedNoLocationResult(uriWithAppendedPath, strSafeName, modifiedSeconds, addedSeconds, mediaTakenMillis, mediaLatitude, mediaLongitude, false);
+                        if (locationResult == null) {
+                            locationResult = readLocation(uriWithAppendedPath, strSafeName, modifiedSeconds, addedSeconds, mediaTakenMillis, mediaLatitude, mediaLongitude, false);
+                            rememberNoLocationIfNeeded(uriWithAppendedPath, strSafeName, modifiedSeconds, addedSeconds, mediaTakenMillis, locationResult, false);
+                        }
+                        final PhotoItem photoItemBuildPhotoItem = buildPhotoItem(uriWithAppendedPath, strSafeName, cursorQuery.getString(columnIndexOrThrow3), locationResult, list2, false);
                         list.add(photoItemBuildPhotoItem);
                         final int size = list.size();
                         if (size == 1 || size % 25 == 0) {
@@ -1639,7 +1795,17 @@ public class MainActivity extends Activity {
                     int i8 = columnIndex;
                     int i9 = columnIndex2;
                     try {
-                        final PhotoItem photoItemBuildPhotoItem = buildPhotoItem(uriWithAppendedPath, strSafeName, cursorQuery.getString(columnIndexOrThrow3), readLocation(uriWithAppendedPath, strSafeName, cursorQuery.getLong(columnIndexOrThrow4), readOptionalLong(cursorQuery, columnIndex), readOptionalLong(cursorQuery, columnIndex2), readOptionalDouble(cursorQuery, columnIndex3), readOptionalDouble(cursorQuery, columnIndex4), true), list2, true);
+                        long modifiedSeconds = cursorQuery.getLong(columnIndexOrThrow4);
+                        long addedSeconds = readOptionalLong(cursorQuery, columnIndex);
+                        long mediaTakenMillis = readOptionalLong(cursorQuery, columnIndex2);
+                        Double mediaLatitude = readOptionalDouble(cursorQuery, columnIndex3);
+                        Double mediaLongitude = readOptionalDouble(cursorQuery, columnIndex4);
+                        LocationResult locationResult = cachedNoLocationResult(uriWithAppendedPath, strSafeName, modifiedSeconds, addedSeconds, mediaTakenMillis, mediaLatitude, mediaLongitude, true);
+                        if (locationResult == null) {
+                            locationResult = readLocation(uriWithAppendedPath, strSafeName, modifiedSeconds, addedSeconds, mediaTakenMillis, mediaLatitude, mediaLongitude, true);
+                            rememberNoLocationIfNeeded(uriWithAppendedPath, strSafeName, modifiedSeconds, addedSeconds, mediaTakenMillis, locationResult, true);
+                        }
+                        final PhotoItem photoItemBuildPhotoItem = buildPhotoItem(uriWithAppendedPath, strSafeName, cursorQuery.getString(columnIndexOrThrow3), locationResult, list2, true);
                         list.add(photoItemBuildPhotoItem);
                         final int i10 = i2 + 1;
                         if (i10 == 1 || i10 % 10 == 0) {
@@ -2076,7 +2242,7 @@ public class MainActivity extends Activity {
     private PhotoItem buildPhotoItem(Uri uri, String str, String str2, LocationResult locationResult, List<AlbumFolder> list, boolean z) {
         String str3;
         if (LOCATION_NONE.equals(locationResult.folderKey)) {
-            return new PhotoItem(uri, str, str2, locationResult.takenAt, locationResult.folderKey, true, false, false, "", z);
+            return new PhotoItem(uri, str, str2, locationResult.takenAt, locationResult.folderKey, true, false, false, "", z, locationResult.countryName, locationResult.adminArea, locationResult.addressLine);
         }
         AlbumFolder albumFolderFindMatchingAlbum = findMatchingAlbum(locationResult.folderKey, list);
         boolean z2 = albumFolderFindMatchingAlbum != null;
@@ -2086,7 +2252,7 @@ public class MainActivity extends Activity {
             str3 = Environment.DIRECTORY_PICTURES + "/" + locationResult.folderKey + "에서/";
         }
         String str4 = str3;
-        return new PhotoItem(uri, str, str2, locationResult.takenAt, locationResult.folderKey, false, z2, hasDisplayNameInPath(str, str4, z), str4, z);
+        return new PhotoItem(uri, str, str2, locationResult.takenAt, locationResult.folderKey, false, z2, hasDisplayNameInPath(str, str4, z), str4, z, locationResult.countryName, locationResult.adminArea, locationResult.addressLine);
     }
 
     private long readOptionalLong(Cursor cursor, int i) {
@@ -2153,6 +2319,7 @@ public class MainActivity extends Activity {
         Date addedAt = sanitizeTakenAt(addedSeconds > 0 ? new Date(addedSeconds * 1000L) : null);
         Date takenAt = null;
         String folderKey = LOCATION_NONE;
+        LocationLookupResult locationLookup = LocationLookupResult.empty();
 
         if (video) {
             VideoMetadataResult videoResult = readVideoMetadata(uri);
@@ -2161,7 +2328,8 @@ public class MainActivity extends Activity {
                 takenAt = videoTakenAt;
             }
             if (hasUsableCoordinates(videoResult.latitude, videoResult.longitude)) {
-                folderKey = safeResolveLocationKey(videoResult.latitude, videoResult.longitude);
+                locationLookup = safeResolveLocationLookup(videoResult.latitude, videoResult.longitude);
+                folderKey = locationLookup.folderKey;
             }
         }
 
@@ -2176,7 +2344,8 @@ public class MainActivity extends Activity {
             takenAt = exifTakenAt;
         }
         if (hasUsableCoordinates(exifResult.latitude, exifResult.longitude)) {
-            folderKey = safeResolveLocationKey(exifResult.latitude, exifResult.longitude);
+            locationLookup = safeResolveLocationLookup(exifResult.latitude, exifResult.longitude);
+            folderKey = locationLookup.folderKey;
         }
 
         if (LOCATION_NONE.equals(folderKey) && !exifUri.equals(uri)) {
@@ -2186,7 +2355,8 @@ public class MainActivity extends Activity {
                 takenAt = fallbackTakenAt;
             }
             if (hasUsableCoordinates(fallbackResult.latitude, fallbackResult.longitude)) {
-                folderKey = safeResolveLocationKey(fallbackResult.latitude, fallbackResult.longitude);
+                locationLookup = safeResolveLocationLookup(fallbackResult.latitude, fallbackResult.longitude);
+                folderKey = locationLookup.folderKey;
             }
         }
 
@@ -2194,7 +2364,8 @@ public class MainActivity extends Activity {
                 && mediaLatitude != null
                 && mediaLongitude != null
                 && hasUsableCoordinates(mediaLatitude, mediaLongitude)) {
-            folderKey = safeResolveLocationKey(mediaLatitude, mediaLongitude);
+            locationLookup = safeResolveLocationLookup(mediaLatitude, mediaLongitude);
+            folderKey = locationLookup.folderKey;
         }
 
         if (takenAt == null) {
@@ -2210,7 +2381,41 @@ public class MainActivity extends Activity {
             takenAt = addedAt;
         }
 
-        return new LocationResult(sanitizeTakenAt(takenAt), folderKey);
+        return new LocationResult(sanitizeTakenAt(takenAt), folderKey, locationLookup.countryName, locationLookup.adminArea, locationLookup.addressLine);
+    }
+
+    private LocationResult cachedNoLocationResult(Uri uri, String name, long modifiedSeconds, long addedSeconds, long mediaTakenMillis, Double mediaLatitude, Double mediaLongitude, boolean video) {
+        // Disabled for the 1.2.0 release candidate: an unsafe no-location cache can
+        // incorrectly suppress location rechecks and make sortable items disappear.
+        // Re-enable only after a dedicated cache invalidation test pass.
+        if (!isNoLocationCacheEnabled()) {
+            return null;
+        }
+        if (this.noLocationCache == null || hasUsableCoordinates(mediaLatitude, mediaLongitude)) {
+            return null;
+        }
+        long cachedTakenAtMillis = this.noLocationCache.cachedTakenAtMillis(uri, name, modifiedSeconds, addedSeconds, mediaTakenMillis, video);
+        if (cachedTakenAtMillis < 0) {
+            return null;
+        }
+        Date date = cachedTakenAtMillis > 0 ? new Date(cachedTakenAtMillis) : null;
+        return new LocationResult(date, LOCATION_NONE, "", "", "");
+    }
+
+    private void rememberNoLocationIfNeeded(Uri uri, String name, long modifiedSeconds, long addedSeconds, long mediaTakenMillis, LocationResult locationResult, boolean video) {
+        // See cachedNoLocationResult(): keep writes disabled with reads.
+        if (!isNoLocationCacheEnabled()) {
+            return;
+        }
+        if (this.noLocationCache == null || locationResult == null || !LOCATION_NONE.equals(locationResult.folderKey)) {
+            return;
+        }
+        Date date = locationResult.takenAt;
+        this.noLocationCache.remember(uri, name, modifiedSeconds, addedSeconds, mediaTakenMillis, video, date == null ? 0L : date.getTime());
+    }
+
+    private boolean isNoLocationCacheEnabled() {
+        return false;
     }
 
     private ExifReadResult readExifData(Uri uri) {
@@ -2360,18 +2565,43 @@ public class MainActivity extends Activity {
     }
 
     private String safeResolveLocationKey(double latitude, double longitude) {
+        return safeResolveLocationLookup(latitude, longitude).folderKey;
+    }
+
+    private LocationLookupResult safeResolveLocationLookup(double latitude, double longitude) {
         try {
-            return resolveLocationKey(latitude, longitude);
+            return resolveLocationLookup(latitude, longitude);
         } catch (Exception unused) {
-            return LOCATION_NONE;
+            return LocationLookupResult.empty();
         }
     }
 
+    private LocationLookupResult resolveLocationLookup(double d, double d2) throws IOException {
+        String strRoundedLocationKey = roundedLocationKey(d, d2);
+        LocationLookupResult cachedDetail = this.locationDetailCache.get(strRoundedLocationKey);
+        if (cachedDetail != null) {
+            return cachedDetail;
+        }
+        LocationLookupResult lookup = resolveLocationLookup(d, d2, Locale.KOREA);
+        if (LOCATION_NONE.equals(lookup.folderKey)) {
+            lookup = resolveLocationLookup(d, d2, Locale.getDefault());
+        }
+        if (!LOCATION_NONE.equals(lookup.folderKey)) {
+            this.locationCache.put(strRoundedLocationKey, lookup.folderKey);
+            this.locationDetailCache.put(strRoundedLocationKey, lookup);
+        }
+        return lookup;
+    }
+
     private String resolveLocationKey(double d, double d2, Locale locale) throws IOException {
+        return resolveLocationLookup(d, d2, locale).folderKey;
+    }
+
+    private LocationLookupResult resolveLocationLookup(double d, double d2, Locale locale) throws IOException {
         try {
             List<Address> fromLocation = new Geocoder(this, locale).getFromLocation(d, d2, 5);
             if (fromLocation != null && !fromLocation.isEmpty()) {
-                String str = null;
+                LocationLookupResult genericSeoulResult = null;
                 for (Address address : fromLocation) {
                     String strPreferredLocationName = preferredLocationName(address);
                     if (strPreferredLocationName == null) {
@@ -2380,22 +2610,23 @@ public class MainActivity extends Activity {
                     if (strPreferredLocationName != null) {
                         String strNormalizeLocationKey = normalizeLocationKey(strPreferredLocationName);
                         if (!LOCATION_NONE.equals(strNormalizeLocationKey)) {
+                            LocationLookupResult lookup = new LocationLookupResult(strNormalizeLocationKey, address.getCountryName(), address.getAdminArea(), address.getAddressLine(0));
                             if (!isGenericSeoulLocationKey(strNormalizeLocationKey)) {
-                                return strNormalizeLocationKey;
+                                return lookup;
                             }
-                            if (str == null) {
-                                str = strNormalizeLocationKey;
+                            if (genericSeoulResult == null) {
+                                genericSeoulResult = lookup;
                             }
                         }
                     }
                 }
-                if (str != null) {
-                    return str;
+                if (genericSeoulResult != null) {
+                    return genericSeoulResult;
                 }
             }
         } catch (Exception unused) {
         }
-        return LOCATION_NONE;
+        return LocationLookupResult.empty();
     }
 
     private boolean isGenericSeoulLocationKey(String str) {
@@ -3088,7 +3319,7 @@ public class MainActivity extends Activity {
         ArrayList arrayList = new ArrayList();
         for (PhotoItem photoItem : this.previewItems) {
             if (hashSet.contains(photoItem.uri.toString())) {
-                arrayList.add(new PhotoItem(photoItem.uri, photoItem.name, photoItem.mimeType, photoItem.takenAt, photoItem.locationKey, photoItem.noLocation, true, true, photoItem.targetRelativePath, photoItem.video));
+                arrayList.add(new PhotoItem(photoItem.uri, photoItem.name, photoItem.mimeType, photoItem.takenAt, photoItem.locationKey, photoItem.noLocation, true, true, photoItem.targetRelativePath, photoItem.video, photoItem.countryName, photoItem.adminArea, photoItem.addressLine));
             } else {
                 arrayList.add(photoItem);
             }
@@ -3214,6 +3445,9 @@ public class MainActivity extends Activity {
                         if (albumMediaDateMillis > 0) {
                             albumSummary2.dateRange.include(new Date(albumMediaDateMillis));
                         }
+                        if ((albumSummary2.countryName == null || albumSummary2.countryName.isEmpty()) && Looper.myLooper() != Looper.getMainLooper()) {
+                            albumSummary2.includeLocationMetadata(readExistingAlbumLocationMetadata(uriWithAppendedId, z2));
+                        }
                         if (albumSummary2.thumbnailUri == null || albumSummary2.thumbnailUri.isEmpty() || (z && albumMediaDateMillis >= albumSummary2.thumbnailDateMillis)) {
                             albumSummary2.thumbnailUri = uriWithAppendedId.toString();
                             albumSummary2.thumbnailDateMillis = albumMediaDateMillis;
@@ -3229,6 +3463,31 @@ public class MainActivity extends Activity {
             }
         } catch (Exception unused) {
         }
+    }
+
+    private LocationLookupResult readExistingAlbumLocationMetadata(Uri uri, boolean z) {
+        if (uri == null) {
+            return LocationLookupResult.empty();
+        }
+        if (z) {
+            VideoMetadataResult videoMetadataResult = readVideoMetadata(uri);
+            if (hasUsableCoordinates(videoMetadataResult.latitude, videoMetadataResult.longitude)) {
+                return safeResolveLocationLookup(videoMetadataResult.latitude, videoMetadataResult.longitude);
+            }
+        } else {
+            Uri uri2 = uri;
+            if (Build.VERSION.SDK_INT >= 29) {
+                uri2 = MediaStore.setRequireOriginal(uri);
+            }
+            ExifReadResult exifReadResult = readExifData(uri2);
+            if (!hasUsableCoordinates(exifReadResult.latitude, exifReadResult.longitude) && !uri2.equals(uri)) {
+                exifReadResult = readExifData(uri);
+            }
+            if (hasUsableCoordinates(exifReadResult.latitude, exifReadResult.longitude)) {
+                return safeResolveLocationLookup(exifReadResult.latitude, exifReadResult.longitude);
+            }
+        }
+        return LocationLookupResult.empty();
     }
 
     private boolean isGeneratedPlaceAlbumPath(String str) {
@@ -3266,6 +3525,7 @@ public class MainActivity extends Activity {
         jSONObject.put("updatedAtMillis", jCurrentTimeMillis);
         jSONObject.put("sessions", jSONArray);
         writeAlbumSummaryHistoryRoot(jSONObject);
+        invalidateRecentAlbumSummaryCache();
     }
 
     private int countAlbumSummaryItems(Map<String, AlbumSummary> map) {
@@ -3299,6 +3559,7 @@ public class MainActivity extends Activity {
                     albumSummary = new AlbumSummary(strAlbumCandidateFolderName, photoItem.targetRelativePath, photoItem.uri.toString());
                     linkedHashMap.put(strAlbumCandidateFolderName, albumSummary);
                 }
+                albumSummary.includeLocationMetadata(photoItem.countryName, photoItem.adminArea, photoItem.addressLine);
                 albumSummary.itemCount++;
                 albumSummary.dateRange.include(photoItem.takenAt);
             }
@@ -3323,6 +3584,7 @@ public class MainActivity extends Activity {
             albumSummaryHistoryRoot.put("updatedAtMillis", jCurrentTimeMillis);
             albumSummaryHistoryRoot.put("sessions", jSONArray);
             writeAlbumSummaryHistoryRoot(albumSummaryHistoryRoot);
+            invalidateRecentAlbumSummaryCache();
         } catch (Exception e) {
             this.logText.setText("정리 기록 저장 실패: " + e.getMessage());
         }
@@ -3340,6 +3602,9 @@ public class MainActivity extends Activity {
             jSONObject.put("startDateMillis", albumSummary.dateRange.start == null ? JSONObject.NULL : Long.valueOf(albumSummary.dateRange.start.getTime()));
             jSONObject.put("endDateMillis", albumSummary.dateRange.end == null ? JSONObject.NULL : Long.valueOf(albumSummary.dateRange.end.getTime()));
             jSONObject.put("thumbnailUri", albumSummary.thumbnailUri);
+            jSONObject.put("countryName", emptyToJsonNull(albumSummary.countryName));
+            jSONObject.put("adminArea", emptyToJsonNull(albumSummary.adminArea));
+            jSONObject.put("addressLine", emptyToJsonNull(albumSummary.addressLine));
             jSONObject.put("createdAt", formatTimestamp(j));
             jSONObject.put("createdAtMillis", j);
             jSONArray.put(jSONObject);
@@ -3369,6 +3634,10 @@ public class MainActivity extends Activity {
         } catch (Exception unused) {
         }
         return new JSONObject();
+    }
+
+    private Object emptyToJsonNull(String str) {
+        return str == null || str.trim().isEmpty() ? JSONObject.NULL : str;
     }
 
     private void writeAlbumSummaryHistoryRoot(JSONObject jSONObject) throws Exception {
@@ -3435,18 +3704,12 @@ public class MainActivity extends Activity {
         HashSet hashSet2 = new HashSet();
         HashSet hashSet3 = new HashSet();
         if (!mapCollectExistingAlbumSummaries.isEmpty()) {
-            long jCurrentTimeMillis = System.currentTimeMillis();
             for (AlbumSummary albumSummary : mapCollectExistingAlbumSummaries.values()) {
                 if (albumSummary.albumName != null && !albumSummary.albumName.isEmpty()) {
                     hashSet2.add(albumSummary.albumName);
                 }
                 if (albumSummary.relativePath != null && !albumSummary.relativePath.isEmpty()) {
                     hashSet3.add(albumSummary.relativePath);
-                }
-                StoredAlbumSummary storedAlbumSummaryFromAlbumSummary = StoredAlbumSummary.fromAlbumSummary(albumSummary, jCurrentTimeMillis);
-                if (!storedAlbumSummaryFromAlbumSummary.albumName.isEmpty() && !hashSet.contains(storedAlbumSummaryFromAlbumSummary.albumName)) {
-                    hashSet.add(storedAlbumSummaryFromAlbumSummary.albumName);
-                    arrayList.add(storedAlbumSummaryFromAlbumSummary);
                 }
             }
         }
@@ -3459,12 +3722,22 @@ public class MainActivity extends Activity {
                         JSONObject jSONObjectOptJSONObject2 = jSONArrayOptJSONArray.optJSONObject(i2);
                         if (jSONObjectOptJSONObject2 != null) {
                             StoredAlbumSummary storedAlbumSummaryFromJson = StoredAlbumSummary.fromJson(jSONObjectOptJSONObject2);
-                            if (!storedAlbumSummaryFromJson.albumName.isEmpty() && !hashSet.contains(storedAlbumSummaryFromJson.albumName) && (mapCollectExistingAlbumSummaries.isEmpty() || hashSet2.contains(storedAlbumSummaryFromJson.albumName) || hashSet3.contains(storedAlbumSummaryFromJson.relativePath))) {
+                            boolean isNewestSession = i == 0;
+                            if (!storedAlbumSummaryFromJson.albumName.isEmpty() && !hashSet.contains(storedAlbumSummaryFromJson.albumName) && (isNewestSession || mapCollectExistingAlbumSummaries.isEmpty() || hashSet2.contains(storedAlbumSummaryFromJson.albumName) || hashSet3.contains(storedAlbumSummaryFromJson.relativePath))) {
                                 hashSet.add(storedAlbumSummaryFromJson.albumName);
                                 arrayList.add(storedAlbumSummaryFromJson);
                             }
                         }
                     }
+                }
+            }
+        }
+        if (!mapCollectExistingAlbumSummaries.isEmpty()) {
+            for (AlbumSummary albumSummary : mapCollectExistingAlbumSummaries.values()) {
+                StoredAlbumSummary storedAlbumSummaryFromAlbumSummary = StoredAlbumSummary.fromAlbumSummary(albumSummary, 0L);
+                if (!storedAlbumSummaryFromAlbumSummary.albumName.isEmpty() && !hashSet.contains(storedAlbumSummaryFromAlbumSummary.albumName)) {
+                    hashSet.add(storedAlbumSummaryFromAlbumSummary.albumName);
+                    arrayList.add(storedAlbumSummaryFromAlbumSummary);
                 }
             }
         }
@@ -3477,8 +3750,29 @@ public class MainActivity extends Activity {
         return arrayList;
     }
 
+    private List<StoredAlbumSummary> loadRecentAlbumSummariesForUi() {
+        long now = System.currentTimeMillis();
+        List<StoredAlbumSummary> cached = this.recentAlbumSummaryCache;
+        if (cached != null && now - this.recentAlbumSummaryCacheMillis < 30000L) {
+            return new ArrayList<>(cached);
+        }
+        List<StoredAlbumSummary> loaded = loadRecentAlbumSummaries();
+        this.recentAlbumSummaryCache = new ArrayList<>(loaded);
+        this.recentAlbumSummaryCacheMillis = now;
+        return loaded;
+    }
+
+    private void invalidateRecentAlbumSummaryCache() {
+        this.recentAlbumSummaryCache = null;
+        this.recentAlbumSummaryCacheMillis = 0L;
+    }
+
     /* renamed from: lambda$loadRecentAlbumSummaries$40$com-example-gallerysorter-MainActivity, reason: not valid java name */
     /* synthetic */ int m27x4836e99e(StoredAlbumSummary storedAlbumSummary, StoredAlbumSummary storedAlbumSummary2) {
+        int iCompare = Long.compare(storedAlbumSummary2.createdAtMillis, storedAlbumSummary.createdAtMillis);
+        if (iCompare != 0) {
+            return iCompare;
+        }
         int iCompareTo = comparableDate(storedAlbumSummary2.endDate).compareTo(comparableDate(storedAlbumSummary.endDate));
         if (iCompareTo != 0) {
             return iCompareTo;
@@ -4202,15 +4496,15 @@ public class MainActivity extends Activity {
         LinearLayout linearLayout = new LinearLayout(this);
         linearLayout.setOrientation(0);
         linearLayout.setGravity(16);
-        linearLayout.setPadding(dp(20), dp(18), dp(18), dp(18));
+        linearLayout.setPadding(dp(16), dp(13), dp(14), dp(13));
         linearLayout.setClickable(true);
         linearLayout.setFocusable(true);
         applyGradientBackground(linearLayout, -11565321, -8635667, dp(REQUEST_WRITE_VIDEOS));
         ImageView imageView = new ImageView(this);
         imageView.setImageDrawable(new HeroStartDrawable());
         imageView.setScaleType(ImageView.ScaleType.FIT_CENTER);
-        LinearLayout.LayoutParams layoutParams = new LinearLayout.LayoutParams(dp(118), -1);
-        layoutParams.setMargins(0, 0, dp(14), 0);
+        LinearLayout.LayoutParams layoutParams = new LinearLayout.LayoutParams(dp(92), -1);
+        layoutParams.setMargins(0, 0, dp(10), 0);
         linearLayout.addView(imageView, layoutParams);
         LinearLayout linearLayout2 = new LinearLayout(this);
         linearLayout2.setOrientation(1);
@@ -4218,22 +4512,22 @@ public class MainActivity extends Activity {
         linearLayout.addView(linearLayout2, weightedParams(1));
         TextView textView = new TextView(this);
         textView.setText("앨범 정리 시작");
-        textView.setTextSize(20.0f);
+        textView.setTextSize(18.0f);
         textView.setTypeface(Typeface.DEFAULT_BOLD);
         textView.setTextColor(-1);
         textView.setIncludeFontPadding(false);
         linearLayout2.addView(textView);
         TextView textView2 = new TextView(this);
         textView2.setText("사진과 동영상을\n위치별 앨범으로 정리해요");
-        textView2.setTextSize(13.0f);
+        textView2.setTextSize(12.0f);
         textView2.setTextColor(-419430401);
         textView2.setLineSpacing(dp(2), 1.0f);
-        textView2.setPadding(0, dp(8), 0, 0);
+        textView2.setPadding(0, dp(5), 0, 0);
         linearLayout2.addView(textView2);
         ImageView imageView2 = new ImageView(this);
-        imageView2.setImageDrawable(new IconBubbleDrawable("arrow", -9740826, -1, dp(48)));
-        LinearLayout.LayoutParams layoutParams2 = new LinearLayout.LayoutParams(dp(48), dp(48));
-        layoutParams2.setMargins(dp(12), 0, 0, 0);
+        imageView2.setImageDrawable(new IconBubbleDrawable("arrow", -9740826, -1, dp(40)));
+        LinearLayout.LayoutParams layoutParams2 = new LinearLayout.LayoutParams(dp(40), dp(40));
+        layoutParams2.setMargins(dp(8), 0, 0, 0);
         linearLayout.addView(imageView2, layoutParams2);
         return linearLayout;
     }
@@ -4313,17 +4607,16 @@ public class MainActivity extends Activity {
         linearLayout2.addView(textView3);
     }
 
-    private void addRecentPlacesSection(LinearLayout linearLayout) {
-        List<StoredAlbumSummary> listLoadRecentAlbumSummaries = loadRecentAlbumSummaries();
+    private void addRecentPlacesSection(LinearLayout linearLayout, List<StoredAlbumSummary> listLoadRecentAlbumSummaries) {
         LinearLayout linearLayout2 = new LinearLayout(this);
         linearLayout2.setOrientation(1);
-        linearLayout2.setPadding(dp(0), dp(14), dp(0), dp(12));
-        linearLayout.addView(linearLayout2, matchWidthWithBottom(dp(14)));
+        linearLayout2.setPadding(0, dp(8), 0, dp(8));
+        linearLayout.addView(linearLayout2, matchWidthWithBottom(dp(8)));
         LinearLayout linearLayout3 = new LinearLayout(this);
         linearLayout3.setOrientation(0);
         linearLayout3.setGravity(16);
         linearLayout3.setPadding(dp(2), 0, dp(2), 0);
-        linearLayout2.addView(linearLayout3, matchWidthWithBottom(dp(8)));
+        linearLayout2.addView(linearLayout3, matchWidthWithBottom(dp(6)));
         linearLayout3.addView(sectionTitle("최근 발견한 장소"), weightedParams(1));
         if (listLoadRecentAlbumSummaries.isEmpty()) {
             linearLayout2.addView(bodyText("앨범 정리를 실행하면 새로 발견한 장소를 보여드려요."), matchWidthWithBottom(dp(12)));
@@ -4333,7 +4626,7 @@ public class MainActivity extends Activity {
         linearLayout4.setOrientation(0);
         linearLayout4.setGravity(17);
         linearLayout2.addView(linearLayout4, matchWidthWithBottom(dp(10)));
-        int iMin = Math.min(4, listLoadRecentAlbumSummaries.size());
+        int iMin = Math.min(3, listLoadRecentAlbumSummaries.size());
         int i = 0;
         while (i < iMin) {
             addStoredAlbumCompactCard(linearLayout4, listLoadRecentAlbumSummaries.get(i), i == iMin + (-1));
@@ -4345,6 +4638,8 @@ public class MainActivity extends Activity {
         this.resultScreenMode = true;
         this.recentPlacesScreenMode = true;
         this.recentPlaceDetailMode = false;
+        this.overseasMemoryScreenMode = false;
+        this.activeOverseasMemoryGroup = null;
         final ScrollView scrollView = new ScrollView(this);
         this.recentPlacesScrollView = scrollView;
         scrollView.setBackgroundColor(-197377);
@@ -4353,7 +4648,7 @@ public class MainActivity extends Activity {
         linearLayout.setPadding(dp(18), dp(56), dp(18), dp(REQUEST_WRITE_VIDEOS));
         scrollView.addView(linearLayout);
         addListHeader(linearLayout, "최근 발견한 장소");
-        List<StoredAlbumSummary> listLoadRecentAlbumSummaries = loadRecentAlbumSummaries();
+        List<StoredAlbumSummary> listLoadRecentAlbumSummaries = loadRecentAlbumSummariesForUi();
         addWorkingBanner(linearLayout);
         if (listLoadRecentAlbumSummaries.isEmpty()) {
             LinearLayout linearLayout2 = new LinearLayout(this);
@@ -4392,7 +4687,71 @@ public class MainActivity extends Activity {
     private void returnToRecentPlacesScreen() {
         this.recentPlaceDetailMode = false;
         this.activePlaceDetailSummary = null;
+        if (this.activeOverseasMemoryGroup != null) {
+            showOverseasMemoryScreen(this.activeOverseasMemoryGroup);
+            return;
+        }
         showRecentPlacesScreen();
+    }
+
+    private void returnFromRecentPlaceDetail() {
+        int target = this.detailBackTarget;
+        this.recentPlaceDetailMode = false;
+        this.activePlaceDetailSummary = null;
+        this.detailBackTarget = DETAIL_BACK_HOME;
+        if (target == DETAIL_BACK_OVERSEAS && this.activeOverseasMemoryGroup != null) {
+            showOverseasMemoryScreen(this.activeOverseasMemoryGroup);
+        } else if (target == DETAIL_BACK_RECENT) {
+            showRecentPlacesScreen();
+        } else if (target == DETAIL_BACK_RESULT) {
+            showResultScreen();
+        } else {
+            returnToMainScreen();
+        }
+    }
+
+    private void showOverseasMemoryScreen(MemoryGroup group) {
+        this.resultScreenMode = true;
+        this.recentPlacesScreenMode = false;
+        this.recentPlaceDetailMode = false;
+        this.overseasMemoryScreenMode = true;
+        this.activeOverseasMemoryGroup = group;
+        ScrollView scrollView = new ScrollView(this);
+        scrollView.setBackgroundColor(-197377);
+        LinearLayout linearLayout = new LinearLayout(this);
+        linearLayout.setOrientation(1);
+        linearLayout.setPadding(dp(18), dp(56), dp(18), dp(REQUEST_WRITE_VIDEOS));
+        scrollView.addView(linearLayout);
+        addListHeader(linearLayout, group.title);
+        addWorkingBanner(linearLayout);
+        LinearLayout summary = new LinearLayout(this);
+        summary.setOrientation(0);
+        summary.setGravity(16);
+        summary.setPadding(dp(14), dp(12), dp(14), dp(12));
+        linearLayout.addView(summary, matchWidthWithBottom(dp(14)));
+        applyCardBackground(summary);
+        summary.addView(memoryGroupPhotoFrame(group, dp(72), dp(14)), new LinearLayout.LayoutParams(dp(88), dp(72)));
+        LinearLayout summaryText = new LinearLayout(this);
+        summaryText.setOrientation(1);
+        summaryText.setPadding(dp(12), 0, 0, 0);
+        summary.addView(summaryText, weightedParams(1));
+        TextView title = compactCardTitle(group.title + "의 기억", 17);
+        summaryText.addView(title);
+        summaryText.addView(compactCardCount(group.itemCount + "개 사진", 18));
+        summaryText.addView(compactCardMeta(formatMemoryDateRange(group.startDate, group.endDate)));
+        LinearLayout list = new LinearLayout(this);
+        list.setOrientation(1);
+        list.setPadding(dp(14), dp(6), dp(14), dp(6));
+        linearLayout.addView(list, matchWidthWithBottom(dp(14)));
+        applyCardBackground(list);
+        for (MemoryItem item : group.items) {
+            addStoredAlbumRow(list, storedAlbumSummaryFromMemoryItem(item), true);
+        }
+        setContentViewWithBottomTabs(scrollView, -1);
+    }
+
+    private StoredAlbumSummary storedAlbumSummaryFromMemoryItem(MemoryItem item) {
+        return new StoredAlbumSummary(item.albumName, item.relativePath, item.itemCount, item.startDate, item.endDate, item.thumbnailUri, null, 0L, item.countryName, item.adminArea, item.addressLine);
     }
 
     private void showRecentPlaceDetailScreen(final StoredAlbumSummary storedAlbumSummary) {
@@ -4400,9 +4759,19 @@ public class MainActivity extends Activity {
         if (scrollView != null) {
             this.recentPlacesScrollY = scrollView.getScrollY();
         }
+        if (this.overseasMemoryScreenMode || this.activeOverseasMemoryGroup != null) {
+            this.detailBackTarget = DETAIL_BACK_OVERSEAS;
+        } else if (this.recentPlacesScreenMode) {
+            this.detailBackTarget = DETAIL_BACK_RECENT;
+        } else if (this.resultScreenMode) {
+            this.detailBackTarget = DETAIL_BACK_RESULT;
+        } else {
+            this.detailBackTarget = DETAIL_BACK_HOME;
+        }
         this.resultScreenMode = true;
         this.recentPlacesScreenMode = false;
         this.recentPlaceDetailMode = true;
+        this.overseasMemoryScreenMode = false;
         this.activePlaceDetailSummary = storedAlbumSummary;
         ScrollView scrollView2 = new ScrollView(this);
         scrollView2.setBackgroundColor(-197377);
@@ -4683,6 +5052,41 @@ public class MainActivity extends Activity {
         return (str == null || str.equals(str2)) ? firstNonEmpty(str2, str) : str2 == null ? str : str + " ~ " + str2;
     }
 
+    private String formatMemoryDateRange(String str, String str2) {
+        if ((str == null || str.isEmpty()) && (str2 == null || str2.isEmpty())) {
+            return "날짜 정보 없음";
+        }
+        if (str == null || str.isEmpty() || str.equals(str2)) {
+            return firstNonEmpty(str2, str);
+        }
+        if (str2 == null || str2.isEmpty()) {
+            return str;
+        }
+        return str + " ~ " + str2;
+    }
+
+    private String formatMemoryMonthRange(String str, String str2) {
+        String str3 = compactMonth(str);
+        String str4 = compactMonth(str2);
+        if ((str3 == null || str3.isEmpty()) && (str4 == null || str4.isEmpty())) {
+            return "날짜 정보 없음";
+        }
+        if (str3 == null || str3.isEmpty() || str3.equals(str4)) {
+            return firstNonEmpty(str4, str3);
+        }
+        if (str4 == null || str4.isEmpty()) {
+            return str3;
+        }
+        return str3 + " ~\n" + str4;
+    }
+
+    private String compactMonth(String str) {
+        if (str == null || str.length() < 7) {
+            return null;
+        }
+        return str.substring(0, 7).replace('-', '.');
+    }
+
     private void addStoredAlbumCompactCard(LinearLayout linearLayout, final StoredAlbumSummary storedAlbumSummary, boolean z) {
         LinearLayout linearLayout2 = new LinearLayout(this);
         linearLayout2.setOrientation(1);
@@ -4837,6 +5241,18 @@ public class MainActivity extends Activity {
         return textViewCompactCardMeta;
     }
 
+    private TextView compactCardDate(String str) {
+        TextView textView = new TextView(this);
+        textView.setText(str);
+        textView.setTextSize(10.5f);
+        textView.setTextColor(-10193781);
+        textView.setPadding(0, dp(1), 0, 0);
+        textView.setSingleLine(false);
+        textView.setMaxLines(2);
+        textView.setLineSpacing(0.0f, 0.95f);
+        return textView;
+    }
+
     private void addListHeader(LinearLayout linearLayout, String str) {
         LinearLayout linearLayout2 = new LinearLayout(this);
         linearLayout2.setOrientation(0);
@@ -4895,7 +5311,7 @@ public class MainActivity extends Activity {
 
     /* renamed from: lambda$addSimpleHeader$52$com-example-gallerysorter-MainActivity, reason: not valid java name */
     /* synthetic */ void m11lambda$addSimpleHeader$52$comexamplegallerysorterMainActivity(View view) {
-        returnToRecentPlacesScreen();
+        returnFromRecentPlaceDetail();
     }
 
     private void addStoredAlbumRow(LinearLayout linearLayout, final StoredAlbumSummary storedAlbumSummary, boolean z) {
@@ -5310,6 +5726,83 @@ public class MainActivity extends Activity {
         }
     }
 
+    private void addOverseasMemoriesSection(LinearLayout linearLayout, List<StoredAlbumSummary> albumSummaries) {
+        List<MemoryGroup> groups = OverseasMemoryGrouper.buildOverseasGroups(albumSummaries);
+        if (groups.isEmpty()) {
+            return;
+        }
+        LinearLayout section = new LinearLayout(this);
+        section.setOrientation(1);
+        section.setPadding(0, dp(2), 0, dp(8));
+        linearLayout.addView(section, matchWidthWithBottom(dp(8)));
+        LinearLayout header = new LinearLayout(this);
+        header.setOrientation(0);
+        header.setGravity(16);
+        header.setPadding(dp(2), 0, dp(2), 0);
+        section.addView(header, matchWidthWithBottom(dp(6)));
+        header.addView(sectionTitle("해외 기록"), weightedParams(1));
+        TextView count = compactCardMetaSmall(groups.size() + "개 국가");
+        count.setGravity(17);
+        header.addView(count);
+        HorizontalScrollView horizontalScrollView = new HorizontalScrollView(this);
+        horizontalScrollView.setHorizontalScrollBarEnabled(false);
+        section.addView(horizontalScrollView, matchWidthWithBottom(dp(6)));
+        LinearLayout cards = new LinearLayout(this);
+        cards.setOrientation(0);
+        cards.setGravity(16);
+        horizontalScrollView.addView(cards);
+        for (int i = 0; i < groups.size(); i++) {
+            addOverseasMemoryCard(cards, groups.get(i), i == groups.size() - 1);
+        }
+    }
+
+    private void addOverseasMemoryCard(LinearLayout linearLayout, final MemoryGroup group, boolean last) {
+        LinearLayout card = new LinearLayout(this);
+        card.setOrientation(1);
+        card.setPadding(0, 0, 0, dp(7));
+        card.setClickable(true);
+        card.setFocusable(true);
+        card.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                MainActivity.this.showOverseasMemoryScreen(group);
+            }
+        });
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(dp(98), -2);
+        params.setMargins(0, 0, last ? 0 : dp(8), 0);
+        linearLayout.addView(card, params);
+        applyCardBackground(card);
+        card.addView(memoryGroupPhotoFrame(group, dp(62), dp(14)));
+        LinearLayout body = new LinearLayout(this);
+        body.setOrientation(1);
+        body.setPadding(dp(8), dp(6), dp(7), dp(7));
+        card.addView(body, matchWidth());
+        body.addView(compactCardTitle(group.title, 12));
+        body.addView(compactCardCount(group.itemCount + "개", 13));
+        body.addView(compactCardDate(formatMemoryMonthRange(group.startDate, group.endDate)));
+    }
+
+    private FrameLayout memoryGroupPhotoFrame(MemoryGroup group, int height, int cornerRadius) {
+        FrameLayout frameLayout = new FrameLayout(this);
+        frameLayout.setClipToOutline(true);
+        frameLayout.setLayoutParams(new LinearLayout.LayoutParams(-1, height));
+        ImageView imageView = new ImageView(this);
+        imageView.setScaleType(ImageView.ScaleType.CENTER_CROP);
+        frameLayout.addView(imageView, new FrameLayout.LayoutParams(-1, -1));
+        GradientDrawable gradientDrawable = new GradientDrawable();
+        gradientDrawable.setColor(-1050881);
+        float radius = cornerRadius;
+        gradientDrawable.setCornerRadii(new float[]{radius, radius, radius, radius, 0.0f, 0.0f, 0.0f, 0.0f});
+        imageView.setBackground(gradientDrawable);
+        imageView.setClipToOutline(true);
+        if (group.thumbnailUri != null && !group.thumbnailUri.isEmpty()) {
+            loadThumbnailInto(imageView, Uri.parse(group.thumbnailUri), height * 2);
+        } else {
+            imageView.setImageDrawable(thumbnailPlaceholder());
+        }
+        return frameLayout;
+    }
+
     private String resultScreenTitle() {
         if (this.resultFocusMode == RESULT_FOCUS_PLACES) {
             return "장소 리스트";
@@ -5668,6 +6161,10 @@ public class MainActivity extends Activity {
         this.resultScreenMode = true;
         this.recentPlacesScreenMode = false;
         this.recentPlaceDetailMode = false;
+        this.overseasMemoryScreenMode = false;
+        this.activePlaceDetailSummary = null;
+        this.activeOverseasMemoryGroup = null;
+        this.detailBackTarget = DETAIL_BACK_HOME;
         ScrollView scrollView = new ScrollView(this);
         scrollView.setBackgroundColor(-197377);
         LinearLayout linearLayout = new LinearLayout(this);
@@ -5908,20 +6405,51 @@ public class MainActivity extends Activity {
 
     /* renamed from: lambda$addBottomTabs$65$com-example-gallerysorter-MainActivity, reason: not valid java name */
     /* synthetic */ void m2lambda$addBottomTabs$65$comexamplegallerysorterMainActivity(View view) {
-        returnToMainScreen();
+        navigateToTopLevelTab(0);
     }
 
     /* renamed from: lambda$addBottomTabs$66$com-example-gallerysorter-MainActivity, reason: not valid java name */
     /* synthetic */ void m3lambda$addBottomTabs$66$comexamplegallerysorterMainActivity(View view) {
-        showRecentPlacesScreen();
+        navigateToTopLevelTab(1);
     }
 
     /* renamed from: lambda$addBottomTabs$67$com-example-gallerysorter-MainActivity, reason: not valid java name */
     /* synthetic */ void m4lambda$addBottomTabs$67$comexamplegallerysorterMainActivity(View view) {
-        showSettingsScreen();
+        navigateToTopLevelTab(2);
+    }
+
+    private void navigateToTopLevelTab(int target) {
+        if (target == this.currentTopLevelTab && !this.recentPlaceDetailMode && !this.overseasMemoryScreenMode) {
+            return;
+        }
+        if (target == 0) {
+            this.topLevelBackStack.clear();
+            showTopLevelTab(0);
+            return;
+        }
+        if (this.currentTopLevelTab >= 0 && this.currentTopLevelTab <= 2) {
+            this.topLevelBackStack.add(Integer.valueOf(this.currentTopLevelTab));
+            if (this.topLevelBackStack.size() > 8) {
+                this.topLevelBackStack.remove(0);
+            }
+        }
+        showTopLevelTab(target);
+    }
+
+    private void showTopLevelTab(int target) {
+        if (target == 1) {
+            showRecentPlacesScreen();
+        } else if (target == 2) {
+            showSettingsScreen();
+        } else {
+            returnToMainScreen();
+        }
     }
 
     private void setContentViewWithBottomTabs(ScrollView scrollView, int i) {
+        if (i >= 0 && i <= 2) {
+            this.currentTopLevelTab = i;
+        }
         LinearLayout linearLayout = new LinearLayout(this);
         linearLayout.setOrientation(1);
         linearLayout.setBackgroundColor(-197377);
@@ -6784,6 +7312,11 @@ public class MainActivity extends Activity {
     private void setWorking(boolean z, String str) {
         this.isWorking = z;
         this.workingMessage = z ? str : null;
+        if (z) {
+            startSortForegroundProgress(str);
+        } else {
+            stopSortForegroundProgress();
+        }
         if (!z) {
             updateProgress(null, 0, 0);
         }
@@ -6847,7 +7380,45 @@ public class MainActivity extends Activity {
         this.activeProgressCurrent = i;
         this.activeProgressTotal = i2;
         this.activeProgressContext = str2;
+        updateSortForegroundProgress(str, i, i2, str2);
         renderProgress(str, i, i2, str2);
+    }
+
+    private void startSortForegroundProgress(String str) {
+        try {
+            String label = str == null || str.trim().isEmpty() ? "PhotoPlace 정리 준비 중" : str;
+            SortProgressStore.start(this, label);
+            SortForegroundService.start(this, label);
+        } catch (Exception unused) {
+        }
+    }
+
+    private void updateSortForegroundProgress(String str, int i, int i2, String str2) {
+        if (!this.isWorking || str == null) {
+            return;
+        }
+        try {
+            SortProgressStore.update(this, str, i, i2, str2);
+            SortForegroundService.update(this, str, i, i2, str2);
+        } catch (Exception unused) {
+        }
+    }
+
+    private void stopSortForegroundProgress() {
+        try {
+            SortProgressStore.finish(this);
+            SortForegroundService.stop(this);
+        } catch (Exception unused) {
+        }
+    }
+
+    private void notifySortCompleted(int i, int i2, int i3, boolean z) {
+        try {
+            String title = z ? "PhotoPlace 정리가 멈췄습니다" : "PhotoPlace 정리가 완료되었습니다";
+            String text = z ? "남은 사진 " + i + "개를 이어서 정리할 수 있어요." : "발견 장소 " + i + "개 · 정리 " + i3 + "개 · 위치 없음 " + i2 + "개";
+            SortForegroundService.complete(this, title, text);
+        } catch (Exception unused) {
+        }
     }
 
     private void renderProgress(String str, int i, int i2, String str2) {
@@ -6888,6 +7459,10 @@ public class MainActivity extends Activity {
 
     @Override // android.app.Activity
     protected void onDestroy() {
+        if (Build.VERSION.SDK_INT >= 33 && this.backInvokedCallback != null) {
+            getOnBackInvokedDispatcher().unregisterOnBackInvokedCallback(this.backInvokedCallback);
+            this.backInvokedCallback = null;
+        }
         super.onDestroy();
         this.worker.shutdownNow();
         this.thumbnailWorker.shutdownNow();
@@ -6897,6 +7472,9 @@ public class MainActivity extends Activity {
         final String albumName;
         final String relativePath;
         String thumbnailUri;
+        String countryName;
+        String adminArea;
+        String addressLine;
         final DateRange dateRange = new DateRange();
         int itemCount = 0;
         long thumbnailDateMillis = 0;
@@ -6905,6 +7483,24 @@ public class MainActivity extends Activity {
             this.albumName = str;
             this.relativePath = str2;
             this.thumbnailUri = str3;
+        }
+
+        void includeLocationMetadata(String str, String str2, String str3) {
+            if ((this.countryName == null || this.countryName.isEmpty()) && str != null && !str.trim().isEmpty()) {
+                this.countryName = str.trim();
+            }
+            if ((this.adminArea == null || this.adminArea.isEmpty()) && str2 != null && !str2.trim().isEmpty()) {
+                this.adminArea = str2.trim();
+            }
+            if ((this.addressLine == null || this.addressLine.isEmpty()) && str3 != null && !str3.trim().isEmpty()) {
+                this.addressLine = str3.trim();
+            }
+        }
+
+        void includeLocationMetadata(LocationLookupResult locationLookupResult) {
+            if (locationLookupResult != null && !LOCATION_NONE.equals(locationLookupResult.folderKey)) {
+                includeLocationMetadata(locationLookupResult.countryName, locationLookupResult.adminArea, locationLookupResult.addressLine);
+            }
         }
     }
 
@@ -6918,8 +7514,11 @@ public class MainActivity extends Activity {
         final String relativePath;
         final String startDate;
         final String thumbnailUri;
+        final String countryName;
+        final String adminArea;
+        final String addressLine;
 
-        StoredAlbumSummary(String str, String str2, int i, String str3, String str4, String str5, String str6, long j) {
+        StoredAlbumSummary(String str, String str2, int i, String str3, String str4, String str5, String str6, long j, String str7, String str8, String str9) {
             this.albumName = str == null ? "" : str;
             this.relativePath = str2 == null ? "" : str2;
             this.itemCount = i;
@@ -6928,20 +7527,23 @@ public class MainActivity extends Activity {
             this.thumbnailUri = str5;
             this.createdAt = str6;
             this.createdAtMillis = j;
+            this.countryName = str7 == null ? "" : str7;
+            this.adminArea = str8 == null ? "" : str8;
+            this.addressLine = str9 == null ? "" : str9;
         }
 
         static StoredAlbumSummary fromJson(JSONObject jSONObject) {
-            return new StoredAlbumSummary(jSONObject.optString("albumName", ""), jSONObject.optString("relativePath", ""), jSONObject.optInt("itemCount", 0), jSONObject.optString("startDate", null), jSONObject.optString("endDate", null), jSONObject.optString("thumbnailUri", null), jSONObject.optString("createdAt", null), jSONObject.optLong("createdAtMillis", 0L));
+            return new StoredAlbumSummary(jSONObject.optString("albumName", ""), jSONObject.optString("relativePath", ""), jSONObject.optInt("itemCount", 0), jSONObject.optString("startDate", null), jSONObject.optString("endDate", null), jSONObject.optString("thumbnailUri", null), jSONObject.optString("createdAt", null), jSONObject.optLong("createdAtMillis", 0L), jSONObject.optString("countryName", ""), jSONObject.optString("adminArea", ""), jSONObject.optString("addressLine", ""));
         }
 
         static StoredAlbumSummary fromAlbumSummary(AlbumSummary albumSummary, long j) {
             if (albumSummary == null) {
-                return new StoredAlbumSummary("", "", 0, null, null, null, null, 0L);
+                return new StoredAlbumSummary("", "", 0, null, null, null, null, 0L, "", "", "");
             }
             String str = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.KOREA).format(new Date(j));
             Date date = albumSummary.dateRange.start;
             Date date2 = albumSummary.dateRange.end;
-            return new StoredAlbumSummary(albumSummary.albumName, albumSummary.relativePath, albumSummary.itemCount, date == null ? null : new SimpleDateFormat("yyyy-MM-dd", Locale.KOREA).format(date), date2 == null ? null : new SimpleDateFormat("yyyy-MM-dd", Locale.KOREA).format(date2), albumSummary.thumbnailUri, str, j);
+            return new StoredAlbumSummary(albumSummary.albumName, albumSummary.relativePath, albumSummary.itemCount, date == null ? null : new SimpleDateFormat("yyyy-MM-dd", Locale.KOREA).format(date), date2 == null ? null : new SimpleDateFormat("yyyy-MM-dd", Locale.KOREA).format(date2), albumSummary.thumbnailUri, str, j, albumSummary.countryName, albumSummary.adminArea, albumSummary.addressLine);
         }
     }
 
@@ -6967,8 +7569,11 @@ public class MainActivity extends Activity {
         final String targetRelativePath;
         final Uri uri;
         final boolean video;
+        final String countryName;
+        final String adminArea;
+        final String addressLine;
 
-        PhotoItem(Uri uri, String str, String str2, Date date, String str3, boolean z, boolean z2, boolean z3, String str4, boolean z4) {
+        PhotoItem(Uri uri, String str, String str2, Date date, String str3, boolean z, boolean z2, boolean z3, String str4, boolean z4, String str5, String str6, String str7) {
             this.uri = uri;
             this.name = str;
             this.mimeType = str2;
@@ -6979,16 +7584,43 @@ public class MainActivity extends Activity {
             this.duplicateInTarget = z3;
             this.targetRelativePath = str4;
             this.video = z4;
+            this.countryName = str5 == null ? "" : str5;
+            this.adminArea = str6 == null ? "" : str6;
+            this.addressLine = str7 == null ? "" : str7;
+        }
+    }
+
+    private static class LocationLookupResult {
+        final String folderKey;
+        final String countryName;
+        final String adminArea;
+        final String addressLine;
+
+        LocationLookupResult(String str, String str2, String str3, String str4) {
+            this.folderKey = str == null || str.isEmpty() ? LOCATION_NONE : str;
+            this.countryName = str2 == null ? "" : str2;
+            this.adminArea = str3 == null ? "" : str3;
+            this.addressLine = str4 == null ? "" : str4;
+        }
+
+        static LocationLookupResult empty() {
+            return new LocationLookupResult(LOCATION_NONE, "", "", "");
         }
     }
 
     private static class LocationResult {
         final String folderKey;
         final Date takenAt;
+        final String countryName;
+        final String adminArea;
+        final String addressLine;
 
-        LocationResult(Date date, String str) {
+        LocationResult(Date date, String str, String str2, String str3, String str4) {
             this.takenAt = date;
             this.folderKey = str;
+            this.countryName = str2 == null ? "" : str2;
+            this.adminArea = str3 == null ? "" : str3;
+            this.addressLine = str4 == null ? "" : str4;
         }
     }
 
