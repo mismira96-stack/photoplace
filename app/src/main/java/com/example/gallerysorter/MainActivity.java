@@ -1022,7 +1022,7 @@ public class MainActivity extends Activity {
         textView.setGravity(17);
         linearLayout.addView(textView, matchWidthWithBottom(dp(8)));
         TextView textView2 = new TextView(this);
-        textView2.setText(i > 0 ? "앨범으로 정리할 항목을 찾았어요." : "새로 정리할 항목이 없어요.");
+        textView2.setText(i > 0 ? "새로 정리할 항목을 찾았어요." : i4 > 0 ? "이미 정리된 항목이라 다시 만들 필요가 없어요." : "새로 정리할 항목이 없어요.");
         textView2.setTextSize(15.0f);
         textView2.setTextColor(-10193781);
         textView2.setGravity(17);
@@ -1040,7 +1040,7 @@ public class MainActivity extends Activity {
         addDialogStat(linearLayout2, "새로 만들 앨범", i3 + "개", -14326805);
         addDialogStat(linearLayout2, "정리 제외", i2 + "개", -680437);
         addDialogStat(linearLayout2, "이미 정리됨", i4 + "개", -10193781);
-        TextView textView3 = bodyText(shouldMoveVideos() ? "사진은 위치별 앨범으로 복사되고 원본은 삭제되지 않아요.\n동영상은 앨범으로 이동됩니다." : "사진은 위치별 앨범으로 복사되고 원본은 삭제되지 않아요.");
+        TextView textView3 = bodyText(i > 0 ? shouldMoveVideos() ? "사진은 위치별 앨범으로 복사되고 원본은 삭제되지 않아요.\n동영상은 앨범으로 이동됩니다." : "사진은 위치별 앨범으로 복사되고 원본은 삭제되지 않아요." : i4 > 0 ? "이미 앨범에 있는 사진은 건너뜁니다. 새 사진을 추가한 뒤 다시 실행하면 새 항목만 정리해요." : "사진을 추가한 뒤 다시 실행하면 장소별 앨범 후보를 찾아요.");
         textView3.setGravity(17);
         linearLayout.addView(textView3, matchWidthWithBottom(dp(14)));
         if (i > 0) {
@@ -2735,7 +2735,7 @@ public class MainActivity extends Activity {
 
     private boolean isSeoulAddressLine(String str) {
         String strNormalizeForMatch = normalizeForMatch(str);
-        if (strNormalizeForMatch.contains("서울특별시") || strNormalizeForMatch.contains("서울시")) {
+        if (strNormalizeForMatch.contains("서울특별시") || strNormalizeForMatch.contains("서울시") || strNormalizeForMatch.contains("seoul")) {
             return true;
         }
         for (String str2 : SEOUL_DISTRICTS) {
@@ -2743,7 +2743,29 @@ public class MainActivity extends Activity {
                 return true;
             }
         }
-        return false;
+        return romanizedSeoulDistrictName(strNormalizeForMatch) != null;
+    }
+
+    private String romanizedSeoulDistrictName(String str) {
+        if (str == null) {
+            return null;
+        }
+        String normalized = str.replace("-", "").replace("_", "");
+        String[][] districts = {
+                {"gangnamgu", "강남구"}, {"gangdonggu", "강동구"}, {"gangbukgu", "강북구"}, {"gangseogu", "강서구"},
+                {"gwanakgu", "관악구"}, {"gwangjingu", "광진구"}, {"gurogu", "구로구"}, {"geumcheongu", "금천구"},
+                {"nowongu", "노원구"}, {"dobonggu", "도봉구"}, {"dongdaemungu", "동대문구"}, {"dongjakgu", "동작구"},
+                {"mapogu", "마포구"}, {"seodaemungu", "서대문구"}, {"seochogu", "서초구"}, {"seongdonggu", "성동구"},
+                {"seongbukgu", "성북구"}, {"songpagu", "송파구"}, {"yangcheongu", "양천구"}, {"yeongdeungpogu", "영등포구"},
+                {"yongsangu", "용산구"}, {"eunpyeonggu", "은평구"}, {"jongnogu", "종로구"}, {"junggu", "중구"},
+                {"jungnanggu", "중랑구"}
+        };
+        for (String[] district : districts) {
+            if (normalized.contains(district[0])) {
+                return district[1];
+            }
+        }
+        return null;
     }
 
     private String firstDistrictName(String... strArr) {
@@ -2759,6 +2781,10 @@ public class MainActivity extends Activity {
     private String extractDistrictName(String str) {
         if (str != null && !str.trim().isEmpty()) {
             String strNormalizeForMatch = normalizeForMatch(str);
+            String romanizedDistrict = romanizedSeoulDistrictName(strNormalizeForMatch);
+            if (romanizedDistrict != null) {
+                return romanizedDistrict;
+            }
             for (String str2 : SEOUL_DISTRICTS) {
                 if (strNormalizeForMatch.contains(normalizeForMatch(str2))) {
                     return str2;
@@ -2794,6 +2820,17 @@ public class MainActivity extends Activity {
             if (normalizeForMatch(strTrim).contains("예술의전당")) {
                 return "예술의전당";
             }
+            String normalizedDetail = normalizeForMatch(strTrim);
+            if (normalizedDetail.contains("코엑스")) {
+                return "코엑스";
+            }
+            if (normalizedDetail.contains("봉은사")) {
+                return "봉은사";
+            }
+            String romanizedDistrict = romanizedSeoulDistrictName(normalizeForMatch(strTrim));
+            if (romanizedDistrict != null) {
+                return romanizedDistrict;
+            }
             if (strTrim.length() >= 2 && !isNoisySeoulDetailName(strTrim)) {
                 return strTrim;
             }
@@ -2803,7 +2840,7 @@ public class MainActivity extends Activity {
 
     private boolean isNoisySeoulDetailName(String str) {
         String strNormalizeForMatch = normalizeForMatch(str);
-        return strNormalizeForMatch.contains("mall") || strNormalizeForMatch.contains("센터") || strNormalizeForMatch.contains("건물") || strNormalizeForMatch.contains("층") || strNormalizeForMatch.contains("대로") || strNormalizeForMatch.contains("로") || strNormalizeForMatch.contains("길") || strNormalizeForMatch.contains("어린이집") || strNormalizeForMatch.contains("아파트") || strNormalizeForMatch.contains("오피스텔") || strNormalizeForMatch.contains("상가") || strNormalizeForMatch.contains("b1") || strNormalizeForMatch.contains("b2") || strNormalizeForMatch.contains("bf") || strNormalizeForMatch.matches(".*\\d+f.*") || strNormalizeForMatch.matches(".*\\d+호.*");
+        return strNormalizeForMatch.contains("mall") || strNormalizeForMatch.contains("센터") || strNormalizeForMatch.contains("건물") || strNormalizeForMatch.contains("층") || strNormalizeForMatch.contains("지하") || strNormalizeForMatch.contains("대로") || strNormalizeForMatch.contains("로") || strNormalizeForMatch.contains("길") || strNormalizeForMatch.contains("어린이집") || strNormalizeForMatch.contains("아파트") || strNormalizeForMatch.contains("오피스텔") || strNormalizeForMatch.contains("상가") || strNormalizeForMatch.contains("b1") || strNormalizeForMatch.contains("b2") || strNormalizeForMatch.contains("bf") || strNormalizeForMatch.matches(".*\\d+f.*") || strNormalizeForMatch.matches(".*\\d+호.*");
     }
 
     private String cleanPoiLocationName(String... strArr) {
@@ -2843,7 +2880,11 @@ public class MainActivity extends Activity {
             return false;
         }
         String strNormalizeForMatch = normalizeForMatch(str);
-        return !strNormalizeForMatch.matches(".*\\d+.*") && !isAdministrativeOnlyName(strNormalizeForMatch) && poiScore(str) > 0;
+        return !strNormalizeForMatch.matches(".*\\d+.*") && !isAdministrativeOnlyName(strNormalizeForMatch) && !isNoisyPlaceCandidate(strNormalizeForMatch) && poiScore(str) > 0;
+    }
+
+    private boolean isNoisyPlaceCandidate(String str) {
+        return str.contains("militopiacity") || str.contains("밀리토피아시티") || str.contains("지하") || str.contains("상가") || str.contains("아파트") || str.contains("오피스텔");
     }
 
     private boolean isAdministrativeOnlyName(String str) {
@@ -6922,7 +6963,7 @@ public class MainActivity extends Activity {
                     MainActivity.this.m58x7b9318a7(view);
                 }
             });
-            styleActionButton(button, actionText("바로 정리하기", this.copyStoppedMode ? "남은 사진만 계속 정리" : "사진은 복사, 원본은 유지"), "folder", -3542826, -10236022, -15368131);
+            styleActionButton(button, actionText("새 항목만 정리", this.copyStoppedMode ? "남은 사진만 계속 정리" : "이미 정리된 사진은 건너뜀"), "folder", -3542826, -10236022, -15368131);
             linearLayout.addView(button, matchWidthWithBottom(dp(14)));
         }
         linearLayout.addView(sectionTitle(resultPrimarySectionTitle()), matchWidthWithBottom(dp(10)));
