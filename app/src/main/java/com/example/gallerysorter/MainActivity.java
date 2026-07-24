@@ -69,10 +69,15 @@ import android.widget.Switch;
 import android.widget.TextView;
 import android.widget.Toast;
 import com.example.gallerysorter.MainActivity;
+import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.io.OutputStream;
+import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
@@ -120,7 +125,9 @@ public class MainActivity extends Activity {
     private static final String PREF_EXISTING_ALBUM_BACKFILL_DONE = "existing_album_backfill_v2_done";
     private static final String PREF_MOVE_VIDEOS = "move_videos";
     private static final String PREF_PENDING_ORIGINAL_CLEANUP = "pending_original_cleanup";
+    private static final String PREF_PENDING_ORIGINAL_CLEANUP_COUNT = "pending_original_cleanup_count";
     private static final String PREF_SOURCE_PATHS = "source_paths";
+    private static final String FILE_PENDING_ORIGINAL_CLEANUP = "pending_original_cleanup.json";
     private static final int REQUEST_DELETE_ORIGINALS = 21;
     private static final int REQUEST_READ_IMAGES = 20;
     private static final int REQUEST_REPAIR_DATES = 24;
@@ -196,6 +203,7 @@ public class MainActivity extends Activity {
     private boolean copyCompletedMode = false;
     private boolean copyStoppedMode = false;
     private boolean originalsTrashCompleted = false;
+    private int pendingOriginalCleanupCount = 0;
     private boolean videoWritePermissionGranted = false;
     private String workingMessage = null;
     private String activeProgressLabel = null;
@@ -754,7 +762,7 @@ public class MainActivity extends Activity {
         if (this.copyStoppedMode) {
             strCompactResultSummary = stoppedResultSummary(iCountRecentlySortedItems, countCopyableItems(this.previewItems), i2);
         } else if (this.copyCompletedMode) {
-            strCompactResultSummary = completedResultSummary(iCountRecentlySortedGroups, i2, iCountRecentlySortedItems, this.copiedOriginalUris.size());
+            strCompactResultSummary = completedResultSummary(iCountRecentlySortedGroups, i2, iCountRecentlySortedItems, pendingOriginalCleanupCount());
         } else {
             strCompactResultSummary = compactResultSummary(iCountRecentlySortedItems, i2, iCountNewFolderItems);
         }
@@ -1668,7 +1676,7 @@ public class MainActivity extends Activity {
             savePendingOriginalCleanup();
             this.deleteOriginalsButton.setEnabled(hasPendingOriginalCleanup());
         } else {
-            this.summaryText.setText(completedResultSummary(iCountRecentlySortedGroups, iCountNoLocationItems, iCountRecentlySortedItems, this.copiedOriginalUris.size()));
+                this.summaryText.setText(completedResultSummary(iCountRecentlySortedGroups, iCountNoLocationItems, iCountRecentlySortedItems, pendingOriginalCleanupCount()));
             this.copyButton.setEnabled(false);
             this.copyButton.setVisibility(8);
             savePendingOriginalCleanup();
@@ -1689,7 +1697,7 @@ public class MainActivity extends Activity {
         this.logText.setText("다시 확인하기를 눌러 남은 항목을 확인해 주세요. 오류: " + safeErrorMessage(th));
         this.copyButton.setEnabled(hasCopyableItems(this.previewItems));
         this.copyButton.setVisibility(hasCopyableItems(this.previewItems) ? 0 : 8);
-        this.deleteOriginalsButton.setEnabled(!z && !this.copiedOriginalUris.isEmpty());
+        this.deleteOriginalsButton.setEnabled(!z && hasPendingOriginalCleanup());
         showToast("결과 표시 중 문제가 생겼어요. 앱은 계속 사용할 수 있습니다.");
     }
 
@@ -3332,6 +3340,7 @@ public class MainActivity extends Activity {
     }
 
     private void deleteCopiedOriginals() {
+        ensurePendingOriginalUrisLoaded();
         if (this.copiedOriginalUris.isEmpty()) {
             showToast("휴지통으로 보낼 사진 원본이 없습니다.");
         } else {
@@ -3340,6 +3349,7 @@ public class MainActivity extends Activity {
     }
 
     private void showOriginalTrashConfirmDialog() {
+        ensurePendingOriginalUrisLoaded();
         final Dialog dialog = new Dialog(this);
         dialog.requestWindowFeature(1);
         LinearLayout linearLayout = new LinearLayout(this);
@@ -3355,7 +3365,7 @@ public class MainActivity extends Activity {
         textView.setTypeface(Typeface.DEFAULT_BOLD);
         textView.setTextColor(-15656921);
         linearLayout.addView(textView, matchWidthWithBottom(dp(8)));
-        TextView textView2 = bodyText("정리된 앨범은 그대로 유지되고, 갤러리에 남아 있는 사진 원본 " + this.copiedOriginalUris.size() + "개만 휴지통으로 이동합니다.\n\n사진이 중복된 것처럼 보일 때 이 작업을 실행하면 됩니다. 휴지통에서는 복구할 수 있어요.");
+        TextView textView2 = bodyText("정리된 앨범은 그대로 유지되고, 갤러리에 남아 있는 사진 원본 " + pendingOriginalCleanupCount() + "개만 휴지통으로 이동합니다.\n\n사진이 중복된 것처럼 보일 때 이 작업을 실행하면 됩니다. 휴지통에서는 복구할 수 있어요.");
         textView2.setLineSpacing(dp(2), 1.0f);
         linearLayout.addView(textView2, matchWidthWithBottom(dp(16)));
         LinearLayout linearLayout2 = new LinearLayout(this);
@@ -3393,6 +3403,7 @@ public class MainActivity extends Activity {
     }
 
     private void requestTrashCopiedOriginals() {
+        ensurePendingOriginalUrisLoaded();
         if (this.copiedOriginalUris.isEmpty()) {
             showToast("휴지통으로 보낼 사진 원본이 없습니다.");
             return;
@@ -4139,17 +4150,55 @@ public class MainActivity extends Activity {
     }
 
     private boolean hasPendingOriginalCleanup() {
-        return !this.originalsTrashCompleted && !this.copiedOriginalUris.isEmpty();
+        return !this.originalsTrashCompleted && pendingOriginalCleanupCount() > 0;
     }
 
     private String pendingOriginalCleanupSummary() {
-        return "원본 사진 " + this.copiedOriginalUris.size() + "개가 아직 갤러리에 남아 있어요.\n정리된 앨범은 유지되고, 원본만 휴지통으로 이동할 수 있습니다.";
+        return "원본 사진 " + pendingOriginalCleanupCount() + "개가 아직 갤러리에 남아 있어요.\n정리된 앨범은 유지되고, 원본만 휴지통으로 이동할 수 있습니다.";
     }
 
     private void loadPendingOriginalCleanup() {
-        if (this.isWorking || !this.copiedOriginalUris.isEmpty()) {
+        if (this.isWorking) {
             return;
         }
+        SharedPreferences prefs = getSharedPreferences(PREFS_NAME, 0);
+        this.pendingOriginalCleanupCount = Math.max(0, prefs.getInt(PREF_PENDING_ORIGINAL_CLEANUP_COUNT, this.pendingOriginalCleanupCount));
+        if (this.pendingOriginalCleanupCount > 0) {
+            this.originalsTrashCompleted = false;
+            this.copyCompletedMode = true;
+            return;
+        }
+        migratePendingOriginalCleanupPreferenceIfNeeded(prefs);
+    }
+
+    private void ensurePendingOriginalUrisLoaded() {
+        if (!this.copiedOriginalUris.isEmpty()) {
+            return;
+        }
+        JSONObject jSONObject = readPendingOriginalCleanupRoot();
+        if (jSONObject == null || !jSONObject.optBoolean("pending", false)) {
+            return;
+        }
+        JSONArray jSONArrayOptJSONArray = jSONObject.optJSONArray("uris");
+        if (jSONArrayOptJSONArray == null) {
+            return;
+        }
+        for (int i = 0; i < jSONArrayOptJSONArray.length(); i++) {
+            String strOptString = jSONArrayOptJSONArray.optString(i, "");
+            if (!strOptString.trim().isEmpty()) {
+                addUniqueUri(this.copiedOriginalUris, Uri.parse(strOptString));
+            }
+        }
+        this.pendingOriginalCleanupCount = this.copiedOriginalUris.size();
+        this.originalsTrashCompleted = this.pendingOriginalCleanupCount == 0;
+        this.copyCompletedMode = this.pendingOriginalCleanupCount > 0;
+    }
+
+    private int pendingOriginalCleanupCount() {
+        return this.copiedOriginalUris.isEmpty() ? this.pendingOriginalCleanupCount : this.copiedOriginalUris.size();
+    }
+
+    private void migratePendingOriginalCleanupPreferenceIfNeeded(SharedPreferences prefs) {
         String string = getSharedPreferences(PREFS_NAME, 0).getString(PREF_PENDING_ORIGINAL_CLEANUP, "");
         if (string == null || string.trim().isEmpty()) {
             return;
@@ -4157,20 +4206,21 @@ public class MainActivity extends Activity {
         try {
             JSONObject jSONObject = new JSONObject(string);
             if (!jSONObject.optBoolean("pending", false)) {
+                prefs.edit().remove(PREF_PENDING_ORIGINAL_CLEANUP).remove(PREF_PENDING_ORIGINAL_CLEANUP_COUNT).apply();
                 return;
             }
             JSONArray jSONArrayOptJSONArray = jSONObject.optJSONArray("uris");
             if (jSONArrayOptJSONArray == null) {
                 return;
             }
-            for (int i = 0; i < jSONArrayOptJSONArray.length(); i++) {
-                String strOptString = jSONArrayOptJSONArray.optString(i, "");
-                if (!strOptString.trim().isEmpty()) {
-                    addUniqueUri(this.copiedOriginalUris, Uri.parse(strOptString));
-                }
-            }
-            this.originalsTrashCompleted = this.copiedOriginalUris.isEmpty();
-            this.copyCompletedMode = !this.copiedOriginalUris.isEmpty();
+            writePendingOriginalCleanupRoot(jSONObject);
+            this.pendingOriginalCleanupCount = jSONArrayOptJSONArray.length();
+            this.originalsTrashCompleted = this.pendingOriginalCleanupCount == 0;
+            this.copyCompletedMode = this.pendingOriginalCleanupCount > 0;
+            prefs.edit()
+                    .putInt(PREF_PENDING_ORIGINAL_CLEANUP_COUNT, this.pendingOriginalCleanupCount)
+                    .remove(PREF_PENDING_ORIGINAL_CLEANUP)
+                    .apply();
         } catch (Exception unused) {
             clearPendingOriginalCleanup();
         }
@@ -4179,7 +4229,9 @@ public class MainActivity extends Activity {
     private void savePendingOriginalCleanup() {
         SharedPreferences.Editor editorEdit = getSharedPreferences(PREFS_NAME, 0).edit();
         if (this.copiedOriginalUris.isEmpty()) {
-            editorEdit.remove(PREF_PENDING_ORIGINAL_CLEANUP).apply();
+            this.pendingOriginalCleanupCount = 0;
+            deleteFile(FILE_PENDING_ORIGINAL_CLEANUP);
+            editorEdit.remove(PREF_PENDING_ORIGINAL_CLEANUP).remove(PREF_PENDING_ORIGINAL_CLEANUP_COUNT).apply();
             return;
         }
         try {
@@ -4195,16 +4247,40 @@ public class MainActivity extends Activity {
             jSONObject.put("savedAt", formatTimestamp(System.currentTimeMillis()));
             jSONObject.put("savedAtMillis", System.currentTimeMillis());
             jSONObject.put("uris", jSONArray);
-            editorEdit.putString(PREF_PENDING_ORIGINAL_CLEANUP, jSONObject.toString()).apply();
+            writePendingOriginalCleanupRoot(jSONObject);
+            this.pendingOriginalCleanupCount = jSONArray.length();
+            editorEdit.putInt(PREF_PENDING_ORIGINAL_CLEANUP_COUNT, this.pendingOriginalCleanupCount).remove(PREF_PENDING_ORIGINAL_CLEANUP).apply();
         } catch (Exception unused) {
-            editorEdit.remove(PREF_PENDING_ORIGINAL_CLEANUP).apply();
+            editorEdit.remove(PREF_PENDING_ORIGINAL_CLEANUP).remove(PREF_PENDING_ORIGINAL_CLEANUP_COUNT).apply();
         }
     }
 
     private void clearPendingOriginalCleanup() {
         this.copiedOriginalUris.clear();
         this.pendingTrashOriginalUris.clear();
-        getSharedPreferences(PREFS_NAME, 0).edit().remove(PREF_PENDING_ORIGINAL_CLEANUP).apply();
+        this.pendingOriginalCleanupCount = 0;
+        deleteFile(FILE_PENDING_ORIGINAL_CLEANUP);
+        getSharedPreferences(PREFS_NAME, 0).edit().remove(PREF_PENDING_ORIGINAL_CLEANUP).remove(PREF_PENDING_ORIGINAL_CLEANUP_COUNT).apply();
+    }
+
+    private JSONObject readPendingOriginalCleanupRoot() {
+        try (FileInputStream input = openFileInput(FILE_PENDING_ORIGINAL_CLEANUP);
+             BufferedReader reader = new BufferedReader(new InputStreamReader(input, StandardCharsets.UTF_8))) {
+            StringBuilder builder = new StringBuilder();
+            String line;
+            while ((line = reader.readLine()) != null) {
+                builder.append(line);
+            }
+            return builder.length() == 0 ? null : new JSONObject(builder.toString());
+        } catch (Exception unused) {
+            return null;
+        }
+    }
+
+    private void writePendingOriginalCleanupRoot(JSONObject root) throws Exception {
+        try (FileOutputStream output = openFileOutput(FILE_PENDING_ORIGINAL_CLEANUP, 0)) {
+            output.write(root.toString().getBytes(StandardCharsets.UTF_8));
+        }
     }
 
     @Override // android.app.Activity
@@ -5659,7 +5735,8 @@ public class MainActivity extends Activity {
                 }
             }
             if (!zFocusNoLocation && !this.originalsTrashCompleted && !this.copiedOriginalUris.isEmpty()) {
-                addOriginalDeleteAction(this.copiedOriginalUris.size(), new ArrayList(this.copiedOriginalUris));
+                ensurePendingOriginalUrisLoaded();
+                addOriginalDeleteAction(pendingOriginalCleanupCount(), new ArrayList(this.copiedOriginalUris));
             } else if (!zFocusNoLocation && !this.originalsTrashCompleted && !arrayList2.isEmpty()) {
                 addOriginalDeleteAction(arrayList2.size(), arrayList2);
             }
@@ -7145,7 +7222,7 @@ public class MainActivity extends Activity {
         linearLayout.addView(linearLayout3, matchWidthWithBottom(dp(14)));
         applyCardBackground(linearLayout3);
         addPlainStat(linearLayout3, "folder", "앨범", "유지됨", -15293622, true);
-        addPlainStat(linearLayout3, "alert", "원본", this.copiedOriginalUris.size() + "개", -680437, false);
+        addPlainStat(linearLayout3, "alert", "원본", pendingOriginalCleanupCount() + "개", -680437, false);
 
         TextView textView3 = bodyText("사진이 중복된 것처럼 보이면 아래 버튼으로 원본만 정리하세요. 정리된 앨범 사진은 삭제되지 않습니다.");
         textView3.setGravity(17);
@@ -7158,7 +7235,7 @@ public class MainActivity extends Activity {
                 MainActivity.this.deleteCopiedOriginals();
             }
         });
-        styleActionButton(button, actionText("원본 사진 휴지통으로 이동", this.copiedOriginalUris.size() + "개 원본만 이동"), "alert", -658433, -2238722, -8635667);
+        styleActionButton(button, actionText("원본 사진 휴지통으로 이동", pendingOriginalCleanupCount() + "개 원본만 이동"), "alert", -658433, -2238722, -8635667);
         linearLayout.addView(button, matchWidthWithBottom(dp(10)));
 
         Button button2 = new Button(this);
