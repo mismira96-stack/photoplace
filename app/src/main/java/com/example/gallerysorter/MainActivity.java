@@ -108,9 +108,11 @@ public class MainActivity extends Activity {
     private static final String LOCATION_NONE = "위치없음";
     private static final int MAX_MAIN_RESULT_GROUPS = 3;
     private static final int MAX_NO_LOCATION_RESULT_ROWS = 60;
+    private static final int MAX_RESULT_DETAIL_THUMBNAILS = 48;
     private static final int MAX_RESULT_SCREEN_GROUPS = 24;
     private static final int MAX_VALID_TAKEN_YEAR = 2035;
     private static final int MIN_VALID_TAKEN_YEAR = 2000;
+    private static final long NOTIFICATION_PROGRESS_THROTTLE_MS = 1000L;
     private static final int RESULT_FOCUS_ALL = 0;
     private static final int RESULT_FOCUS_PLACES = 1;
     private static final int RESULT_FOCUS_NO_LOCATION = 2;
@@ -203,6 +205,8 @@ public class MainActivity extends Activity {
     private boolean copyCompletedMode = false;
     private boolean copyStoppedMode = false;
     private boolean originalsTrashCompleted = false;
+    private long lastNotificationProgressUpdateMillis = 0L;
+    private int lastNotificationProgressPercent = -1;
     private int pendingOriginalCleanupCount = 0;
     private boolean videoWritePermissionGranted = false;
     private String workingMessage = null;
@@ -5708,7 +5712,13 @@ public class MainActivity extends Activity {
                     if (i6 >= i5) {
                         break;
                     }
-                    addResultRow((PhotoItem) linkedHashMap2.get(entry.getKey()), "folder", "정리됨", albumCandidateFolderName((String) entry.getKey()), entry.getValue() + "개", formatDateRange((DateRange) linkedHashMap3.get(entry.getKey())), -1378321, -15293622);
+                    final String groupKey = (String) entry.getKey();
+                    addResultRow((PhotoItem) linkedHashMap2.get(groupKey), "folder", "정리됨", albumCandidateFolderName(groupKey), entry.getValue() + "개", formatDateRange((DateRange) linkedHashMap3.get(groupKey)), -1378321, -15293622, new View.OnClickListener() {
+                        @Override
+                        public void onClick(View view) {
+                            MainActivity.this.showResultAlbumDetailScreen(groupKey);
+                        }
+                    });
                     i6++;
                     dateRange3 = dateRange3;
                     i4 = i4;
@@ -5774,7 +5784,13 @@ public class MainActivity extends Activity {
                     break;
                 }
                 LinkedHashMap linkedHashMap5 = linkedHashMap4;
-                addResultRow((PhotoItem) linkedHashMap2.get(entry2.getKey()), "▣", albumCandidateEyebrow((String) entry2.getKey()), albumCandidateTitle((String) entry2.getKey()), entry2.getValue() + "개", formatDateRange((DateRange) linkedHashMap5.get(entry2.getKey())), -1378321, -15293622);
+                final String groupKey2 = (String) entry2.getKey();
+                addResultRow((PhotoItem) linkedHashMap2.get(groupKey2), "▣", albumCandidateEyebrow(groupKey2), albumCandidateTitle(groupKey2), entry2.getValue() + "개", formatDateRange((DateRange) linkedHashMap5.get(groupKey2)), -1378321, -15293622, new View.OnClickListener() {
+                    @Override
+                    public void onClick(View view) {
+                        MainActivity.this.showResultAlbumDetailScreen(groupKey2);
+                    }
+                });
                 i10++;
                 str6 = str6;
                 str5 = str5;
@@ -5822,6 +5838,153 @@ public class MainActivity extends Activity {
     /* renamed from: lambda$renderPreviewResults$55$com-example-gallerysorter-MainActivity, reason: not valid java name */
     /* synthetic */ void m38xb96f3de8(View view) {
         showResultScreen();
+    }
+
+    private void showResultAlbumDetailScreen(final String groupKey) {
+        ResultAlbumDetail detail = collectResultAlbumDetail(groupKey, MAX_RESULT_DETAIL_THUMBNAILS);
+        if (detail.totalCount <= 0) {
+            showToast("표시할 사진을 찾지 못했어요.");
+            return;
+        }
+        this.resultScreenMode = true;
+        this.recentPlacesScreenMode = false;
+        this.recentPlaceDetailMode = true;
+        this.overseasMemoryScreenMode = false;
+        this.detailBackTarget = DETAIL_BACK_RESULT;
+        this.activePlaceDetailSummary = null;
+
+        ScrollView scrollView = new ScrollView(this);
+        scrollView.setBackgroundColor(-197377);
+        LinearLayout root = new LinearLayout(this);
+        root.setOrientation(1);
+        root.setPadding(dp(18), dp(56), dp(18), dp(REQUEST_WRITE_VIDEOS));
+        scrollView.addView(root);
+
+        addSimpleHeader(root, albumCandidateFolderName(groupKey));
+
+        LinearLayout summary = new LinearLayout(this);
+        summary.setOrientation(1);
+        summary.setPadding(dp(16), dp(16), dp(16), dp(16));
+        root.addView(summary, matchWidthWithBottom(dp(14)));
+        applyCardBackground(summary);
+
+        TextView title = new TextView(this);
+        title.setText(albumCandidateTitle(groupKey));
+        title.setTextSize(20.0f);
+        title.setTypeface(Typeface.DEFAULT_BOLD);
+        title.setTextColor(-14735049);
+        summary.addView(title, matchWidthWithBottom(dp(8)));
+
+        LinearLayout stats = new LinearLayout(this);
+        stats.setOrientation(0);
+        summary.addView(stats, matchWidthWithBottom(dp(10)));
+        addPlainStat(stats, "grid", "전체", detail.totalCount + "개", -14326805, true);
+        addPlainStat(stats, "calendar", "날짜", formatDateRange(detail.dateRange), -15293622, false);
+
+        TextView hint = bodyText(detail.videoCount > 0 ? "사진과 동영상을 함께 보여줍니다. 항목을 누르면 원본을 열어요." : "항목을 누르면 원본 사진을 열어요.");
+        summary.addView(hint, matchWidth());
+
+        root.addView(sectionTitle("사진 보기"), matchWidthWithBottom(dp(10)));
+        LinearLayout grid = new LinearLayout(this);
+        grid.setOrientation(1);
+        root.addView(grid, matchWidthWithBottom(dp(12)));
+        addResultDetailGrid(grid, detail.previewItems);
+
+        if (detail.totalCount > detail.previewItems.size()) {
+            TextView more = bodyText("먼저 " + detail.previewItems.size() + "개만 보여줍니다. 나머지 " + (detail.totalCount - detail.previewItems.size()) + "개는 갤러리에서 이어서 볼 수 있어요.");
+            more.setGravity(17);
+            root.addView(more, matchWidthWithBottom(dp(12)));
+        }
+
+        Button button = new Button(this);
+        button.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                MainActivity.this.showResultScreen();
+            }
+        });
+        styleActionButton(button, "결과로 돌아가기", "grid", -1050881, -4203522, -14326805);
+        root.addView(button, matchWidth());
+        setContentViewWithBottomTabs(scrollView, -1);
+    }
+
+    private ResultAlbumDetail collectResultAlbumDetail(String groupKey, int limit) {
+        ResultAlbumDetail detail = new ResultAlbumDetail(groupKey);
+        for (PhotoItem item : this.previewItems) {
+            if (item == null || item.noLocation || !groupKey.equals(albumCandidateGroupKey(item))) {
+                continue;
+            }
+            detail.totalCount++;
+            if (item.video) {
+                detail.videoCount++;
+            }
+            detail.dateRange.include(item.takenAt);
+            if (detail.previewItems.size() < limit) {
+                detail.previewItems.add(item);
+            }
+        }
+        return detail;
+    }
+
+    private void addResultDetailGrid(LinearLayout parent, List<PhotoItem> items) {
+        int index = 0;
+        while (index < items.size()) {
+            LinearLayout row = new LinearLayout(this);
+            row.setOrientation(0);
+            parent.addView(row, matchWidthWithBottom(dp(8)));
+            for (int column = 0; column < 3; column++) {
+                if (index < items.size()) {
+                    PhotoItem item = items.get(index);
+                    LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(0, dp(112), 1.0f);
+                    params.setMargins(column == 0 ? 0 : dp(4), 0, column == 2 ? 0 : dp(4), 0);
+                    row.addView(resultDetailThumbnail(item), params);
+                    index++;
+                } else {
+                    View spacer = new View(this);
+                    LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(0, dp(112), 1.0f);
+                    params.setMargins(column == 0 ? 0 : dp(4), 0, column == 2 ? 0 : dp(4), 0);
+                    row.addView(spacer, params);
+                }
+            }
+        }
+    }
+
+    private View resultDetailThumbnail(final PhotoItem item) {
+        FrameLayout frame = new FrameLayout(this);
+        frame.setClickable(true);
+        frame.setFocusable(true);
+        frame.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                MainActivity.this.openMedia(item);
+            }
+        });
+        ImageView imageView = new ImageView(this);
+        imageView.setScaleType(ImageView.ScaleType.CENTER_CROP);
+        frame.addView(imageView, new FrameLayout.LayoutParams(-1, -1));
+        GradientDrawable background = new GradientDrawable();
+        background.setColor(-1050881);
+        background.setCornerRadius(dp(12));
+        imageView.setBackground(background);
+        imageView.setClipToOutline(true);
+        loadThumbnailInto(imageView, item.uri, dp(224));
+        if (item.video) {
+            TextView badge = new TextView(this);
+            badge.setText("동영상");
+            badge.setTextSize(11.0f);
+            badge.setTypeface(Typeface.DEFAULT_BOLD);
+            badge.setTextColor(-1);
+            badge.setGravity(17);
+            badge.setPadding(dp(7), dp(4), dp(7), dp(4));
+            GradientDrawable badgeBackground = new GradientDrawable();
+            badgeBackground.setColor(-1728053248);
+            badgeBackground.setCornerRadius(dp(10));
+            badge.setBackground(badgeBackground);
+            FrameLayout.LayoutParams badgeParams = new FrameLayout.LayoutParams(-2, -2, 8388693);
+            badgeParams.setMargins(0, 0, dp(7), dp(7));
+            frame.addView(badge, badgeParams);
+        }
+        return frame;
     }
 
     private void addResultSectionLabel(String str) {
@@ -7624,6 +7787,8 @@ public class MainActivity extends Activity {
     private void startSortForegroundProgress(String str) {
         try {
             String label = str == null || str.trim().isEmpty() ? "PhotoPlace 정리 준비 중" : str;
+            this.lastNotificationProgressUpdateMillis = 0L;
+            this.lastNotificationProgressPercent = -1;
             SortProgressStore.start(this, label);
             SortForegroundService.start(this, label);
         } catch (Exception unused) {
@@ -7636,13 +7801,37 @@ public class MainActivity extends Activity {
         }
         try {
             SortProgressStore.update(this, str, i, i2, str2);
-            SortForegroundService.update(this, str, i, i2, str2);
+            if (shouldUpdateSortNotification(i, i2)) {
+                SortForegroundService.update(this, str, i, i2, str2);
+            }
         } catch (Exception unused) {
         }
     }
 
+    private boolean shouldUpdateSortNotification(int i, int i2) {
+        long now = System.currentTimeMillis();
+        int percent = i2 > 0 ? Math.min(100, Math.max(0, (int) ((((long) i) * 100L) / ((long) i2)))) : -1;
+        if (i <= 0 || (i2 > 0 && i >= i2)) {
+            this.lastNotificationProgressUpdateMillis = now;
+            this.lastNotificationProgressPercent = percent;
+            return true;
+        }
+        if (percent != this.lastNotificationProgressPercent) {
+            this.lastNotificationProgressUpdateMillis = now;
+            this.lastNotificationProgressPercent = percent;
+            return true;
+        }
+        if (now - this.lastNotificationProgressUpdateMillis >= NOTIFICATION_PROGRESS_THROTTLE_MS) {
+            this.lastNotificationProgressUpdateMillis = now;
+            return true;
+        }
+        return false;
+    }
+
     private void stopSortForegroundProgress() {
         try {
+            this.lastNotificationProgressUpdateMillis = 0L;
+            this.lastNotificationProgressPercent = -1;
             SortProgressStore.finish(this);
             SortForegroundService.stop(this);
         } catch (Exception unused) {
