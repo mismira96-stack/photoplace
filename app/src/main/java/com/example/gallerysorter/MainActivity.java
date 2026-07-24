@@ -3471,7 +3471,10 @@ public class MainActivity extends Activity {
                             albumSummary2.dateRange.include(new Date(albumMediaDateMillis));
                         }
                         if ((albumSummary2.countryName == null || albumSummary2.countryName.isEmpty()) && Looper.myLooper() != Looper.getMainLooper()) {
-                            albumSummary2.includeLocationMetadata(readExistingAlbumLocationMetadata(uriWithAppendedId, z2));
+                            LocationLookupResult locationLookupResult = readExistingAlbumLocationMetadata(uriWithAppendedId, z2);
+                            if (locationLookupResult != null && !LOCATION_NONE.equals(locationLookupResult.folderKey)) {
+                                albumSummary2.includeLocationMetadata(locationLookupResult.countryName, locationLookupResult.adminArea, locationLookupResult.addressLine);
+                            }
                         }
                         if (albumSummary2.thumbnailUri == null || albumSummary2.thumbnailUri.isEmpty() || (z && albumMediaDateMillis >= albumSummary2.thumbnailDateMillis)) {
                             albumSummary2.thumbnailUri = uriWithAppendedId.toString();
@@ -7501,42 +7504,6 @@ public class MainActivity extends Activity {
         super.onDestroy();
         this.worker.shutdownNow();
         this.thumbnailWorker.shutdownNow();
-    }
-
-    private static class AlbumSummary {
-        final String albumName;
-        final String relativePath;
-        String thumbnailUri;
-        String countryName;
-        String adminArea;
-        String addressLine;
-        final DateRange dateRange = new DateRange();
-        int itemCount = 0;
-        long thumbnailDateMillis = 0;
-
-        AlbumSummary(String str, String str2, String str3) {
-            this.albumName = str;
-            this.relativePath = str2;
-            this.thumbnailUri = str3;
-        }
-
-        void includeLocationMetadata(String str, String str2, String str3) {
-            if ((this.countryName == null || this.countryName.isEmpty()) && str != null && !str.trim().isEmpty()) {
-                this.countryName = str.trim();
-            }
-            if ((this.adminArea == null || this.adminArea.isEmpty()) && str2 != null && !str2.trim().isEmpty()) {
-                this.adminArea = str2.trim();
-            }
-            if ((this.addressLine == null || this.addressLine.isEmpty()) && str3 != null && !str3.trim().isEmpty()) {
-                this.addressLine = str3.trim();
-            }
-        }
-
-        void includeLocationMetadata(LocationLookupResult locationLookupResult) {
-            if (locationLookupResult != null && !LOCATION_NONE.equals(locationLookupResult.folderKey)) {
-                includeLocationMetadata(locationLookupResult.countryName, locationLookupResult.adminArea, locationLookupResult.addressLine);
-            }
-        }
     }
 
     private static class MediaOpenTarget {
