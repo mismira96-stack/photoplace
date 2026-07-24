@@ -59,6 +59,10 @@
   - ForegroundService/notification/progress store는 있음.
   - 실제 scan/copy job은 아직 Activity worker 중심.
   - 앱 업데이트/프로세스 종료 시 작업 자체가 이어지는 것은 아니고 stale progress 복구만 함.
+- 준비 완료:
+  - `BACKGROUND_PROCESSING_PLAN.md` 추가.
+  - `SortInputStore` 추가: Worker가 사용할 `previewItems` snapshot을 내부 JSON으로 저장/복원 가능.
+  - 아직 production flow에는 연결하지 않음. 내일 WorkManager 연결 전 안전 발판.
 - 다음 목표:
   - WorkManager 또는 ForegroundService가 실제 scan/copy job을 소유.
   - 앱을 나갔다 와도 작업 유지.
