@@ -142,6 +142,8 @@ public class MainActivity extends Activity {
     private TextView logText;
     private LinearLayout previewButton;
     private ProgressBar progressBar;
+    private TextView progressBannerDetailText;
+    private TextView progressBannerTitleText;
     private TextView progressDetailText;
     private TextView progressPercentText;
     private TextView progressText;
@@ -394,7 +396,6 @@ public class MainActivity extends Activity {
         textView3.setIncludeFontPadding(false);
         textView3.setPadding(dp(4), dp(2), 0, 0);
         linearLayout2.addView(textView3, matchWidth());
-        addWorkingBanner(linearLayout);
         LinearLayout linearLayout4 = new LinearLayout(this);
         linearLayout4.setOrientation(0);
         linearLayout4.setGravity(17);
@@ -6501,6 +6502,7 @@ public class MainActivity extends Activity {
             textView.setTextSize(15.0f);
             textView.setTypeface(Typeface.DEFAULT_BOLD);
             textView.setTextColor(-15656921);
+            this.progressBannerTitleText = textView;
             linearLayout2.addView(textView, matchWidthWithBottom(dp(4)));
             TextView textView2 = new TextView(this);
             int i = this.activeProgressTotal;
@@ -6511,12 +6513,16 @@ public class MainActivity extends Activity {
             }
             textView2.setTextSize(13.0f);
             textView2.setTextColor(-10193781);
+            this.progressBannerDetailText = textView2;
             linearLayout2.addView(textView2, matchWidthWithBottom(dp(2)));
             TextView textView3 = new TextView(this);
             textView3.setText("백그라운드에서 계속 진행됩니다.");
             textView3.setTextSize(12.0f);
             textView3.setTextColor(-7035976);
             linearLayout2.addView(textView3, matchWidth());
+        } else {
+            this.progressBannerTitleText = null;
+            this.progressBannerDetailText = null;
         }
     }
 
@@ -7858,6 +7864,7 @@ public class MainActivity extends Activity {
             this.progressText.setText("");
             this.progressPercentText.setText("");
             this.progressDetailText.setText("");
+            updateProgressBanner(null, 0, 0);
             return;
         }
         progressBar.setIndeterminate(false);
@@ -7871,6 +7878,24 @@ public class MainActivity extends Activity {
             str3 = str3 + " · " + str2;
         }
         this.progressDetailText.setText(str3);
+        updateProgressBanner(str, i, i2);
+    }
+
+    private void updateProgressBanner(String str, int i, int i2) {
+        TextView title = this.progressBannerTitleText;
+        TextView detail = this.progressBannerDetailText;
+        if (title == null || detail == null) {
+            return;
+        }
+        if (str == null || i2 <= 0) {
+            title.setText(this.workingMessage != null ? this.workingMessage : "분석 진행 중");
+            detail.setText("백그라운드에서 계속 진행됩니다.");
+            return;
+        }
+        int clamped = Math.min(i, i2);
+        int percent = Math.min(100, Math.max(0, Math.round((clamped * 100.0f) / i2)));
+        title.setText(str);
+        detail.setText(clamped + " / " + i2 + " 완료 · " + percent + "%");
     }
 
     private void requestCancel() {
