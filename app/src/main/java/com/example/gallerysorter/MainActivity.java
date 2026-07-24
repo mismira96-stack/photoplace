@@ -7601,28 +7601,6 @@ public class MainActivity extends Activity {
         }
     }
 
-    private static class DateRange {
-        Date end;
-        Date start;
-
-        private DateRange() {
-        }
-
-        void include(Date date) {
-            if (date == null) {
-                return;
-            }
-            Date date2 = this.start;
-            if (date2 == null || date.before(date2)) {
-                this.start = date;
-            }
-            Date date3 = this.end;
-            if (date3 == null || date.after(date3)) {
-                this.end = date;
-            }
-        }
-    }
-
     /* JADX INFO: Access modifiers changed from: private */
     static class SourceFolder {
         final int count;
