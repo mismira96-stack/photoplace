@@ -3710,7 +3710,7 @@ public class MainActivity extends Activity {
                 boolean z = (storedAlbumSummary.relativePath == null || albumSummary.relativePath == null || !storedAlbumSummary.relativePath.equals(albumSummary.relativePath)) ? false : true;
                 boolean z2 = (storedAlbumSummary.albumName == null || albumSummary.albumName == null || !storedAlbumSummary.albumName.equals(albumSummary.albumName)) ? false : true;
                 if (z || z2) {
-                    return StoredAlbumSummary.fromAlbumSummary(albumSummary, jCurrentTimeMillis);
+                    return storedAlbumSummaryFromAlbumSummary(albumSummary, jCurrentTimeMillis);
                 }
             }
         }
@@ -3719,6 +3719,16 @@ public class MainActivity extends Activity {
 
     private boolean hasAlbumSummaryChanged(StoredAlbumSummary storedAlbumSummary, StoredAlbumSummary storedAlbumSummary2) {
         return (storedAlbumSummary == null || storedAlbumSummary2 == null) ? storedAlbumSummary != storedAlbumSummary2 : (storedAlbumSummary.itemCount == storedAlbumSummary2.itemCount && Objects.equals(storedAlbumSummary.startDate, storedAlbumSummary2.startDate) && Objects.equals(storedAlbumSummary.endDate, storedAlbumSummary2.endDate) && Objects.equals(storedAlbumSummary.thumbnailUri, storedAlbumSummary2.thumbnailUri) && Objects.equals(storedAlbumSummary.relativePath, storedAlbumSummary2.relativePath)) ? false : true;
+    }
+
+    private StoredAlbumSummary storedAlbumSummaryFromAlbumSummary(AlbumSummary albumSummary, long j) {
+        if (albumSummary == null) {
+            return new StoredAlbumSummary("", "", 0, null, null, null, null, 0L, "", "", "");
+        }
+        String str = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.KOREA).format(new Date(j));
+        Date date = albumSummary.dateRange.start;
+        Date date2 = albumSummary.dateRange.end;
+        return new StoredAlbumSummary(albumSummary.albumName, albumSummary.relativePath, albumSummary.itemCount, date == null ? null : new SimpleDateFormat("yyyy-MM-dd", Locale.KOREA).format(date), date2 == null ? null : new SimpleDateFormat("yyyy-MM-dd", Locale.KOREA).format(date2), albumSummary.thumbnailUri, str, j, albumSummary.countryName, albumSummary.adminArea, albumSummary.addressLine);
     }
 
     private List<StoredAlbumSummary> loadRecentAlbumSummaries() {
@@ -3759,7 +3769,7 @@ public class MainActivity extends Activity {
         }
         if (!mapCollectExistingAlbumSummaries.isEmpty()) {
             for (AlbumSummary albumSummary : mapCollectExistingAlbumSummaries.values()) {
-                StoredAlbumSummary storedAlbumSummaryFromAlbumSummary = StoredAlbumSummary.fromAlbumSummary(albumSummary, 0L);
+                StoredAlbumSummary storedAlbumSummaryFromAlbumSummary = storedAlbumSummaryFromAlbumSummary(albumSummary, 0L);
                 if (!storedAlbumSummaryFromAlbumSummary.albumName.isEmpty() && !hashSet.contains(storedAlbumSummaryFromAlbumSummary.albumName)) {
                     hashSet.add(storedAlbumSummaryFromAlbumSummary.albumName);
                     arrayList.add(storedAlbumSummaryFromAlbumSummary);
@@ -3769,7 +3779,7 @@ public class MainActivity extends Activity {
         Collections.sort(arrayList, new Comparator() { // from class: com.example.gallerysorter.MainActivity$$ExternalSyntheticLambda68
             @Override // java.util.Comparator
             public final int compare(Object obj, Object obj2) {
-                return MainActivity.this.m27x4836e99e((MainActivity.StoredAlbumSummary) obj, (MainActivity.StoredAlbumSummary) obj2);
+                return MainActivity.this.m27x4836e99e((StoredAlbumSummary) obj, (StoredAlbumSummary) obj2);
             }
         });
         return arrayList;
@@ -7526,49 +7536,6 @@ public class MainActivity extends Activity {
             if (locationLookupResult != null && !LOCATION_NONE.equals(locationLookupResult.folderKey)) {
                 includeLocationMetadata(locationLookupResult.countryName, locationLookupResult.adminArea, locationLookupResult.addressLine);
             }
-        }
-    }
-
-    /* JADX INFO: Access modifiers changed from: private */
-    static class StoredAlbumSummary {
-        final String albumName;
-        final String createdAt;
-        final long createdAtMillis;
-        final String endDate;
-        final int itemCount;
-        final String relativePath;
-        final String startDate;
-        final String thumbnailUri;
-        final String countryName;
-        final String adminArea;
-        final String addressLine;
-
-        StoredAlbumSummary(String str, String str2, int i, String str3, String str4, String str5, String str6, long j, String str7, String str8, String str9) {
-            this.albumName = str == null ? "" : str;
-            this.relativePath = str2 == null ? "" : str2;
-            this.itemCount = i;
-            this.startDate = str3;
-            this.endDate = str4;
-            this.thumbnailUri = str5;
-            this.createdAt = str6;
-            this.createdAtMillis = j;
-            this.countryName = str7 == null ? "" : str7;
-            this.adminArea = str8 == null ? "" : str8;
-            this.addressLine = str9 == null ? "" : str9;
-        }
-
-        static StoredAlbumSummary fromJson(JSONObject jSONObject) {
-            return new StoredAlbumSummary(jSONObject.optString("albumName", ""), jSONObject.optString("relativePath", ""), jSONObject.optInt("itemCount", 0), jSONObject.optString("startDate", null), jSONObject.optString("endDate", null), jSONObject.optString("thumbnailUri", null), jSONObject.optString("createdAt", null), jSONObject.optLong("createdAtMillis", 0L), jSONObject.optString("countryName", ""), jSONObject.optString("adminArea", ""), jSONObject.optString("addressLine", ""));
-        }
-
-        static StoredAlbumSummary fromAlbumSummary(AlbumSummary albumSummary, long j) {
-            if (albumSummary == null) {
-                return new StoredAlbumSummary("", "", 0, null, null, null, null, 0L, "", "", "");
-            }
-            String str = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.KOREA).format(new Date(j));
-            Date date = albumSummary.dateRange.start;
-            Date date2 = albumSummary.dateRange.end;
-            return new StoredAlbumSummary(albumSummary.albumName, albumSummary.relativePath, albumSummary.itemCount, date == null ? null : new SimpleDateFormat("yyyy-MM-dd", Locale.KOREA).format(date), date2 == null ? null : new SimpleDateFormat("yyyy-MM-dd", Locale.KOREA).format(date2), albumSummary.thumbnailUri, str, j, albumSummary.countryName, albumSummary.adminArea, albumSummary.addressLine);
         }
     }
 

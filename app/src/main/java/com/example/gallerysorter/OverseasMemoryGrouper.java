@@ -49,12 +49,12 @@ final class OverseasMemoryGrouper {
     private OverseasMemoryGrouper() {
     }
 
-    static List<MemoryGroup> buildOverseasGroups(List<MainActivity.StoredAlbumSummary> summaries) {
+    static List<MemoryGroup> buildOverseasGroups(List<StoredAlbumSummary> summaries) {
         LinkedHashMap<String, List<MemoryItem>> grouped = new LinkedHashMap<>();
         if (summaries == null) {
             return Collections.emptyList();
         }
-        for (MainActivity.StoredAlbumSummary summary : summaries) {
+        for (StoredAlbumSummary summary : summaries) {
             String country = overseasCountryName(summary);
             if (country.isEmpty()) {
                 continue;
@@ -91,7 +91,7 @@ final class OverseasMemoryGrouper {
         return groups;
     }
 
-    private static String overseasCountryName(MainActivity.StoredAlbumSummary summary) {
+    private static String overseasCountryName(StoredAlbumSummary summary) {
         if (summary == null) {
             return "";
         }
