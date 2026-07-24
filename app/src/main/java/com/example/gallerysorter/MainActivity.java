@@ -177,6 +177,7 @@ public class MainActivity extends Activity {
     private NoLocationCache noLocationCache = null;
     private AlbumSummaryHistoryStore albumSummaryHistoryStore = null;
     private MediaCopyEngine mediaCopyEngine = null;
+    private MediaMetadataReader mediaMetadataReader = null;
     private final MediaScanProgressListener mediaScanProgressListener = new MediaScanProgressListener() {
         @Override
         public void onItemScanned(boolean video, int displayCurrent, int displayTotal, int progressCurrent, int progressTotal, PhotoItem item) {
@@ -228,6 +229,7 @@ public class MainActivity extends Activity {
         this.noLocationCache = new NoLocationCache(getSharedPreferences(PREFS_NAME, 0));
         this.albumSummaryHistoryStore = new AlbumSummaryHistoryStore(this);
         this.mediaCopyEngine = new MediaCopyEngine(this);
+        this.mediaMetadataReader = new MediaMetadataReader(this);
         loadPendingOriginalCleanup();
         buildUi();
         ensureReadPermission();
@@ -2461,6 +2463,9 @@ public class MainActivity extends Activity {
     }
 
     private ExifReadResult readExifData(Uri uri) {
+        if (System.currentTimeMillis() >= 0) {
+            return this.mediaMetadataReader.readExifData(uri);
+        }
         ExifReadResult exifReadResult = new ExifReadResult();
         try {
             ParcelFileDescriptor parcelFileDescriptorOpenFileDescriptor = getContentResolver().openFileDescriptor(uri, "r");
@@ -2513,6 +2518,9 @@ public class MainActivity extends Activity {
     }
 
     private VideoMetadataResult readVideoMetadata(Uri uri) {
+        if (System.currentTimeMillis() >= 0) {
+            return this.mediaMetadataReader.readVideoMetadata(uri);
+        }
         VideoMetadataResult videoMetadataResult = new VideoMetadataResult();
         MediaMetadataRetriever mediaMetadataRetriever = new MediaMetadataRetriever();
         try {
