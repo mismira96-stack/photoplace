@@ -3,7 +3,9 @@ package com.example.gallerysorter;
 import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
+import android.app.PendingIntent;
 import android.content.Context;
+import android.content.Intent;
 import android.os.Build;
 
 final class SortNotificationHelper {
@@ -35,6 +37,7 @@ final class SortNotificationHelper {
                 .setSmallIcon(android.R.drawable.ic_menu_upload)
                 .setContentTitle(label == null || label.trim().isEmpty() ? "PhotoPlace 정리 중" : label)
                 .setContentText(progressText(current, total, progressContext))
+                .setContentIntent(openAppIntent(context))
                 .setOngoing(true)
                 .setOnlyAlertOnce(true);
         if (total > 0) {
@@ -51,6 +54,7 @@ final class SortNotificationHelper {
                 .setSmallIcon(android.R.drawable.ic_menu_gallery)
                 .setContentTitle(title == null || title.trim().isEmpty() ? "PhotoPlace 정리가 완료되었습니다" : title)
                 .setContentText(text == null ? "" : text)
+                .setContentIntent(openAppIntent(context))
                 .setAutoCancel(true)
                 .build();
     }
@@ -60,6 +64,19 @@ final class SortNotificationHelper {
             return new Notification.Builder(context, channelId);
         }
         return new Notification.Builder(context);
+    }
+
+    private static PendingIntent openAppIntent(Context context) {
+        Intent intent = context.getPackageManager().getLaunchIntentForPackage(context.getPackageName());
+        if (intent == null) {
+            intent = new Intent(context, MainActivity.class);
+        }
+        intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+        int flags = PendingIntent.FLAG_UPDATE_CURRENT;
+        if (Build.VERSION.SDK_INT >= 23) {
+            flags |= PendingIntent.FLAG_IMMUTABLE;
+        }
+        return PendingIntent.getActivity(context, 4103, intent, flags);
     }
 
     private static String progressText(int current, int total, String progressContext) {

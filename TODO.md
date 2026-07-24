@@ -1,5 +1,54 @@
 # 앨범정리 TODO
 
+## 2026-07-24 백그라운드 테스트 후 남은 TODO
+
+- 현재 브랜치: `codex/photoplace-v2-bg-wip`
+- debug APK를 폰에 설치해 4000장 테스트 준비 완료.
+- `assembleDebug`, `assembleRelease` 성공.
+
+### P0. 이미 정리된 파일 재스캔 비용 줄이기
+
+- 현재 상태:
+  - 다시 정리를 돌리면 복사 단계에서는 `이미 정리됨`으로 중복 복사를 피한다.
+  - 하지만 스캔/위치 분석은 전체 파일을 다시 훑기 때문에 4000장/30000장 사용자에게 여전히 느리다.
+- 개선 방향:
+  - “이미 정리된 파일”을 스캔 초반에 빠르게 판별하거나 이전 분석 결과를 재사용.
+  - 후보 상태를 명확히 분리:
+    - `새로 정리할 항목`
+    - `이미 정리된 항목`
+    - `위치 정보 없음`
+    - `실패/건너뜀`
+  - 이미 정리된 항목이 대부분이면 CTA를 숨기거나 `새 항목만 정리`로 표시.
+  - 이 작업은 정리 이력/최근 정리 기록 UX와 연결됨.
+- 설계 후보:
+  - `SortHistoryStore` 또는 `AnalyzedMediaStore` 추가.
+  - 키 후보: 원본 uri, displayName, dateModified, dateTaken, media type, targetRelativePath.
+  - 파일 수정/권한 변경/소스 폴더 변경 시 캐시 무효화 조건 필요.
+  - 기존 `NoLocationCache`는 현재 비활성화 상태이므로 같은 실수를 반복하지 않게 invalidation 테스트 먼저 필요.
+
+### P0. 알림 진행률/진입
+
+- 완료:
+  - 알림 클릭 시 앱 진입 `PendingIntent` 추가.
+  - WorkManager `SystemForegroundService` manifest `foregroundServiceType="dataSync"` override 추가.
+  - release lint 통과 확인.
+- 남은 확인:
+  - 4000장 테스트 중 알림 진행률이 실제로 실시간 갱신되는지 확인.
+  - 앱 복귀 시 `SortProgressStore` 값이 홈 진행 UI에 자연스럽게 복원되는지 확인.
+
+### P1. Back 키 불응 점검
+
+- 작업 중 Back 키가 여러 번 눌러도 안 먹는 경우가 있음.
+- 확인 지점:
+  - `onBackPressed()`
+  - `OnBackInvokedCallback`
+  - `isWorking`
+  - `blockNavigationWhileWorking()`
+  - 정리 기록 탭과 홈 복귀 흐름
+- 기대 동작:
+  - 정리 중에는 명확한 안내를 보여주고 작업은 유지.
+  - 정리 완료 후에는 이전 화면/홈 복귀가 예측 가능해야 함.
+
 ## 2026-07-23 V2 1차 시작 - 해외 기록 / Memory View
 
 - 완료:
