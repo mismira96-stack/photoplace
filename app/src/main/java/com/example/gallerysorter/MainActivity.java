@@ -234,7 +234,9 @@ public class MainActivity extends Activity {
         if (!this.isWorking) {
             loadPendingOriginalCleanup();
             if (!this.resultScreenMode && !this.recentPlacesScreenMode && !this.recentPlaceDetailMode) {
-                restoreMainUiFromState();
+                if (!restoreActiveSortProgressFromStore()) {
+                    restoreMainUiFromState();
+                }
             }
         }
         refreshActivePlaceDetailAfterExternalChange();
@@ -638,6 +640,9 @@ public class MainActivity extends Activity {
     }
 
     private void restoreMainUiFromState() {
+        if (restoreActiveSortProgressFromStore()) {
+            return;
+        }
         String strCompactResultSummary;
         int i = 8;
         if (this.previewItems.isEmpty()) {
@@ -732,6 +737,26 @@ public class MainActivity extends Activity {
             z = true;
         }
         button2.setEnabled(z);
+    }
+
+    private boolean restoreActiveSortProgressFromStore() {
+        SortProgressStore.Snapshot snapshot = SortProgressStore.read(this);
+        if (!snapshot.isFresh(System.currentTimeMillis())) {
+            return false;
+        }
+        this.isWorking = true;
+        this.workingMessage = snapshot.label;
+        this.activeProgressLabel = snapshot.label;
+        this.activeProgressCurrent = snapshot.current;
+        this.activeProgressTotal = snapshot.total;
+        this.activeProgressContext = snapshot.progressContext;
+        setStatus("정리 중", String.valueOf(snapshot.current), "0", String.valueOf(snapshot.total));
+        if (this.summaryText != null) {
+            this.summaryText.setText(snapshot.label);
+        }
+        applyWorkingStateToViews();
+        renderProgress(snapshot.label, snapshot.current, snapshot.total, snapshot.progressContext);
+        return true;
     }
 
     private void ensureReadPermission() {
@@ -1012,7 +1037,7 @@ public class MainActivity extends Activity {
             addDialogAlbumPreview(linearLayout);
         }
         Button button = new Button(this);
-        button.setText(i > 0 ? "바로 정리하기" : "확인");
+        button.setText(i > 0 ? "장소별 앨범 만들기" : "확인");
         styleDialogPrimaryButton(button);
         button.setOnClickListener(new View.OnClickListener() { // from class: com.example.gallerysorter.MainActivity$$ExternalSyntheticLambda57
             @Override // android.view.View.OnClickListener

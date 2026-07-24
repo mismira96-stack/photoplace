@@ -16,6 +16,18 @@ final class SortProgressStore {
     private SortProgressStore() {
     }
 
+    static Snapshot read(Context context) {
+        SharedPreferences prefs = context.getSharedPreferences(PREFS, 0);
+        return new Snapshot(
+                prefs.getBoolean(KEY_ACTIVE, false),
+                prefs.getString(KEY_LABEL, ""),
+                prefs.getInt(KEY_CURRENT, 0),
+                prefs.getInt(KEY_TOTAL, 0),
+                prefs.getString(KEY_CONTEXT, ""),
+                prefs.getLong(KEY_STARTED_AT, 0L),
+                prefs.getLong(KEY_UPDATED_AT, 0L));
+    }
+
     static void start(Context context, String label) {
         long now = System.currentTimeMillis();
         context.getSharedPreferences(PREFS, 0).edit()
@@ -45,5 +57,29 @@ final class SortProgressStore {
                 .putBoolean(KEY_ACTIVE, false)
                 .putLong(KEY_UPDATED_AT, System.currentTimeMillis())
                 .apply();
+    }
+
+    static final class Snapshot {
+        final boolean active;
+        final String label;
+        final int current;
+        final int total;
+        final String progressContext;
+        final long startedAtMillis;
+        final long updatedAtMillis;
+
+        Snapshot(boolean active, String label, int current, int total, String progressContext, long startedAtMillis, long updatedAtMillis) {
+            this.active = active;
+            this.label = label == null ? "" : label;
+            this.current = Math.max(0, current);
+            this.total = Math.max(0, total);
+            this.progressContext = progressContext == null ? "" : progressContext;
+            this.startedAtMillis = startedAtMillis;
+            this.updatedAtMillis = updatedAtMillis;
+        }
+
+        boolean isFresh(long nowMillis) {
+            return active && updatedAtMillis > 0L && nowMillis - updatedAtMillis < 10L * 60L * 1000L;
+        }
     }
 }
