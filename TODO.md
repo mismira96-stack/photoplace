@@ -33,6 +33,7 @@
 - 자동 테스트:
   - `PlaceNamePolicyTest` 추가.
   - `MediaAnalysisSignatureTest` 추가.
+  - `MovementClassifierTest` 추가.
   - `testDebugUnitTest assembleDebug` 통과.
 
 ## 남은 핵심 TODO 우선순위
@@ -82,9 +83,15 @@
 - 준비 완료:
   - `PlaceNamePolicy`로 장소명 정책을 `MainActivity`에서 분리.
   - 서울 로마자 구명, 서울 행정동, 강한 POI, 출입구/북문 노이즈, 밀리토피아시티 회귀 테스트 추가.
+  - `MovementClassifier` / `MovementType` 추가.
+  - altitude 또는 사진 간 거리/시간 기반으로 `STILL`, `MOVING`, `IN_FLIGHT`를 판별하는 테스트 추가.
 - 비행 중 사진:
   - 자동 제외하지 말고 `비행 중` 또는 `이동 중`으로 표시하는 방향.
   - 후보 신호: altitude, 시간 간격, GPS 점프 거리/속도.
+- 다음 연결:
+  - EXIF altitude 읽기 추가 가능 여부 확인.
+  - 같은 촬영 세션 내 이전/다음 GPS와 시간 차이로 이동 속도 계산.
+  - 해외 기록/장소 상세에 badge만 표시하고 자동 제외는 하지 않음.
 - 차량/기차 이동:
   - 자동 제외는 위험.
   - 먼저 표시/분류만 하고 사용자가 이해할 수 있게 만드는 쪽.
