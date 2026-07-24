@@ -751,7 +751,8 @@ public class MainActivity extends Activity {
 
     private boolean restoreActiveSortProgressFromStore() {
         SortProgressStore.Snapshot snapshot = SortProgressStore.read(this);
-        if (!snapshot.isFresh(System.currentTimeMillis())) {
+        if (!snapshot.isFresh(System.currentTimeMillis()) || isProgressStale(snapshot, System.currentTimeMillis())) {
+            SortProgressStore.finish(this);
             return false;
         }
         this.isWorking = true;
@@ -767,6 +768,10 @@ public class MainActivity extends Activity {
         applyWorkingStateToViews();
         renderProgress(snapshot.label, snapshot.current, snapshot.total, snapshot.progressContext);
         return true;
+    }
+
+    private boolean isProgressStale(SortProgressStore.Snapshot snapshot, long nowMillis) {
+        return snapshot.active && snapshot.current > 0 && snapshot.total > 0 && nowMillis - snapshot.updatedAtMillis > 90L * 1000L;
     }
 
     private void ensureReadPermission() {
@@ -890,10 +895,27 @@ public class MainActivity extends Activity {
                 try {
                     MainActivity.this.m46lambda$runPreview$12$comexamplegallerysorterMainActivity();
                 } catch (Throwable e) {
-                    throw new RuntimeException(e);
+                    MainActivity.this.runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            MainActivity.this.handlePreviewError(e);
+                        }
+                    });
                 }
             }
         });
+    }
+
+    private void handlePreviewError(Throwable th) {
+        setWorking(false, null);
+        this.copyCompletedMode = false;
+        this.copyStoppedMode = true;
+        this.summaryText.setText("항목 확인 중 문제가 생겼어요.");
+        this.logText.setText("앱을 멈추지 않고 복구했어요. 다시 시도해 주세요. 오류: " + safeErrorMessage(th));
+        setStatus("확인 중단", "0", "0", "0");
+        this.copyButton.setEnabled(false);
+        this.copyButton.setVisibility(8);
+        showToast("항목 확인을 멈췄어요. 다시 실행할 수 있습니다.");
     }
 
     /* renamed from: lambda$runPreview$12$com-example-gallerysorter-MainActivity, reason: not valid java name */
