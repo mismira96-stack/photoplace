@@ -7669,18 +7669,6 @@ public class MainActivity extends Activity {
         }
     }
 
-    private static class AlbumFolder {
-        final String folderName;
-        final String matchName;
-        final String relativePath;
-
-        AlbumFolder(String str, String str2, String str3) {
-            this.relativePath = str;
-            this.folderName = str2;
-            this.matchName = str3;
-        }
-    }
-
     private static class IconBubbleDrawable extends Drawable {
         private final int backgroundColor;
         private final String icon;
