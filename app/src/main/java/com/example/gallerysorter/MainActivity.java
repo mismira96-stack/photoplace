@@ -484,9 +484,9 @@ public class MainActivity extends Activity {
         textView6.setTextSize(13.0f);
         this.progressDetailText.setTextColor(-10193781);
         linearLayout5.addView(this.progressDetailText, matchWidth());
-        List<StoredAlbumSummary> homeAlbumSummaries = loadRecentAlbumSummariesForUi();
-        addOverseasMemoriesSection(linearLayout, homeAlbumSummaries);
-        addRecentPlacesSection(linearLayout, homeAlbumSummaries);
+        final LinearLayout homeMemorySections = new LinearLayout(this);
+        homeMemorySections.setOrientation(1);
+        linearLayout.addView(homeMemorySections, matchWidth());
         LinearLayout linearLayout7 = new LinearLayout(this);
         this.resultSummaryCard = linearLayout7;
         linearLayout7.setOrientation(1);
@@ -607,6 +607,22 @@ public class MainActivity extends Activity {
         linearLayout11.addView(this.logText, matchWidth());
         setContentViewWithBottomTabs(scrollView, 0);
         applyWorkingStateToViews();
+        loadHomeMemorySectionsAfterFirstDraw(homeMemorySections);
+    }
+
+    private void loadHomeMemorySectionsAfterFirstDraw(final LinearLayout container) {
+        this.mainHandler.post(new Runnable() {
+            @Override
+            public void run() {
+                if (container.getParent() == null || MainActivity.this.resultScreenMode || MainActivity.this.recentPlacesScreenMode || MainActivity.this.recentPlaceDetailMode || MainActivity.this.overseasMemoryScreenMode) {
+                    return;
+                }
+                container.removeAllViews();
+                List<StoredAlbumSummary> homeAlbumSummaries = MainActivity.this.loadRecentAlbumSummariesForUi();
+                MainActivity.this.addOverseasMemoriesSection(container, homeAlbumSummaries);
+                MainActivity.this.addRecentPlacesSection(container, homeAlbumSummaries);
+            }
+        });
     }
 
     /* renamed from: lambda$buildUi$0$com-example-gallerysorter-MainActivity, reason: not valid java name */
