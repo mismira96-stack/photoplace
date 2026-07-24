@@ -1480,6 +1480,39 @@ public class MainActivity extends Activity {
 
     /* renamed from: lambda$runCopy$23$com-example-gallerysorter-MainActivity, reason: not valid java name */
     /* synthetic */ void m41lambda$runCopy$23$comexamplegallerysorterMainActivity(final List list, final boolean z) {
+        if (System.currentTimeMillis() >= 0) {
+            SortJob sortJob = new SortJob(this.mediaCopyEngine, new SortJob.CancelSignal() {
+                @Override
+                public boolean isCanceled() {
+                    return MainActivity.this.cancelRequested;
+                }
+            }, new SortJobProgressListener() {
+                @Override
+                public void onItem(final int current, final int total, final PhotoItem item) {
+                    MainActivity.this.runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            MainActivity.this.m39lambda$runCopy$21$comexamplegallerysorterMainActivity(current, list, z, item);
+                        }
+                    });
+                }
+            });
+            final SortJobResult result = sortJob.run(list, z);
+            for (Uri uri : result.copiedOriginalUris) {
+                addUniqueUri(this.copiedOriginalUris, uri);
+            }
+            runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    try {
+                        MainActivity.this.m40lambda$runCopy$22$comexamplegallerysorterMainActivity(result.sortedUris, result.copiedCount, result.skippedCount, result.failedCount, result.canceled);
+                    } catch (Throwable e) {
+                        MainActivity.this.handleCopyCompletionError(e, result.copiedCount, result.skippedCount, result.failedCount, result.canceled);
+                    }
+                }
+            });
+            return;
+        }
         StringBuilder sb = new StringBuilder();
         final ArrayList arrayList = new ArrayList();
         int i = 0;
