@@ -36,6 +36,7 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
+import android.os.Handler;
 import android.os.Looper;
 import android.os.ParcelFileDescriptor;
 import android.provider.MediaStore;
@@ -151,6 +152,7 @@ public class MainActivity extends Activity {
     private View unclassifiedSectionCard;
     private final ExecutorService worker = Executors.newSingleThreadExecutor();
     private final ExecutorService thumbnailWorker = Executors.newFixedThreadPool(2);
+    private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private final LruCache<String, Bitmap> thumbnailCache = new LruCache<>(32);
     private final List<PhotoItem> previewItems = new ArrayList();
     private final List<Uri> copiedOriginalUris = new ArrayList();
@@ -202,6 +204,12 @@ public class MainActivity extends Activity {
     private int activeProgressTotal = 0;
     private long lastBackPressedAtMillis = 0L;
     private OnBackInvokedCallback backInvokedCallback = null;
+    private final Runnable staleProgressRecoveryRunnable = new Runnable() {
+        @Override
+        public void run() {
+            MainActivity.this.recoverIfActiveProgressStalled();
+        }
+    };
 
     private int actionTextColor(int i) {
         if (i == -15368131) {
@@ -767,11 +775,12 @@ public class MainActivity extends Activity {
         }
         applyWorkingStateToViews();
         renderProgress(snapshot.label, snapshot.current, snapshot.total, snapshot.progressContext);
+        scheduleStaleProgressRecoveryCheck();
         return true;
     }
 
     private boolean isProgressStale(SortProgressStore.Snapshot snapshot, long nowMillis) {
-        return snapshot.active && snapshot.current > 0 && snapshot.total > 0 && nowMillis - snapshot.updatedAtMillis > 90L * 1000L;
+        return snapshot.active && snapshot.current > 0 && snapshot.total > 0 && nowMillis - snapshot.updatedAtMillis > 45L * 1000L;
     }
 
     private void ensureReadPermission() {
@@ -2843,17 +2852,15 @@ public class MainActivity extends Activity {
                 return "예술의전당";
             }
             String normalizedDetail = normalizeForMatch(strTrim);
-            if (normalizedDetail.contains("코엑스")) {
-                return "코엑스";
-            }
-            if (normalizedDetail.contains("봉은사")) {
-                return "봉은사";
+            String knownPlaceName = knownPlaceName(normalizedDetail);
+            if (knownPlaceName != null) {
+                return knownPlaceName;
             }
             String romanizedDistrict = romanizedSeoulDistrictName(normalizeForMatch(strTrim));
             if (romanizedDistrict != null) {
                 return romanizedDistrict;
             }
-            if (strTrim.length() >= 2 && !isNoisySeoulDetailName(strTrim)) {
+            if (strTrim.length() >= 2 && !isAdministrativeOnlyName(normalizeForMatch(strTrim)) && !isNoisySeoulDetailName(strTrim)) {
                 return strTrim;
             }
         }
@@ -2862,7 +2869,7 @@ public class MainActivity extends Activity {
 
     private boolean isNoisySeoulDetailName(String str) {
         String strNormalizeForMatch = normalizeForMatch(str);
-        return strNormalizeForMatch.contains("mall") || strNormalizeForMatch.contains("센터") || strNormalizeForMatch.contains("건물") || strNormalizeForMatch.contains("층") || strNormalizeForMatch.contains("지하") || strNormalizeForMatch.contains("대로") || strNormalizeForMatch.contains("로") || strNormalizeForMatch.contains("길") || strNormalizeForMatch.contains("어린이집") || strNormalizeForMatch.contains("아파트") || strNormalizeForMatch.contains("오피스텔") || strNormalizeForMatch.contains("상가") || strNormalizeForMatch.contains("b1") || strNormalizeForMatch.contains("b2") || strNormalizeForMatch.contains("bf") || strNormalizeForMatch.matches(".*\\d+f.*") || strNormalizeForMatch.matches(".*\\d+호.*");
+        return strNormalizeForMatch.contains("mall") || strNormalizeForMatch.contains("센터") || strNormalizeForMatch.contains("건물") || strNormalizeForMatch.contains("층") || strNormalizeForMatch.contains("지하") || strNormalizeForMatch.contains("대로") || strNormalizeForMatch.contains("로") || strNormalizeForMatch.contains("길") || strNormalizeForMatch.contains("어린이집") || strNormalizeForMatch.contains("아파트") || strNormalizeForMatch.contains("오피스텔") || strNormalizeForMatch.contains("상가") || hasAccessPointNoise(strNormalizeForMatch) || strNormalizeForMatch.contains("b1") || strNormalizeForMatch.contains("b2") || strNormalizeForMatch.contains("bf") || strNormalizeForMatch.matches(".*\\d+f.*") || strNormalizeForMatch.matches(".*\\d+호.*");
     }
 
     private String cleanPoiLocationName(String... strArr) {
@@ -2886,6 +2893,10 @@ public class MainActivity extends Activity {
             return null;
         }
         String strReplaceAll = str.trim().replace("대한민국", "").replaceAll("[,()\\[\\]]", " ").replaceAll("\\s+", " ");
+        String knownPlaceName = knownPlaceName(normalizeForMatch(strReplaceAll));
+        if (knownPlaceName != null) {
+            return knownPlaceName;
+        }
         String[] split = strReplaceAll.split("\\s+");
         for (String str2 : split) {
             String strSafeFolderName = safeFolderName(str2);
@@ -2906,7 +2917,11 @@ public class MainActivity extends Activity {
     }
 
     private boolean isNoisyPlaceCandidate(String str) {
-        return str.contains("militopiacity") || str.contains("밀리토피아시티") || str.contains("지하") || str.contains("상가") || str.contains("아파트") || str.contains("오피스텔");
+        return str.contains("militopiacity") || str.contains("밀리토피아시티") || str.contains("지하") || str.contains("상가") || str.contains("아파트") || str.contains("오피스텔") || hasAccessPointNoise(str);
+    }
+
+    private boolean hasAccessPointNoise(String str) {
+        return str.contains("북문") || str.contains("남문") || str.contains("동문") || str.contains("서문") || str.contains("출입구") || str.contains("입구") || str.contains("northgate") || str.contains("southgate") || str.contains("eastgate") || str.contains("westgate") || str.contains("gate");
     }
 
     private boolean isAdministrativeOnlyName(String str) {
@@ -2915,6 +2930,9 @@ public class MainActivity extends Activity {
 
     private int poiScore(String str) {
         String strNormalizeForMatch = normalizeForMatch(str);
+        if (strNormalizeForMatch.contains("에버랜드") || strNormalizeForMatch.contains("everland") || strNormalizeForMatch.contains("롯데월드") || strNormalizeForMatch.contains("lotteworld")) {
+            return 110;
+        }
         if (strNormalizeForMatch.contains("대학교병원") || strNormalizeForMatch.contains("종합병원")) {
             return 100;
         }
@@ -2935,8 +2953,37 @@ public class MainActivity extends Activity {
     }
 
     private String normalizeLocationKey(String str) {
+        String knownPlaceName = knownPlaceName(normalizeForMatch(str));
+        if (knownPlaceName != null) {
+            return knownPlaceName;
+        }
         String strSafeFolderName = safeFolderName(stripAdministrativeSuffix(str.trim().replace("대한민국", "").replace("특별자치도", "").replace("특별자치시", "").replace("특별시", "").replace("광역시", "").replace("자치시", "")).replaceAll("\\s+", ""));
         return strSafeFolderName.isEmpty() ? LOCATION_NONE : strSafeFolderName;
+    }
+
+    private String knownPlaceName(String normalized) {
+        if (normalized == null || normalized.isEmpty()) {
+            return null;
+        }
+        if (hasAccessPointNoise(normalized)) {
+            return null;
+        }
+        if (normalized.contains("에버랜드") || normalized.contains("everland")) {
+            return "에버랜드";
+        }
+        if (normalized.contains("롯데월드") || normalized.contains("lotteworld")) {
+            return "롯데월드";
+        }
+        if (normalized.contains("코엑스") || normalized.contains("coex")) {
+            return "코엑스";
+        }
+        if (normalized.contains("봉은사") || normalized.contains("bongeunsa")) {
+            return "봉은사";
+        }
+        if (normalized.contains("예술의전당")) {
+            return "예술의전당";
+        }
+        return null;
     }
 
     private String stripAdministrativeSuffix(String str) {
@@ -7364,7 +7411,9 @@ public class MainActivity extends Activity {
         this.workingMessage = z ? str : null;
         if (z) {
             startSortForegroundProgress(str);
+            scheduleStaleProgressRecoveryCheck();
         } else {
+            cancelStaleProgressRecoveryCheck();
             stopSortForegroundProgress();
         }
         if (!z) {
@@ -7432,6 +7481,41 @@ public class MainActivity extends Activity {
         this.activeProgressContext = str2;
         updateSortForegroundProgress(str, i, i2, str2);
         renderProgress(str, i, i2, str2);
+        scheduleStaleProgressRecoveryCheck();
+    }
+
+    private void scheduleStaleProgressRecoveryCheck() {
+        this.mainHandler.removeCallbacks(this.staleProgressRecoveryRunnable);
+        if (this.isWorking) {
+            this.mainHandler.postDelayed(this.staleProgressRecoveryRunnable, 50L * 1000L);
+        }
+    }
+
+    private void cancelStaleProgressRecoveryCheck() {
+        this.mainHandler.removeCallbacks(this.staleProgressRecoveryRunnable);
+    }
+
+    private void recoverIfActiveProgressStalled() {
+        if (!this.isWorking) {
+            return;
+        }
+        SortProgressStore.Snapshot snapshot = SortProgressStore.read(this);
+        if (isProgressStale(snapshot, System.currentTimeMillis())) {
+            this.cancelRequested = true;
+            setWorking(false, null);
+            this.copyCompletedMode = false;
+            this.copyStoppedMode = true;
+            setStatus("확인 중단", String.valueOf(snapshot.current), "0", String.valueOf(snapshot.total));
+            if (this.summaryText != null) {
+                this.summaryText.setText("진행이 멈춘 작업을 복구했어요.");
+            }
+            if (this.logText != null) {
+                this.logText.setText("앱 업데이트나 재시작 중 진행 상태만 남은 것으로 보여요. 다시 실행하면 새 항목만 확인합니다.");
+            }
+            showToast("멈춘 작업을 복구했어요.");
+            return;
+        }
+        scheduleStaleProgressRecoveryCheck();
     }
 
     private void startSortForegroundProgress(String str) {
