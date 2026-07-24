@@ -68,15 +68,10 @@ import android.widget.Switch;
 import android.widget.TextView;
 import android.widget.Toast;
 import com.example.gallerysorter.MainActivity;
-import java.io.BufferedReader;
 import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.io.OutputStream;
-import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
@@ -103,13 +98,11 @@ import org.json.JSONObject;
 /* loaded from: classes.dex */
 public class MainActivity extends Activity {
     private static final String ACTION_REPAIR_DATES = "com.photoplace.app.REPAIR_DATES";
-    private static final String ALBUM_SUMMARY_HISTORY_FILE = "album_summary_history.json";
     private static final String CAMERA_PATH = "DCIM/Camera/";
     private static final String LOCATION_NONE = "위치없음";
     private static final int MAX_MAIN_RESULT_GROUPS = 3;
     private static final int MAX_NO_LOCATION_RESULT_ROWS = 120;
     private static final int MAX_RESULT_SCREEN_GROUPS = 60;
-    private static final int MAX_STORED_SUMMARY_SESSIONS = 20;
     private static final int MAX_VALID_TAKEN_YEAR = 2035;
     private static final int MIN_VALID_TAKEN_YEAR = 2000;
     private static final int RESULT_FOCUS_ALL = 0;
@@ -182,6 +175,7 @@ public class MainActivity extends Activity {
     private List<StoredAlbumSummary> recentAlbumSummaryCache = null;
     private long recentAlbumSummaryCacheMillis = 0L;
     private NoLocationCache noLocationCache = null;
+    private AlbumSummaryHistoryStore albumSummaryHistoryStore = null;
     private boolean existingAlbumBackfillScheduled = false;
     private int recentPlacesScrollY = 0;
     private boolean copyCompletedMode = false;
@@ -220,6 +214,7 @@ public class MainActivity extends Activity {
     protected void onCreate(Bundle bundle) {
         super.onCreate(bundle);
         this.noLocationCache = new NoLocationCache(getSharedPreferences(PREFS_NAME, 0));
+        this.albumSummaryHistoryStore = new AlbumSummaryHistoryStore(this);
         loadPendingOriginalCleanup();
         buildUi();
         ensureReadPermission();
@@ -3543,26 +3538,8 @@ public class MainActivity extends Activity {
     }
 
     private void writeRebuiltAlbumSummaryHistory(Map<String, AlbumSummary> map) throws Exception {
-        long jCurrentTimeMillis = System.currentTimeMillis();
-        JSONObject jSONObject = new JSONObject();
-        JSONArray jSONArray = new JSONArray();
-        jSONArray.put(buildAlbumSummarySessionJson(jCurrentTimeMillis, countAlbumSummaryItems(map), 0, 0, map));
-        jSONObject.put("schemaVersion", 1);
-        jSONObject.put("rebuiltFromExistingAlbums", true);
-        jSONObject.put("updatedAt", formatTimestamp(jCurrentTimeMillis));
-        jSONObject.put("updatedAtMillis", jCurrentTimeMillis);
-        jSONObject.put("sessions", jSONArray);
-        writeAlbumSummaryHistoryRoot(jSONObject);
+        this.albumSummaryHistoryStore.writeRebuilt(map);
         invalidateRecentAlbumSummaryCache();
-    }
-
-    private int countAlbumSummaryItems(Map<String, AlbumSummary> map) {
-        Iterator<AlbumSummary> it = map.values().iterator();
-        int i = 0;
-        while (it.hasNext()) {
-            i += it.next().itemCount;
-        }
-        return i;
     }
 
     private void saveAlbumSummaryHistory(List<PhotoItem> list, List<Uri> list2, int i, int i2, int i3) throws JSONException {
@@ -3596,94 +3573,10 @@ public class MainActivity extends Activity {
             return;
         }
         try {
-            long jCurrentTimeMillis = System.currentTimeMillis();
-            JSONObject albumSummaryHistoryRoot = readAlbumSummaryHistoryRoot();
-            JSONArray jSONArrayOptJSONArray = albumSummaryHistoryRoot.optJSONArray("sessions");
-            JSONArray jSONArray = new JSONArray();
-            jSONArray.put(buildAlbumSummarySessionJson(jCurrentTimeMillis, i, i2, i3, linkedHashMap));
-            if (jSONArrayOptJSONArray != null) {
-                int iMin = Math.min(jSONArrayOptJSONArray.length(), 19);
-                for (int i4 = 0; i4 < iMin; i4++) {
-                    jSONArray.put(jSONArrayOptJSONArray.getJSONObject(i4));
-                }
-            }
-            albumSummaryHistoryRoot.put("schemaVersion", 1);
-            albumSummaryHistoryRoot.put("updatedAt", formatTimestamp(jCurrentTimeMillis));
-            albumSummaryHistoryRoot.put("updatedAtMillis", jCurrentTimeMillis);
-            albumSummaryHistoryRoot.put("sessions", jSONArray);
-            writeAlbumSummaryHistoryRoot(albumSummaryHistoryRoot);
+            this.albumSummaryHistoryStore.appendSession(i, i2, i3, linkedHashMap);
             invalidateRecentAlbumSummaryCache();
         } catch (Exception e) {
             this.logText.setText("정리 기록 저장 실패: " + e.getMessage());
-        }
-    }
-
-    private JSONObject buildAlbumSummarySessionJson(long j, int i, int i2, int i3, Map<String, AlbumSummary> map) throws JSONException {
-        JSONArray jSONArray = new JSONArray();
-        for (AlbumSummary albumSummary : map.values()) {
-            JSONObject jSONObject = new JSONObject();
-            jSONObject.put("albumName", albumSummary.albumName);
-            jSONObject.put("relativePath", albumSummary.relativePath);
-            jSONObject.put("itemCount", albumSummary.itemCount);
-            jSONObject.put("startDate", formatDateForJson(albumSummary.dateRange.start));
-            jSONObject.put("endDate", formatDateForJson(albumSummary.dateRange.end));
-            jSONObject.put("startDateMillis", albumSummary.dateRange.start == null ? JSONObject.NULL : Long.valueOf(albumSummary.dateRange.start.getTime()));
-            jSONObject.put("endDateMillis", albumSummary.dateRange.end == null ? JSONObject.NULL : Long.valueOf(albumSummary.dateRange.end.getTime()));
-            jSONObject.put("thumbnailUri", albumSummary.thumbnailUri);
-            jSONObject.put("countryName", emptyToJsonNull(albumSummary.countryName));
-            jSONObject.put("adminArea", emptyToJsonNull(albumSummary.adminArea));
-            jSONObject.put("addressLine", emptyToJsonNull(albumSummary.addressLine));
-            jSONObject.put("createdAt", formatTimestamp(j));
-            jSONObject.put("createdAtMillis", j);
-            jSONArray.put(jSONObject);
-        }
-        JSONObject jSONObject2 = new JSONObject();
-        jSONObject2.put("createdAt", formatTimestamp(j));
-        jSONObject2.put("createdAtMillis", j);
-        jSONObject2.put("sortedItemCount", i);
-        jSONObject2.put("skippedItemCount", i2);
-        jSONObject2.put("failedItemCount", i3);
-        jSONObject2.put("albumCount", map.size());
-        jSONObject2.put("albums", jSONArray);
-        return jSONObject2;
-    }
-
-    private JSONObject readAlbumSummaryHistoryRoot() {
-        StringBuilder sb = new StringBuilder();
-        try (FileInputStream input = openFileInput(ALBUM_SUMMARY_HISTORY_FILE);
-             BufferedReader reader = new BufferedReader(new InputStreamReader(input, StandardCharsets.UTF_8))) {
-            String line;
-            while ((line = reader.readLine()) != null) {
-                sb.append(line);
-            }
-            if (sb.length() > 0) {
-                return new JSONObject(sb.toString());
-            }
-        } catch (Exception unused) {
-        }
-        return new JSONObject();
-    }
-
-    private Object emptyToJsonNull(String str) {
-        return str == null || str.trim().isEmpty() ? JSONObject.NULL : str;
-    }
-
-    private void writeAlbumSummaryHistoryRoot(JSONObject jSONObject) throws Exception {
-        FileOutputStream fileOutputStreamOpenFileOutput = openFileOutput(ALBUM_SUMMARY_HISTORY_FILE, 0);
-        try {
-            fileOutputStreamOpenFileOutput.write(jSONObject.toString(2).getBytes(StandardCharsets.UTF_8));
-            if (fileOutputStreamOpenFileOutput != null) {
-                fileOutputStreamOpenFileOutput.close();
-            }
-        } catch (Throwable th) {
-            if (fileOutputStreamOpenFileOutput != null) {
-                try {
-                    fileOutputStreamOpenFileOutput.close();
-                } catch (Throwable th2) {
-                    th.addSuppressed(th2);
-                }
-            }
-            throw th;
         }
     }
 
@@ -3751,7 +3644,7 @@ public class MainActivity extends Activity {
                 }
             }
         }
-        JSONArray jSONArrayOptJSONArray2 = readAlbumSummaryHistoryRoot().optJSONArray("sessions");
+        JSONArray jSONArrayOptJSONArray2 = this.albumSummaryHistoryStore.readRoot().optJSONArray("sessions");
         if (jSONArrayOptJSONArray2 != null) {
             for (int i = 0; i < jSONArrayOptJSONArray2.length(); i++) {
                 JSONObject jSONObjectOptJSONObject = jSONArrayOptJSONArray2.optJSONObject(i);
@@ -3942,13 +3835,6 @@ public class MainActivity extends Activity {
             window.setLayout(Math.min((int) (getResources().getDisplayMetrics().widthPixels * 0.9d), dp(480)), -2);
         }
         dialog.show();
-    }
-
-    private String formatDateForJson(Date date) {
-        if (date == null) {
-            return null;
-        }
-        return new SimpleDateFormat("yyyy-MM-dd", Locale.KOREA).format(date);
     }
 
     private String formatStoredYearRange(StoredAlbumSummary storedAlbumSummary) {
