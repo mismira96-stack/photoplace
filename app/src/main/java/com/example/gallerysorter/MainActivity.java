@@ -7404,24 +7404,6 @@ public class MainActivity extends Activity {
         }
     }
 
-    private static class LocationLookupResult {
-        final String folderKey;
-        final String countryName;
-        final String adminArea;
-        final String addressLine;
-
-        LocationLookupResult(String str, String str2, String str3, String str4) {
-            this.folderKey = str == null || str.isEmpty() ? LOCATION_NONE : str;
-            this.countryName = str2 == null ? "" : str2;
-            this.adminArea = str3 == null ? "" : str3;
-            this.addressLine = str4 == null ? "" : str4;
-        }
-
-        static LocationLookupResult empty() {
-            return new LocationLookupResult(LOCATION_NONE, "", "", "");
-        }
-    }
-
     private static class IconBubbleDrawable extends Drawable {
         private final int backgroundColor;
         private final String icon;
