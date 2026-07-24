@@ -1637,8 +1637,8 @@ public class MainActivity extends Activity {
         arrayList.sort(new Comparator() { // from class: com.example.gallerysorter.MainActivity$$ExternalSyntheticLambda7
             @Override // java.util.Comparator
             public final int compare(Object obj, Object obj2) {
-                MainActivity.PhotoItem photoItem = (MainActivity.PhotoItem) obj;
-                MainActivity.PhotoItem photoItem2 = (MainActivity.PhotoItem) obj2;
+                PhotoItem photoItem = (PhotoItem) obj;
+                PhotoItem photoItem2 = (PhotoItem) obj2;
                 return Long.compare(photoItem2.takenAt != null ? photoItem2.takenAt.getTime() : 0L, photoItem.takenAt == null ? 0L : photoItem.takenAt.getTime());
             }
         });
@@ -7579,39 +7579,6 @@ public class MainActivity extends Activity {
         MediaOpenTarget(Uri uri, String str) {
             this.uri = uri;
             this.mimeType = str;
-        }
-    }
-
-    /* JADX INFO: Access modifiers changed from: private */
-    static class PhotoItem {
-        final boolean duplicateInTarget;
-        final String locationKey;
-        final String mimeType;
-        final String name;
-        final boolean noLocation;
-        final Date takenAt;
-        final boolean targetExists;
-        final String targetRelativePath;
-        final Uri uri;
-        final boolean video;
-        final String countryName;
-        final String adminArea;
-        final String addressLine;
-
-        PhotoItem(Uri uri, String str, String str2, Date date, String str3, boolean z, boolean z2, boolean z3, String str4, boolean z4, String str5, String str6, String str7) {
-            this.uri = uri;
-            this.name = str;
-            this.mimeType = str2;
-            this.takenAt = date;
-            this.locationKey = str3;
-            this.noLocation = z;
-            this.targetExists = z2;
-            this.duplicateInTarget = z3;
-            this.targetRelativePath = str4;
-            this.video = z4;
-            this.countryName = str5 == null ? "" : str5;
-            this.adminArea = str6 == null ? "" : str6;
-            this.addressLine = str7 == null ? "" : str7;
         }
     }
 
