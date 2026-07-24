@@ -379,3 +379,46 @@ Build a memory-based photo organization system that replaces folder hierarchy wi
   - 너무 짧거나 의미 없는 조각은 제외.
   - `병원`, `대학교`, `공원`, `역`, `공항`, `미술관`, `박물관`, `예술의전당` 같은 POI성 이름은 우선 사용.
   - 단, 비서울 전체 장소명 규칙에 영향이 있으므로 V1 출시 직전에는 수정하지 않고 V1.1/V2에서 테스트 후 반영.
+# 2026-07-24 백그라운드 리팩터 중단 지점 / 다음 TODO
+
+현재 브랜치: `codex/photoplace-v2-bg-wip`
+
+현재 상태:
+- 로컬 debug APK를 폰에 설치해서 테스트 준비 완료.
+- 기존 릴리즈 앱은 서명 충돌 때문에 삭제 후 debug APK 설치함.
+- `SortJob` 경로로 Activity 정리 실행을 우회시킨 첫 버전이므로 실기기 정리 테스트 필요.
+- `assembleDebug testDebugUnitTest` 통과.
+
+남은 P0/P1 이슈:
+
+1. 작업 중 Back 키가 여러 번 눌러도 안 먹는 경우가 있음.
+   - 정리 중 화면/정리 기록 탭/홈 복귀 사이에서 Back 이벤트가 막히거나 늦게 처리되는지 확인.
+   - `isWorking`, `blockNavigationWhileWorking()`, `onBackPressed()`, `OnBackInvokedCallback` 흐름 점검.
+   - 정리 중에는 명확히 toast 또는 진행 화면 유지, 정리 완료 후에는 이전 화면/홈 복귀가 예측 가능해야 함.
+
+2. 알림 진행률이 실시간 업데이트되지 않음.
+   - `SortForegroundService.update()` 호출 빈도와 notification id/channel 갱신 확인.
+   - 알림 클릭 시 앱으로 진입하도록 `PendingIntent` 추가 필요.
+   - 앱 진입 시 `SortProgressStore`의 최신 진행률을 홈 진행 UI에 복원해야 함.
+   - 릴리즈 빌드 전 WorkManager lint 수정 필요:
+     - `androidx.work.impl.foreground.SystemForegroundService`에 `android:foregroundServiceType="dataSync"` manifest override 추가.
+
+3. 이미 정리된 항목을 다시 정리하려는 UX 개선.
+   - 사용자가 `장소별 앨범 만들기`를 누르지 않고 멈춤/새 정리를 반복하면, 이미 처리된 항목 상태가 헷갈림.
+   - 새로 돌리면 현재는 `이미 정리됨` 3000개처럼 나오므로 실제 중복 복사는 피하는 것으로 보임.
+   - 하지만 UX상 “이미 정리된 항목은 다시 하지 않음”을 더 명확히 보여줘야 함.
+   - 미리보기/결과 화면에 다음 상태를 분리 표시:
+     - 새로 정리할 항목
+     - 이미 정리된 항목
+     - 위치 정보 없음
+     - 실패/건너뜀
+   - 이미 정리된 항목이 대부분이면 기본 CTA를 숨기거나 `새 항목만 정리`로 표시.
+   - 이 피드백이 곧 “정리 이력/최근 정리 기록을 보여달라”는 요구와 연결됨.
+
+다음 구현 순서 제안:
+1. 실기기에서 4000장 다운로드 폴더 테스트.
+2. `SortJob` 경로로 사진 복사/동영상 이동/완료 기록/중단이 정상인지 확인.
+3. 알림 클릭 PendingIntent + 진행률 갱신 수정.
+4. 이미 정리됨 UX 개선.
+5. Back 키 처리 점검.
+6. 그 다음 WorkManager 실제 연결 재개.
