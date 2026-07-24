@@ -102,8 +102,8 @@ public class MainActivity extends Activity {
     private static final String CAMERA_PATH = "DCIM/Camera/";
     private static final String LOCATION_NONE = "위치없음";
     private static final int MAX_MAIN_RESULT_GROUPS = 3;
-    private static final int MAX_NO_LOCATION_RESULT_ROWS = 120;
-    private static final int MAX_RESULT_SCREEN_GROUPS = 60;
+    private static final int MAX_NO_LOCATION_RESULT_ROWS = 60;
+    private static final int MAX_RESULT_SCREEN_GROUPS = 24;
     private static final int MAX_VALID_TAKEN_YEAR = 2035;
     private static final int MIN_VALID_TAKEN_YEAR = 2000;
     private static final int RESULT_FOCUS_ALL = 0;
@@ -840,6 +840,10 @@ public class MainActivity extends Activity {
     private void scheduleExistingAlbumBackfillIfNeeded() {
         final SharedPreferences sharedPreferences = getSharedPreferences(PREFS_NAME, 0);
         if (this.existingAlbumBackfillScheduled || this.isWorking || !hasReadPermissions() || sharedPreferences.getBoolean(PREF_EXISTING_ALBUM_BACKFILL_DONE, false)) {
+            return;
+        }
+        if (hasStoredAlbumSummaryHistory()) {
+            sharedPreferences.edit().putBoolean(PREF_EXISTING_ALBUM_BACKFILL_DONE, true).apply();
             return;
         }
         this.existingAlbumBackfillScheduled = true;
@@ -3804,7 +3808,9 @@ public class MainActivity extends Activity {
         JSONArray jSONArrayOptJSONArray;
         ArrayList arrayList = new ArrayList();
         HashSet hashSet = new HashSet();
-        Map<String, AlbumSummary> mapCollectExistingAlbumSummaries = collectExistingAlbumSummaries();
+        JSONObject historyRoot = this.albumSummaryHistoryStore.readRoot();
+        JSONArray jSONArrayOptJSONArray2 = historyRoot.optJSONArray("sessions");
+        Map<String, AlbumSummary> mapCollectExistingAlbumSummaries = (jSONArrayOptJSONArray2 != null && jSONArrayOptJSONArray2.length() > 0) ? Collections.emptyMap() : collectExistingAlbumSummaries();
         HashSet hashSet2 = new HashSet();
         HashSet hashSet3 = new HashSet();
         if (!mapCollectExistingAlbumSummaries.isEmpty()) {
@@ -3817,7 +3823,6 @@ public class MainActivity extends Activity {
                 }
             }
         }
-        JSONArray jSONArrayOptJSONArray2 = this.albumSummaryHistoryStore.readRoot().optJSONArray("sessions");
         if (jSONArrayOptJSONArray2 != null) {
             for (int i = 0; i < jSONArrayOptJSONArray2.length(); i++) {
                 JSONObject jSONObjectOptJSONObject = jSONArrayOptJSONArray2.optJSONObject(i);
@@ -3883,6 +3888,11 @@ public class MainActivity extends Activity {
         }
         int iCompareTo2 = comparableDate(storedAlbumSummary2.startDate).compareTo(comparableDate(storedAlbumSummary.startDate));
         return iCompareTo2 != 0 ? iCompareTo2 : Integer.compare(storedAlbumSummary2.itemCount, storedAlbumSummary.itemCount);
+    }
+
+    private boolean hasStoredAlbumSummaryHistory() {
+        JSONArray sessions = this.albumSummaryHistoryStore.readRoot().optJSONArray("sessions");
+        return sessions != null && sessions.length() > 0;
     }
 
     private String comparableDate(String str) {
