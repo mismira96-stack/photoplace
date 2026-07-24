@@ -177,6 +177,17 @@ public class MainActivity extends Activity {
     private NoLocationCache noLocationCache = null;
     private AlbumSummaryHistoryStore albumSummaryHistoryStore = null;
     private MediaCopyEngine mediaCopyEngine = null;
+    private final MediaScanProgressListener mediaScanProgressListener = new MediaScanProgressListener() {
+        @Override
+        public void onItemScanned(boolean video, int displayCurrent, int displayTotal, int progressCurrent, int progressTotal, PhotoItem item) {
+            renderMediaScanProgress(video, displayCurrent, displayTotal, progressCurrent, progressTotal, item);
+        }
+
+        @Override
+        public void onScanError(boolean video, Exception error) {
+            renderMediaScanError(video, error);
+        }
+    };
     private boolean existingAlbumBackfillScheduled = false;
     private int recentPlacesScrollY = 0;
     private boolean copyCompletedMode = false;
@@ -1903,6 +1914,15 @@ public class MainActivity extends Activity {
     /* renamed from: lambda$loadSourceVideos$28$com-example-gallerysorter-MainActivity, reason: not valid java name */
     /* synthetic */ void m31x14effcd7(Exception exc) {
         this.logText.setText("동영상 읽기 실패: " + exc.getMessage());
+    }
+
+    private void renderMediaScanProgress(boolean video, int displayCurrent, int displayTotal, int progressCurrent, int progressTotal, PhotoItem item) {
+        this.logText.setText(video ? "동영상 위치 정보 확인 중 " + displayCurrent + " / " + displayTotal : "선택한 폴더 읽는 중 " + displayCurrent + " / " + displayTotal + "개");
+        updateProgress("위치 정보 분석 중", progressCurrent, progressTotal, item.noLocation ? "위치 정보 없음" : albumCandidateTitle(albumCandidateGroupKey(item)));
+    }
+
+    private void renderMediaScanError(boolean video, Exception error) {
+        this.logText.setText((video ? "동영상 읽기 실패: " : "선택한 폴더 읽기 실패: ") + error.getMessage());
     }
 
     private String buildRelativePathSelection(String str, List<String> list) {
