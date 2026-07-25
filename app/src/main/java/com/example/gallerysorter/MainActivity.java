@@ -211,6 +211,7 @@ public class MainActivity extends Activity {
     private boolean copyCompletedMode = false;
     private boolean copyStoppedMode = false;
     private boolean backgroundSortMode = false;
+    private boolean workingBackDialogShowing = false;
     private boolean originalsTrashCompleted = false;
     private long lastNotificationProgressUpdateMillis = 0L;
     private int lastNotificationProgressPercent = -1;
@@ -319,6 +320,10 @@ public class MainActivity extends Activity {
             returnToPreviousTopLevelTab();
             return;
         }
+        if (this.isWorking) {
+            showWorkingBackChoiceDialog();
+            return;
+        }
         if (this.resultScreenMode) {
             returnToMainScreen();
         } else if (this.isWorking) {
@@ -345,6 +350,71 @@ public class MainActivity extends Activity {
             }
         };
         getOnBackInvokedDispatcher().registerOnBackInvokedCallback(OnBackInvokedDispatcher.PRIORITY_DEFAULT, this.backInvokedCallback);
+    }
+
+    private void showWorkingBackChoiceDialog() {
+        if (this.workingBackDialogShowing || !this.isWorking) {
+            return;
+        }
+        this.workingBackDialogShowing = true;
+        final Dialog dialog = new Dialog(this);
+        dialog.requestWindowFeature(1);
+        LinearLayout root = new LinearLayout(this);
+        root.setOrientation(1);
+        root.setPadding(dp(22), dp(20), dp(22), dp(18));
+        GradientDrawable background = new GradientDrawable();
+        background.setColor(-1);
+        background.setCornerRadius(dp(24));
+        root.setBackground(background);
+        TextView title = new TextView(this);
+        title.setText("정리를 계속할까요?");
+        title.setTextSize(21.0f);
+        title.setTypeface(Typeface.DEFAULT_BOLD);
+        title.setTextColor(-15656921);
+        title.setGravity(17);
+        root.addView(title, matchWidthWithBottom(dp(8)));
+        TextView message = bodyText("홈으로 나가도 PhotoPlace가 백그라운드에서 계속 정리합니다.\n멈추면 지금까지 처리한 결과만 남아요.");
+        message.setGravity(17);
+        message.setLineSpacing(dp(2), 1.0f);
+        root.addView(message, matchWidthWithBottom(dp(16)));
+        Button continueButton = new Button(this);
+        continueButton.setText("백그라운드에서 계속");
+        styleDialogPrimaryButton(continueButton);
+        continueButton.setOnClickListener(view -> {
+            this.workingBackDialogShowing = false;
+            dialog.dismiss();
+            moveTaskToBack(true);
+        });
+        root.addView(continueButton, matchWidthWithBottom(dp(10)));
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(0);
+        row.setGravity(16);
+        root.addView(row, matchWidth());
+        Button cancelButton = new Button(this);
+        cancelButton.setText("취소");
+        styleDialogSecondaryButton(cancelButton);
+        cancelButton.setOnClickListener(view -> {
+            this.workingBackDialogShowing = false;
+            dialog.dismiss();
+        });
+        row.addView(cancelButton, dialogButtonParams(true));
+        Button stopButton = new Button(this);
+        stopButton.setText("정리 멈추기");
+        styleDialogSecondaryButton(stopButton);
+        stopButton.setOnClickListener(view -> {
+            this.workingBackDialogShowing = false;
+            dialog.dismiss();
+            requestCancel();
+        });
+        row.addView(stopButton, dialogButtonParams(false));
+        dialog.setOnCancelListener(dialogInterface -> this.workingBackDialogShowing = false);
+        dialog.setContentView(root);
+        Window window = dialog.getWindow();
+        if (window != null) {
+            window.setBackgroundDrawable(new ColorDrawable(0));
+            window.setLayout(Math.min((int) (getResources().getDisplayMetrics().widthPixels * 0.9d), dp(480)), -2);
+        }
+        dialog.show();
     }
 
     private boolean isOnTopLevelSecondaryTab() {
