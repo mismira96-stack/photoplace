@@ -20,12 +20,41 @@ public class SortWorker extends Worker {
     @Override
     public Result doWork() {
         Context context = getApplicationContext();
-        SortProgressStore.start(context, "PhotoPlace 정리 준비 중");
-        setForegroundAsync(foregroundInfo("PhotoPlace 정리 준비 중", 0, 0, ""));
-
-        // The real sort engine still lives in MainActivity. This Worker is the
-        // stable shell that will own the job after SortJob is extracted.
+        final SortInputStore inputStore = new SortInputStore(context);
+        SortInputStore.Snapshot input = inputStore.read();
+        if (input.items.isEmpty()) {
+            SortProgressStore.finish(context);
+            return Result.success();
+        }
+        final String label = "앨범으로 정리 중";
+        SortProgressStore.start(context, label);
+        setForegroundAsync(foregroundInfo(label, 0, input.items.size(), ""));
+        SortJob sortJob = new SortJob(new MediaCopyEngine(context), new SortJob.CancelSignal() {
+            @Override
+            public boolean isCanceled() {
+                return SortWorker.this.isStopped();
+            }
+        }, new SortJobProgressListener() {
+            @Override
+            public void onItem(int current, int total, PhotoItem item) {
+                String progressContext = item == null || item.noLocation ? "정리 제외: 위치 정보 없음" : item.locationKey;
+                SortProgressStore.update(context, label, current, total, progressContext);
+                setForegroundAsync(foregroundInfo(label, current, total, progressContext));
+            }
+        });
+        SortJobResult result = sortJob.run(input.items, input.shouldMoveVideos);
+        try {
+            new SortResultStore(context).write(result);
+            inputStore.clear();
+        } catch (Exception unused) {
+            SortProgressStore.finish(context);
+            return Result.retry();
+        }
         SortProgressStore.finish(context);
+        SortForegroundService.complete(
+                context,
+                result.canceled ? "PhotoPlace 정리가 멈췄습니다" : "PhotoPlace 정리가 완료되었습니다",
+                result.canceled ? "남은 사진을 이어서 정리할 수 있어요." : "정리 " + result.copiedCount + "개 · 건너뜀 " + result.skippedCount + "개 · 실패 " + result.failedCount + "개");
         return Result.success();
     }
 
