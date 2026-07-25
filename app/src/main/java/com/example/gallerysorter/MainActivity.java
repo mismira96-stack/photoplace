@@ -4841,11 +4841,7 @@ public class MainActivity extends Activity {
         gradientDrawable.setCornerRadii(new float[]{dp(20), dp(20), dp(20), dp(20), 0.0f, 0.0f, 0.0f, 0.0f});
         imageView.setBackground(gradientDrawable);
         imageView.setClipToOutline(true);
-        if (storedAlbumSummary.thumbnailUri != null && !storedAlbumSummary.thumbnailUri.isEmpty()) {
-            loadThumbnailInto(imageView, Uri.parse(storedAlbumSummary.thumbnailUri), dp(900));
-        } else {
-            imageView.setImageDrawable(thumbnailPlaceholder());
-        }
+        loadStoredAlbumThumbnailInto(imageView, storedAlbumSummary, dp(900));
         LinearLayout linearLayout3 = new LinearLayout(this);
         linearLayout3.setOrientation(1);
         linearLayout3.setPadding(dp(16), dp(16), dp(16), 0);
@@ -5240,11 +5236,7 @@ public class MainActivity extends Activity {
         gradientDrawable.setCornerRadii(new float[]{f, f, f, f, 0.0f, 0.0f, 0.0f, 0.0f});
         imageView.setBackground(gradientDrawable);
         imageView.setClipToOutline(true);
-        if (storedAlbumSummary.thumbnailUri != null && !storedAlbumSummary.thumbnailUri.isEmpty()) {
-            loadThumbnailInto(imageView, Uri.parse(storedAlbumSummary.thumbnailUri), Math.max(i, i2));
-        } else {
-            imageView.setImageDrawable(thumbnailPlaceholder());
-        }
+        loadStoredAlbumThumbnailInto(imageView, storedAlbumSummary, Math.max(i, i2));
         return frameLayout;
     }
 
@@ -5376,28 +5368,15 @@ public class MainActivity extends Activity {
             });
         }
         linearLayout.addView(linearLayout2, matchWidth());
-        if (storedAlbumSummary.thumbnailUri != null && !storedAlbumSummary.thumbnailUri.isEmpty()) {
-            ImageView imageView = new ImageView(this);
-            imageView.setScaleType(ImageView.ScaleType.CENTER_CROP);
-            linearLayout2.addView(imageView, squareParams(dp(58)));
-            GradientDrawable gradientDrawable = new GradientDrawable();
-            gradientDrawable.setColor(-1378321);
-            gradientDrawable.setCornerRadius(dp(12));
-            imageView.setBackground(gradientDrawable);
-            imageView.setClipToOutline(true);
-            loadThumbnailInto(imageView, Uri.parse(storedAlbumSummary.thumbnailUri), dp(58));
-        } else {
-            TextView textView = new TextView(this);
-            textView.setText("📍");
-            textView.setTextSize(22.0f);
-            textView.setGravity(17);
-            textView.setTextColor(-8635667);
-            linearLayout2.addView(textView, squareParams(dp(58)));
-            GradientDrawable gradientDrawable2 = new GradientDrawable();
-            gradientDrawable2.setColor(-1185282);
-            gradientDrawable2.setCornerRadius(dp(12));
-            textView.setBackground(gradientDrawable2);
-        }
+        ImageView imageView = new ImageView(this);
+        imageView.setScaleType(ImageView.ScaleType.CENTER_CROP);
+        linearLayout2.addView(imageView, squareParams(dp(58)));
+        GradientDrawable gradientDrawable = new GradientDrawable();
+        gradientDrawable.setColor(-1378321);
+        gradientDrawable.setCornerRadius(dp(12));
+        imageView.setBackground(gradientDrawable);
+        imageView.setClipToOutline(true);
+        loadStoredAlbumThumbnailInto(imageView, storedAlbumSummary, dp(58));
         LinearLayout linearLayout3 = new LinearLayout(this);
         linearLayout3.setOrientation(1);
         linearLayout3.setPadding(dp(12), 0, dp(8), 0);
@@ -6001,11 +5980,7 @@ public class MainActivity extends Activity {
         gradientDrawable.setCornerRadii(new float[]{radius, radius, radius, radius, 0.0f, 0.0f, 0.0f, 0.0f});
         imageView.setBackground(gradientDrawable);
         imageView.setClipToOutline(true);
-        if (group.thumbnailUri != null && !group.thumbnailUri.isEmpty()) {
-            loadThumbnailInto(imageView, Uri.parse(group.thumbnailUri), height * 2);
-        } else {
-            imageView.setImageDrawable(thumbnailPlaceholder());
-        }
+        loadMemoryGroupThumbnailInto(imageView, group, height * 2);
         return frameLayout;
     }
 
@@ -6184,7 +6159,123 @@ public class MainActivity extends Activity {
         return linearLayout;
     }
 
+    private void loadStoredAlbumThumbnailInto(ImageView imageView, StoredAlbumSummary summary, int size) {
+        if (summary == null) {
+            imageView.setImageDrawable(thumbnailPlaceholder());
+            return;
+        }
+        if (summary.thumbnailUri != null && !summary.thumbnailUri.trim().isEmpty()) {
+            try {
+                loadThumbnailInto(imageView, Uri.parse(summary.thumbnailUri), size, summary.relativePath);
+                return;
+            } catch (Exception unused) {
+            }
+        }
+        ArrayList<Uri> candidates = new ArrayList<>();
+        if (summary.relativePath != null && !summary.relativePath.trim().isEmpty()) {
+            for (Uri uri : loadLatestAlbumPreviewUris(summary.relativePath, 3)) {
+                addUriCandidate(candidates, uri);
+            }
+        }
+        loadThumbnailInto(imageView, candidates, size);
+    }
+
+    private void loadMemoryGroupThumbnailInto(ImageView imageView, MemoryGroup group, int size) {
+        ArrayList<Uri> candidates = new ArrayList<>();
+        if (group != null) {
+            addUriCandidate(candidates, group.thumbnailUri);
+            for (MemoryItem item : group.items) {
+                addUriCandidate(candidates, item.thumbnailUri);
+                if (candidates.size() < 5) {
+                    for (Uri uri : loadLatestAlbumPreviewUris(item.relativePath, 1)) {
+                        addUriCandidate(candidates, uri);
+                    }
+                }
+                if (candidates.size() >= 5) {
+                    break;
+                }
+            }
+        }
+        loadThumbnailInto(imageView, candidates, size);
+    }
+
+    private void addUriCandidate(List<Uri> candidates, String uriValue) {
+        if (uriValue == null || uriValue.trim().isEmpty()) {
+            return;
+        }
+        try {
+            addUriCandidate(candidates, Uri.parse(uriValue));
+        } catch (Exception unused) {
+        }
+    }
+
+    private void addUriCandidate(List<Uri> candidates, Uri uri) {
+        if (uri == null || candidates.contains(uri)) {
+            return;
+        }
+        candidates.add(uri);
+    }
+
+    private void loadThumbnailInto(final ImageView imageView, final List<Uri> candidates, final int size) {
+        if (candidates == null || candidates.isEmpty()) {
+            imageView.setTag(null);
+            imageView.setImageDrawable(thumbnailPlaceholder());
+            return;
+        }
+        final String tag = candidates.toString() + "#" + size;
+        imageView.setTag(tag);
+        imageView.setImageDrawable(thumbnailPlaceholder());
+        for (Uri candidate : candidates) {
+            Bitmap cached = this.thumbnailCache.get(candidate.toString() + "#" + size);
+            if (cached != null) {
+                imageView.setImageBitmap(cached);
+                return;
+            }
+        }
+        if (this.thumbnailWorker.isShutdown() || this.thumbnailWorker.isTerminated()) {
+            return;
+        }
+        try {
+            this.thumbnailWorker.execute(new Runnable() {
+                @Override
+                public void run() {
+                    MainActivity.this.loadFirstAvailableThumbnail(candidates, size, tag, imageView);
+                }
+            });
+        } catch (RejectedExecutionException unused) {
+        }
+    }
+
+    private void loadFirstAvailableThumbnail(List<Uri> candidates, int size, final String tag, final ImageView imageView) {
+        for (Uri candidate : candidates) {
+            try {
+                final Bitmap bitmap = loadThumbnailBitmap(candidate, size);
+                if (bitmap != null) {
+                    this.thumbnailCache.put(candidate.toString() + "#" + size, bitmap);
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            MainActivity.lambda$loadThumbnailInto$59(imageView, tag, bitmap);
+                        }
+                    });
+                    return;
+                }
+            } catch (Exception unused) {
+            }
+        }
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                MainActivity.this.m32xb182ba16(imageView, tag);
+            }
+        });
+    }
+
     private void loadThumbnailInto(final ImageView imageView, final Uri uri, final int i) {
+        loadThumbnailInto(imageView, uri, i, null);
+    }
+
+    private void loadThumbnailInto(final ImageView imageView, final Uri uri, final int i, final String fallbackRelativePath) {
         final String str = uri.toString() + "#" + i;
         imageView.setTag(str);
         imageView.setImageDrawable(thumbnailPlaceholder());
@@ -6199,7 +6290,7 @@ public class MainActivity extends Activity {
                 this.thumbnailWorker.execute(new Runnable() { // from class: com.example.gallerysorter.MainActivity$$ExternalSyntheticLambda47
                     @Override // java.lang.Runnable
                     public final void run() {
-                        MainActivity.this.m33x8a0aaf5(uri, i, str, imageView);
+                        MainActivity.this.m33x8a0aaf5(uri, i, str, imageView, fallbackRelativePath);
                     }
                 });
             } catch (RejectedExecutionException unused) {
@@ -6208,7 +6299,7 @@ public class MainActivity extends Activity {
     }
 
     /* renamed from: lambda$loadThumbnailInto$61$com-example-gallerysorter-MainActivity, reason: not valid java name */
-    /* synthetic */ void m33x8a0aaf5(Uri uri, int i, final String str, final ImageView imageView) {
+    /* synthetic */ void m33x8a0aaf5(Uri uri, int i, final String str, final ImageView imageView, String fallbackRelativePath) {
         try {
             final Bitmap bitmapLoadThumbnailBitmap = loadThumbnailBitmap(uri, i);
             if (bitmapLoadThumbnailBitmap == null) {
@@ -6222,6 +6313,9 @@ public class MainActivity extends Activity {
                 }
             });
         } catch (Exception unused) {
+            if (tryLoadAlbumFallbackThumbnail(fallbackRelativePath, i, str, imageView)) {
+                return;
+            }
             runOnUiThread(new Runnable() { // from class: com.example.gallerysorter.MainActivity$$ExternalSyntheticLambda52
                 @Override // java.lang.Runnable
                 public final void run() {
@@ -6366,6 +6460,29 @@ public class MainActivity extends Activity {
             this.progressBannerTitleText = null;
             this.progressBannerDetailText = null;
         }
+    }
+
+    private boolean tryLoadAlbumFallbackThumbnail(String relativePath, int size, final String tag, final ImageView imageView) {
+        if (relativePath == null || relativePath.trim().isEmpty()) {
+            return false;
+        }
+        for (Uri candidate : loadLatestAlbumPreviewUris(relativePath, 3)) {
+            try {
+                final Bitmap bitmap = loadThumbnailBitmap(candidate, size);
+                if (bitmap != null) {
+                    this.thumbnailCache.put(candidate.toString() + "#" + size, bitmap);
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            MainActivity.lambda$loadThumbnailInto$59(imageView, tag, bitmap);
+                        }
+                    });
+                    return true;
+                }
+            } catch (Exception unused) {
+            }
+        }
+        return false;
     }
 
     private void showSettingsScreen() {
