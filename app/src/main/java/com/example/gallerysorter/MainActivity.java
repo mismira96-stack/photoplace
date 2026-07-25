@@ -189,6 +189,8 @@ public class MainActivity extends Activity {
     private StoredAlbumSummary activePlaceDetailSummary = null;
     private MemoryGroup activeOverseasMemoryGroup = null;
     private int detailBackTarget = DETAIL_BACK_HOME;
+    private Map<String, AlbumSummary> existingAlbumSummaryCache = null;
+    private long existingAlbumSummaryCacheMillis = 0L;
     private List<StoredAlbumSummary> recentAlbumSummaryCache = null;
     private long recentAlbumSummaryCacheMillis = 0L;
     private NoLocationCache noLocationCache = null;
@@ -874,7 +876,11 @@ public class MainActivity extends Activity {
             strCompactResultSummary = compactResultSummary(iCountRecentlySortedItems, i2, iCountNewFolderItems);
         }
         textView2.setText(strCompactResultSummary);
-        renderPreviewResults(this.previewItems);
+        if (this.copyCompletedMode || this.copyStoppedMode) {
+            clearHomeResultPreview();
+        } else {
+            renderPreviewResults(this.previewItems);
+        }
         Button button = this.copyButton;
         if (iCountRecentlySortedItems > 0 && !this.copyCompletedMode) {
             i = 0;
@@ -886,6 +892,19 @@ public class MainActivity extends Activity {
             z = true;
         }
         button2.setEnabled(z);
+    }
+
+    private void clearHomeResultPreview() {
+        if (this.resultList != null) {
+            this.resultList.removeAllViews();
+            this.resultList.setVisibility(8);
+        }
+        if (this.unclassifiedPreviewRow != null) {
+            this.unclassifiedPreviewRow.removeAllViews();
+        }
+        if (this.unclassifiedSectionCard != null) {
+            this.unclassifiedSectionCard.setVisibility(8);
+        }
     }
 
     private boolean restoreActiveSortProgressFromStore() {
@@ -3888,6 +3907,8 @@ public class MainActivity extends Activity {
     private void invalidateRecentAlbumSummaryCache() {
         this.recentAlbumSummaryCache = null;
         this.recentAlbumSummaryCacheMillis = 0L;
+        this.existingAlbumSummaryCache = null;
+        this.existingAlbumSummaryCacheMillis = 0L;
         this.liveAlbumPresenceCache.clear();
     }
 
@@ -3895,7 +3916,7 @@ public class MainActivity extends Activity {
         if (summaries == null || summaries.isEmpty()) {
             return new ArrayList<>();
         }
-        Map<String, AlbumSummary> existingSummaries = collectExistingAlbumSummaries();
+        Map<String, AlbumSummary> existingSummaries = loadExistingAlbumSummariesForUi();
         long now = System.currentTimeMillis();
         ArrayList<StoredAlbumSummary> live = new ArrayList<>();
         for (StoredAlbumSummary summary : summaries) {
@@ -3922,6 +3943,18 @@ public class MainActivity extends Activity {
             }
         }
         return null;
+    }
+
+    private Map<String, AlbumSummary> loadExistingAlbumSummariesForUi() {
+        long now = System.currentTimeMillis();
+        Map<String, AlbumSummary> cached = this.existingAlbumSummaryCache;
+        if (cached != null && now - this.existingAlbumSummaryCacheMillis < 30000L) {
+            return cached;
+        }
+        Map<String, AlbumSummary> loaded = collectExistingAlbumSummaries();
+        this.existingAlbumSummaryCache = loaded;
+        this.existingAlbumSummaryCacheMillis = now;
+        return loaded;
     }
 
     private boolean hasLiveMediaInAlbum(StoredAlbumSummary summary) {
