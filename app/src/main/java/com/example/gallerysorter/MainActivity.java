@@ -3825,13 +3825,33 @@ public class MainActivity extends Activity {
         if (summaries == null || summaries.isEmpty()) {
             return new ArrayList<>();
         }
+        Map<String, AlbumSummary> existingSummaries = collectExistingAlbumSummaries();
+        long now = System.currentTimeMillis();
         ArrayList<StoredAlbumSummary> live = new ArrayList<>();
         for (StoredAlbumSummary summary : summaries) {
-            if (hasLiveMediaInAlbum(summary)) {
-                live.add(summary);
+            AlbumSummary liveSummary = findMatchingAlbumSummary(existingSummaries, summary);
+            if (liveSummary != null && liveSummary.itemCount > 0) {
+                live.add(storedAlbumSummaryFromAlbumSummary(liveSummary, summary.createdAtMillis > 0L ? summary.createdAtMillis : now));
             }
         }
         return live;
+    }
+
+    private AlbumSummary findMatchingAlbumSummary(Map<String, AlbumSummary> summaries, StoredAlbumSummary storedSummary) {
+        if (summaries == null || summaries.isEmpty() || storedSummary == null) {
+            return null;
+        }
+        for (AlbumSummary summary : summaries.values()) {
+            if (summary == null) {
+                continue;
+            }
+            boolean samePath = storedSummary.relativePath != null && summary.relativePath != null && storedSummary.relativePath.equals(summary.relativePath);
+            boolean sameName = storedSummary.albumName != null && summary.albumName != null && storedSummary.albumName.equals(summary.albumName);
+            if (samePath || sameName) {
+                return summary;
+            }
+        }
+        return null;
     }
 
     private boolean hasLiveMediaInAlbum(StoredAlbumSummary summary) {
