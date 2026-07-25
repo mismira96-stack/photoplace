@@ -5007,6 +5007,38 @@ public class MainActivity extends Activity {
         }
     }
 
+    private void addPendingOriginalCleanupCompactCard(LinearLayout parent) {
+        LinearLayout card = new LinearLayout(this);
+        card.setOrientation(1);
+        card.setPadding(dp(16), dp(16), dp(16), dp(16));
+        parent.addView(card, matchWidthWithBottom(dp(12)));
+        GradientDrawable background = new GradientDrawable();
+        background.setColor(-3598);
+        background.setCornerRadius(dp(16));
+        background.setStroke(1, -13099);
+        card.setBackground(background);
+
+        TextView title = new TextView(this);
+        title.setText("원본 사진 정리 필요");
+        title.setTextSize(16.0f);
+        title.setTypeface(Typeface.DEFAULT_BOLD);
+        title.setTextColor(-11382190);
+        card.addView(title, matchWidthWithBottom(dp(4)));
+
+        TextView body = bodyText(pendingOriginalCleanupSummary());
+        card.addView(body, matchWidthWithBottom(dp(12)));
+
+        Button button = new Button(this);
+        button.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                MainActivity.this.deleteCopiedOriginals();
+            }
+        });
+        styleActionButton(button, actionText("원본 사진 휴지통으로 이동", pendingOriginalCleanupCount() + "개 원본만 이동"), "alert", -658433, -2238722, -8635667);
+        card.addView(button, matchWidth());
+    }
+
     private void showRecentPlacesScreen() {
         this.resultScreenMode = true;
         this.recentPlacesScreenMode = true;
@@ -5023,6 +5055,9 @@ public class MainActivity extends Activity {
         addListHeader(linearLayout, "최근 발견한 장소");
         List<StoredAlbumSummary> listLoadRecentAlbumSummaries = filterLiveStoredAlbumSummaries(loadRecentAlbumSummariesForUi());
         addWorkingBanner(linearLayout);
+        if (hasPendingOriginalCleanup()) {
+            addPendingOriginalCleanupCompactCard(linearLayout);
+        }
         if (listLoadRecentAlbumSummaries.isEmpty()) {
             LinearLayout linearLayout2 = new LinearLayout(this);
             linearLayout2.setOrientation(1);
