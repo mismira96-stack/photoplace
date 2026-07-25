@@ -173,6 +173,7 @@ public class MainActivity extends Activity {
     private final Map<String, String> locationCache = new LinkedHashMap();
     private final Map<String, LocationLookupResult> locationDetailCache = new LinkedHashMap();
     private final Map<String, Long> albumDateFallbackCache = new LinkedHashMap();
+    private final Map<String, Boolean> liveAlbumPresenceCache = new LinkedHashMap();
     private final List<Integer> topLevelBackStack = new ArrayList();
     private volatile boolean cancelRequested = false;
     private boolean isWorking = false;
@@ -632,6 +633,7 @@ public class MainActivity extends Activity {
                 }
                 container.removeAllViews();
                 List<StoredAlbumSummary> homeAlbumSummaries = MainActivity.this.loadRecentAlbumSummariesForUi();
+                homeAlbumSummaries = MainActivity.this.filterLiveStoredAlbumSummaries(homeAlbumSummaries);
                 MainActivity.this.addOverseasMemoriesSection(container, homeAlbumSummaries);
                 MainActivity.this.addRecentPlacesSection(container, homeAlbumSummaries);
             }
@@ -3748,6 +3750,48 @@ public class MainActivity extends Activity {
     private void invalidateRecentAlbumSummaryCache() {
         this.recentAlbumSummaryCache = null;
         this.recentAlbumSummaryCacheMillis = 0L;
+        this.liveAlbumPresenceCache.clear();
+    }
+
+    private List<StoredAlbumSummary> filterLiveStoredAlbumSummaries(List<StoredAlbumSummary> summaries) {
+        if (summaries == null || summaries.isEmpty()) {
+            return new ArrayList<>();
+        }
+        ArrayList<StoredAlbumSummary> live = new ArrayList<>();
+        for (StoredAlbumSummary summary : summaries) {
+            if (hasLiveMediaInAlbum(summary)) {
+                live.add(summary);
+            }
+        }
+        return live;
+    }
+
+    private boolean hasLiveMediaInAlbum(StoredAlbumSummary summary) {
+        if (summary == null || summary.relativePath == null || summary.relativePath.trim().isEmpty()) {
+            return false;
+        }
+        String key = summary.relativePath;
+        Boolean cached = this.liveAlbumPresenceCache.get(key);
+        if (cached != null) {
+            return cached.booleanValue();
+        }
+        boolean live = hasLiveMediaInAlbum(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, key) || hasLiveMediaInAlbum(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, key);
+        this.liveAlbumPresenceCache.put(key, Boolean.valueOf(live));
+        return live;
+    }
+
+    private boolean hasLiveMediaInAlbum(Uri mediaUri, String relativePath) {
+        Cursor cursor = null;
+        try {
+            cursor = getContentResolver().query(mediaUri, new String[]{"_id"}, visibleMediaSelection("relative_path = ?"), new String[]{relativePath}, null);
+            return cursor != null && cursor.moveToFirst();
+        } catch (Exception unused) {
+            return false;
+        } finally {
+            if (cursor != null) {
+                cursor.close();
+            }
+        }
     }
 
     /* renamed from: lambda$loadRecentAlbumSummaries$40$com-example-gallerysorter-MainActivity, reason: not valid java name */
@@ -4694,7 +4738,7 @@ public class MainActivity extends Activity {
         linearLayout.setPadding(dp(18), dp(56), dp(18), dp(REQUEST_WRITE_VIDEOS));
         scrollView.addView(linearLayout);
         addListHeader(linearLayout, "최근 발견한 장소");
-        List<StoredAlbumSummary> listLoadRecentAlbumSummaries = loadRecentAlbumSummariesForUi();
+        List<StoredAlbumSummary> listLoadRecentAlbumSummaries = filterLiveStoredAlbumSummaries(loadRecentAlbumSummariesForUi());
         addWorkingBanner(linearLayout);
         if (listLoadRecentAlbumSummaries.isEmpty()) {
             LinearLayout linearLayout2 = new LinearLayout(this);
