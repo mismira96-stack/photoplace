@@ -68,6 +68,9 @@ import android.widget.ScrollView;
 import android.widget.Switch;
 import android.widget.TextView;
 import android.widget.Toast;
+import androidx.work.ExistingWorkPolicy;
+import androidx.work.OneTimeWorkRequest;
+import androidx.work.WorkManager;
 import com.example.gallerysorter.MainActivity;
 import java.io.BufferedReader;
 import java.io.File;
@@ -207,6 +210,7 @@ public class MainActivity extends Activity {
     private int recentPlacesScrollY = 0;
     private boolean copyCompletedMode = false;
     private boolean copyStoppedMode = false;
+    private boolean backgroundSortMode = false;
     private boolean originalsTrashCompleted = false;
     private long lastNotificationProgressUpdateMillis = 0L;
     private int lastNotificationProgressPercent = -1;
@@ -223,6 +227,25 @@ public class MainActivity extends Activity {
         @Override
         public void run() {
             MainActivity.this.recoverIfActiveProgressStalled();
+        }
+    };
+    private final Runnable backgroundSortResultCheckRunnable = new Runnable() {
+        @Override
+        public void run() {
+            if (MainActivity.this.handleBackgroundSortResultIfAvailable()) {
+                return;
+            }
+            if (MainActivity.this.isWorking && MainActivity.this.backgroundSortMode) {
+                SortProgressStore.Snapshot snapshot = SortProgressStore.read(MainActivity.this);
+                if (snapshot.active) {
+                    MainActivity.this.activeProgressLabel = snapshot.label;
+                    MainActivity.this.activeProgressCurrent = snapshot.current;
+                    MainActivity.this.activeProgressTotal = snapshot.total;
+                    MainActivity.this.activeProgressContext = snapshot.progressContext;
+                    MainActivity.this.renderProgress(snapshot.label, snapshot.current, snapshot.total, snapshot.progressContext);
+                }
+                MainActivity.this.mainHandler.postDelayed(this, 1000L);
+            }
         }
     };
 
@@ -264,6 +287,10 @@ public class MainActivity extends Activity {
     @Override // android.app.Activity
     protected void onResume() {
         super.onResume();
+        if (handleBackgroundSortResultIfAvailable()) {
+            refreshActivePlaceDetailAfterExternalChange();
+            return;
+        }
         if (!this.isWorking) {
             loadPendingOriginalCleanup();
             if (!this.resultScreenMode && !this.recentPlacesScreenMode && !this.recentPlaceDetailMode) {
@@ -271,6 +298,9 @@ public class MainActivity extends Activity {
                     restoreMainUiFromState();
                 }
             }
+        } else if (this.backgroundSortMode) {
+            this.mainHandler.removeCallbacks(this.backgroundSortResultCheckRunnable);
+            this.mainHandler.postDelayed(this.backgroundSortResultCheckRunnable, 1000L);
         }
         refreshActivePlaceDetailAfterExternalChange();
     }
@@ -1536,12 +1566,31 @@ public class MainActivity extends Activity {
         setWorking(true, "앨범으로 정리하는 중...");
         final ArrayList arrayList = new ArrayList(this.previewItems);
         this.logText.setText("앨범으로 정리하는 중이에요. 잠시만 기다려 주세요.");
+        if (startBackgroundSortWorker(arrayList, zShouldMoveVideos)) {
+            return;
+        }
         this.worker.execute(new Runnable() { // from class: com.example.gallerysorter.MainActivity$$ExternalSyntheticLambda49
             @Override // java.lang.Runnable
             public final void run() {
                 MainActivity.this.m41lambda$runCopy$23$comexamplegallerysorterMainActivity(arrayList, zShouldMoveVideos);
             }
         });
+    }
+
+    private boolean startBackgroundSortWorker(List<PhotoItem> items, boolean shouldMoveVideos) {
+        try {
+            new SortResultStore(this).clear();
+            new SortInputStore(this).write(items, shouldMoveVideos);
+            OneTimeWorkRequest request = new OneTimeWorkRequest.Builder(SortWorker.class).build();
+            WorkManager.getInstance(this).enqueueUniqueWork(SortWorker.WORK_NAME, ExistingWorkPolicy.REPLACE, request);
+            this.backgroundSortMode = true;
+            this.mainHandler.removeCallbacks(this.backgroundSortResultCheckRunnable);
+            this.mainHandler.postDelayed(this.backgroundSortResultCheckRunnable, 1000L);
+            return true;
+        } catch (Exception unused) {
+            this.backgroundSortMode = false;
+            return false;
+        }
     }
 
     /* renamed from: lambda$runCopy$23$com-example-gallerysorter-MainActivity, reason: not valid java name */
@@ -1694,6 +1743,25 @@ public class MainActivity extends Activity {
         } catch (Throwable e) {
             handleResultScreenError(e, z, iCountRecentlySortedItems, iCountCopyableItems, iCountNoLocationItems);
         }
+    }
+
+    private boolean handleBackgroundSortResultIfAvailable() {
+        SortResultStore resultStore = new SortResultStore(this);
+        SortResultStore.Snapshot snapshot = resultStore.read();
+        if (snapshot.isEmpty()) {
+            return false;
+        }
+        resultStore.clear();
+        this.backgroundSortMode = false;
+        this.mainHandler.removeCallbacks(this.backgroundSortResultCheckRunnable);
+        this.copiedOriginalUris.clear();
+        this.copiedOriginalUris.addAll(snapshot.copiedOriginalUris);
+        try {
+            m40lambda$runCopy$22$comexamplegallerysorterMainActivity(snapshot.sortedUris, snapshot.copiedCount, snapshot.skippedCount, snapshot.failedCount, snapshot.canceled);
+        } catch (Throwable e) {
+            handleCopyCompletionError(e, snapshot.copiedCount, snapshot.skippedCount, snapshot.failedCount, snapshot.canceled);
+        }
+        return true;
     }
 
     private void handleCopyCompletionError(Throwable th, int i, int i2, int i3, boolean z) {
@@ -3770,7 +3838,14 @@ public class MainActivity extends Activity {
         if (summary == null || summary.relativePath == null || summary.relativePath.trim().isEmpty()) {
             return false;
         }
-        String key = summary.relativePath;
+        return hasLiveMediaInAlbum(summary.relativePath);
+    }
+
+    private boolean hasLiveMediaInAlbum(String relativePath) {
+        if (relativePath == null || relativePath.trim().isEmpty()) {
+            return false;
+        }
+        String key = relativePath;
         Boolean cached = this.liveAlbumPresenceCache.get(key);
         if (cached != null) {
             return cached.booleanValue();
@@ -4055,6 +4130,10 @@ public class MainActivity extends Activity {
         SharedPreferences prefs = getSharedPreferences(PREFS_NAME, 0);
         this.pendingOriginalCleanupCount = Math.max(0, prefs.getInt(PREF_PENDING_ORIGINAL_CLEANUP_COUNT, this.pendingOriginalCleanupCount));
         if (this.pendingOriginalCleanupCount > 0) {
+            if (!hasLiveAlbumForPendingOriginalCleanup()) {
+                clearPendingOriginalCleanup();
+                return;
+            }
             this.originalsTrashCompleted = false;
             this.copyCompletedMode = true;
             return;
@@ -4083,6 +4162,62 @@ public class MainActivity extends Activity {
         this.pendingOriginalCleanupCount = this.copiedOriginalUris.size();
         this.originalsTrashCompleted = this.pendingOriginalCleanupCount == 0;
         this.copyCompletedMode = this.pendingOriginalCleanupCount > 0;
+    }
+
+    private boolean hasLiveAlbumForPendingOriginalCleanup() {
+        this.liveAlbumPresenceCache.clear();
+        List<String> albumPaths = pendingOriginalCleanupAlbumPaths();
+        if (albumPaths.isEmpty()) {
+            return true;
+        }
+        for (String albumPath : albumPaths) {
+            if (!hasLiveMediaInAlbum(albumPath)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private List<String> pendingOriginalCleanupAlbumPaths() {
+        JSONObject root = readPendingOriginalCleanupRoot();
+        ArrayList<String> paths = albumPathsFromJsonArray(root == null ? null : root.optJSONArray("albumRelativePaths"));
+        return paths.isEmpty() ? latestSessionAlbumRelativePaths() : paths;
+    }
+
+    private ArrayList<String> albumPathsFromJsonArray(JSONArray array) {
+        ArrayList<String> paths = new ArrayList<>();
+        if (array == null) {
+            return paths;
+        }
+        for (int i = 0; i < array.length(); i++) {
+            String value = array.optString(i, "");
+            if (value != null && !value.trim().isEmpty() && !paths.contains(value)) {
+                paths.add(value);
+            }
+        }
+        return paths;
+    }
+
+    private ArrayList<String> latestSessionAlbumRelativePaths() {
+        ArrayList<String> paths = new ArrayList<>();
+        JSONObject historyRoot = this.albumSummaryHistoryStore.readRoot();
+        JSONArray sessions = historyRoot.optJSONArray("sessions");
+        if (sessions == null || sessions.length() == 0) {
+            return paths;
+        }
+        JSONObject latestSession = sessions.optJSONObject(0);
+        JSONArray albums = latestSession == null ? null : latestSession.optJSONArray("albums");
+        if (albums == null) {
+            return paths;
+        }
+        for (int i = 0; i < albums.length(); i++) {
+            JSONObject album = albums.optJSONObject(i);
+            String relativePath = album == null ? "" : album.optString("relativePath", "");
+            if (!relativePath.trim().isEmpty() && !paths.contains(relativePath)) {
+                paths.add(relativePath);
+            }
+        }
+        return paths;
     }
 
     private int pendingOriginalCleanupCount() {
@@ -4138,6 +4273,11 @@ public class MainActivity extends Activity {
             jSONObject.put("savedAt", formatTimestamp(System.currentTimeMillis()));
             jSONObject.put("savedAtMillis", System.currentTimeMillis());
             jSONObject.put("uris", jSONArray);
+            JSONArray albumPaths = new JSONArray();
+            for (String path : latestSessionAlbumRelativePaths()) {
+                albumPaths.put(path);
+            }
+            jSONObject.put("albumRelativePaths", albumPaths);
             writePendingOriginalCleanupRoot(jSONObject);
             this.pendingOriginalCleanupCount = jSONArray.length();
             editorEdit.putInt(PREF_PENDING_ORIGINAL_CLEANUP_COUNT, this.pendingOriginalCleanupCount).remove(PREF_PENDING_ORIGINAL_CLEANUP).apply();
@@ -7903,6 +8043,9 @@ public class MainActivity extends Activity {
 
     private void requestCancel() {
         this.cancelRequested = true;
+        if (this.backgroundSortMode) {
+            WorkManager.getInstance(this).cancelUniqueWork(SortWorker.WORK_NAME);
+        }
         this.cancelButton.setEnabled(false);
         this.summaryText.setText("취소 요청 중...");
     }
@@ -7918,6 +8061,7 @@ public class MainActivity extends Activity {
             this.backInvokedCallback = null;
         }
         super.onDestroy();
+        this.mainHandler.removeCallbacks(this.backgroundSortResultCheckRunnable);
         this.worker.shutdownNow();
         this.thumbnailWorker.shutdownNow();
     }
