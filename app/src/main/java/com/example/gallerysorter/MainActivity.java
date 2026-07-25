@@ -600,9 +600,6 @@ public class MainActivity extends Activity {
         textView6.setTextSize(13.0f);
         this.progressDetailText.setTextColor(-10193781);
         linearLayout5.addView(this.progressDetailText, matchWidth());
-        final LinearLayout homeMemorySections = new LinearLayout(this);
-        homeMemorySections.setOrientation(1);
-        linearLayout.addView(homeMemorySections, matchWidth());
         LinearLayout linearLayout7 = new LinearLayout(this);
         this.resultSummaryCard = linearLayout7;
         linearLayout7.setOrientation(1);
@@ -681,6 +678,9 @@ public class MainActivity extends Activity {
             }
         });
         linearLayoutResultCta.addView(textViewResultAction);
+        final LinearLayout homeMemorySections = new LinearLayout(this);
+        homeMemorySections.setOrientation(1);
+        linearLayout.addView(homeMemorySections, matchWidth());
         LinearLayout linearLayout11 = new LinearLayout(this);
         this.unclassifiedSectionCard = linearLayout11;
         linearLayout11.setOrientation(1);
