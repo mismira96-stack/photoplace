@@ -92,3 +92,48 @@
 - Confirm progress resumes in-app.
 - Stop midway and restart.
 - Confirm already sorted items are not copied again.
+
+## 2026-07-25 Update
+
+### Done
+
+- `SortWorker` now runs the persisted `SortInputStore` snapshot through WorkManager.
+- `SortResultStore` persists copied/skipped/failed/canceled counts, sorted URIs, copied original URIs, and compact logs.
+- `MainActivity.runCopy()` now enqueues `SortWorker` first and keeps the old Activity executor path as fallback.
+- `MainActivity` polls Worker results and attaches the completion result screen when the app resumes.
+- `requestCancel()` now cancels the unique WorkManager sort work.
+- Pending original cleanup now stores the related album relative paths and clears stale cleanup state when the generated albums were deleted externally.
+- Verified:
+  - `testDebugUnitTest assembleDebug` passed.
+  - Debug APK installed on Galaxy device.
+  - External album deletion no longer leaves the "original cleanup needed" card stuck.
+
+### Remaining Weekend Work
+
+- Device test the WorkManager path with the 4087-item Download duplicate folder:
+  - start sort
+  - press Home
+  - return from notification
+  - confirm progress and result attach
+  - stop midway and restart
+- Throttle Worker foreground updates if notification progress is too chatty on the device.
+- Harden cancellation so a stopped Worker always persists a partial result before finishing.
+- Add process-death recovery:
+  - if the app process is killed after Worker completion, rebuild enough result context from `SortResultStore` and `album_summary_history.json`.
+- Split `MainActivity` further after this stabilizes:
+  - original cleanup state/store
+  - background sort coordinator
+  - result screen rendering
+
+### Gemini CLI Split
+
+- Good Gemini tasks:
+  - read PRD/TODO docs and produce a clean prioritized issue list
+  - review place-name policy test cases and suggest missing examples
+  - design process-death recovery acceptance tests
+  - review Korean UX copy for "safe sorting" and original cleanup
+- Keep Codex tasks:
+  - Android code edits that touch `MainActivity`
+  - device install/logcat/adb verification
+  - WorkManager, MediaStore, and permission behavior fixes
+  - commits and release build prep
