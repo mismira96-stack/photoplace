@@ -659,12 +659,12 @@ public class MainActivity extends Activity {
         linearLayoutResultCta.setPadding(0, dp(12), 0, 0);
         linearLayout7.addView(linearLayoutResultCta, matchWidth());
         TextView textViewResultHint = new TextView(this);
-        textViewResultHint.setText("결과를 자세히 확인할 수 있어요");
+        textViewResultHint.setText(getHomeResultDetailHintText());
         textViewResultHint.setTextSize(12.0f);
         textViewResultHint.setTextColor(-10193781);
         linearLayoutResultCta.addView(textViewResultHint, weightedParams(1));
         TextView textViewResultAction = new TextView(this);
-        textViewResultAction.setText("자세히 보기");
+        textViewResultAction.setText(getHomeResultDetailActionText());
         textViewResultAction.setTextSize(12.0f);
         textViewResultAction.setTypeface(Typeface.DEFAULT_BOLD);
         textViewResultAction.setTextColor(-14326805);
@@ -677,7 +677,7 @@ public class MainActivity extends Activity {
         textViewResultAction.setOnClickListener(new View.OnClickListener() {
             @Override // android.view.View.OnClickListener
             public void onClick(View view) {
-                MainActivity.this.showResultScreen();
+                MainActivity.this.openHomeResultDetail();
             }
         });
         linearLayoutResultCta.addView(textViewResultAction);
@@ -759,8 +759,7 @@ public class MainActivity extends Activity {
 
     /* renamed from: lambda$buildUi$3$com-example-gallerysorter-MainActivity, reason: not valid java name */
     /* synthetic */ void m19lambda$buildUi$3$comexamplegallerysorterMainActivity(View view) {
-        this.resultFocusMode = RESULT_FOCUS_ALL;
-        showResultScreen();
+        openHomeResultDetail();
     }
 
     /* renamed from: lambda$buildUi$4$com-example-gallerysorter-MainActivity, reason: not valid java name */
@@ -775,18 +774,39 @@ public class MainActivity extends Activity {
 
     /* renamed from: lambda$buildUi$6$com-example-gallerysorter-MainActivity, reason: not valid java name */
     /* synthetic */ void m22lambda$buildUi$6$comexamplegallerysorterMainActivity(View view) {
-        this.resultFocusMode = RESULT_FOCUS_ALL;
-        showResultScreen();
+        openHomeResultDetail();
     }
 
     /* renamed from: lambda$buildUi$7$com-example-gallerysorter-MainActivity, reason: not valid java name */
     /* synthetic */ void m23lambda$buildUi$7$comexamplegallerysorterMainActivity(View view) {
-        this.resultFocusMode = RESULT_FOCUS_ALL;
-        showResultScreen();
+        openHomeResultDetail();
     }
 
     /* renamed from: lambda$buildUi$8$com-example-gallerysorter-MainActivity, reason: not valid java name */
     /* synthetic */ void m24lambda$buildUi$8$comexamplegallerysorterMainActivity(View view) {
+        openHomeResultDetail();
+    }
+
+    private String getHomeResultDetailHintText() {
+        if (this.previewItems.isEmpty() && hasStoredAlbumSummaryHistory()) {
+            return "저장된 정리 기록을 확인할 수 있어요";
+        }
+        return "결과를 자세히 확인할 수 있어요";
+    }
+
+    private String getHomeResultDetailActionText() {
+        if (this.previewItems.isEmpty() && hasStoredAlbumSummaryHistory()) {
+            return "정리 기록 보기";
+        }
+        return "자세히 보기";
+    }
+
+    private void openHomeResultDetail() {
+        this.resultFocusMode = RESULT_FOCUS_ALL;
+        if (this.previewItems.isEmpty() && hasStoredAlbumSummaryHistory()) {
+            showRecentPlacesScreen();
+            return;
+        }
         showResultScreen();
     }
 
@@ -7054,7 +7074,7 @@ public class MainActivity extends Activity {
     }
 
     private void navigateToTopLevelTab(int target) {
-        if (target == this.currentTopLevelTab && !this.recentPlaceDetailMode && !this.overseasMemoryScreenMode) {
+        if (target == this.currentTopLevelTab && !this.resultScreenMode && !this.recentPlaceDetailMode && !this.overseasMemoryScreenMode) {
             return;
         }
         if (target == 0) {
@@ -7492,6 +7512,10 @@ public class MainActivity extends Activity {
             linearLayout.addView(textViewSubtitle, matchWidth());
         }
         addWorkingBanner(linearLayout);
+        if (this.previewItems.isEmpty() && hasStoredAlbumSummaryHistory()) {
+            showRecentPlacesScreen();
+            return;
+        }
         if (this.previewItems.isEmpty() && hasPendingOriginalCleanup()) {
             addPendingOriginalCleanupScreen(linearLayout);
             setContentViewWithBottomTabs(scrollView, -1);
