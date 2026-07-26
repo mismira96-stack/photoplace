@@ -470,8 +470,9 @@ public class MainActivity extends Activity {
         }
         ResultCounts resultCounts = countResultItems(this.previewItems);
         int noLocationCount = resultCounts.noLocationCount;
-        int primaryCount = (this.copyCompletedMode || this.copyStoppedMode) ? resultCounts.recentlySortedCount : resultCounts.copyableCount;
-        int groupCount = this.copyCompletedMode ? resultCounts.recentlySortedGroupCount : resultCounts.newFolderCount;
+        int completedCount = completedDisplayCount(resultCounts);
+        int primaryCount = (this.copyCompletedMode || this.copyStoppedMode) ? completedCount : resultCounts.copyableCount;
+        int groupCount = this.copyCompletedMode ? completedDisplayGroupCount(resultCounts) : resultCounts.newFolderCount;
         int doneCount = this.copyCompletedMode ? primaryCount : this.copyStoppedMode ? resultCounts.copyableCount : resultCounts.alreadySortedCount;
         setStatus(this.copyStoppedMode ? "?뺣━ 硫덉땄" : this.copyCompletedMode ? "?뺣━ ?꾨즺" : "?뺤씤 ?꾨즺", String.valueOf(groupCount), String.valueOf(noLocationCount), String.valueOf(doneCount));
     }
@@ -886,8 +887,8 @@ public class MainActivity extends Activity {
         }
         ResultCounts resultCounts = countResultItems(this.previewItems);
         int i2 = resultCounts.noLocationCount;
-        int iCountRecentlySortedItems = (this.copyCompletedMode || this.copyStoppedMode) ? resultCounts.recentlySortedCount : resultCounts.copyableCount;
-        int iCountRecentlySortedGroups = this.copyCompletedMode ? resultCounts.recentlySortedGroupCount : resultCounts.newFolderCount;
+        int iCountRecentlySortedItems = (this.copyCompletedMode || this.copyStoppedMode) ? completedDisplayCount(resultCounts) : resultCounts.copyableCount;
+        int iCountRecentlySortedGroups = this.copyCompletedMode ? completedDisplayGroupCount(resultCounts) : resultCounts.newFolderCount;
         int iCountNewFolderItems = resultCounts.newFolderCount;
         int iCountAlreadySortedItems = resultCounts.alreadySortedCount;
         if (!this.copyCompletedMode && !this.copyStoppedMode && iCountRecentlySortedItems == 0 && iCountNewFolderItems == 0 && !hasPendingOriginalCleanup()) {
@@ -4594,6 +4595,7 @@ public class MainActivity extends Activity {
         boolean zShouldMoveVideos = shouldMoveVideos();
         ResultCounts counts = new ResultCounts();
         HashSet recentlySortedGroups = new HashSet();
+        HashSet alreadySortedGroups = new HashSet();
         for (PhotoItem photoItem : list) {
             if (photoItem.noLocation) {
                 counts.noLocationCount++;
@@ -4606,6 +4608,9 @@ public class MainActivity extends Activity {
             }
             if (photoItem.duplicateInTarget) {
                 counts.alreadySortedCount++;
+                if (!photoItem.noLocation) {
+                    alreadySortedGroups.add(albumCandidateGroupKey(photoItem));
+                }
             }
             if (wasRecentlySorted(photoItem)) {
                 counts.recentlySortedCount++;
@@ -4615,7 +4620,16 @@ public class MainActivity extends Activity {
             }
         }
         counts.recentlySortedGroupCount = recentlySortedGroups.size();
+        counts.alreadySortedGroupCount = alreadySortedGroups.size();
         return counts;
+    }
+
+    private int completedDisplayCount(ResultCounts counts) {
+        return counts.recentlySortedCount > 0 ? counts.recentlySortedCount : counts.alreadySortedCount;
+    }
+
+    private int completedDisplayGroupCount(ResultCounts counts) {
+        return counts.recentlySortedGroupCount > 0 ? counts.recentlySortedGroupCount : counts.alreadySortedGroupCount;
     }
 
     private String compactResultSummary(int i, int i2, int i3) {
@@ -7673,8 +7687,8 @@ public class MainActivity extends Activity {
         ResultCounts resultCounts = countResultItems(this.previewItems);
         int i2 = resultCounts.noLocationCount;
         int iCountCopyableItems = resultCounts.copyableCount;
-        int iCountRecentlySortedItems = resultCounts.recentlySortedCount;
-        int iCountRecentlySortedGroups = resultCounts.recentlySortedGroupCount;
+        int iCountRecentlySortedItems = completedDisplayCount(resultCounts);
+        int iCountRecentlySortedGroups = completedDisplayGroupCount(resultCounts);
         LinearLayout linearLayout3 = new LinearLayout(this);
         linearLayout3.setOrientation(1);
         linearLayout3.setGravity(17);
@@ -8370,6 +8384,7 @@ public class MainActivity extends Activity {
         int copyableCount;
         int newFolderCount;
         int alreadySortedCount;
+        int alreadySortedGroupCount;
         int recentlySortedCount;
         int recentlySortedGroupCount;
     }
