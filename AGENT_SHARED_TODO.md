@@ -124,3 +124,93 @@ Output expected:
 - UI entry points
 - risks
 - implementation steps split into small patches
+
+## Next Collaboration Plan
+
+### Product Direction
+
+Personal Place should solve reliable place naming without broad automatic POI promotion.
+
+Preferred UX:
+
+- The app finds repeated GPS clusters or strong known-place candidates.
+- The app recommends a memory place, for example:
+  - "Photos near Seoul Arts Center were found."
+  - "Remember this place as 'Seoul Arts Center'?"
+- The user confirms or edits the name.
+- Confirmed Personal Place names are used first inside PhotoPlace memory/result views.
+- Saving a Personal Place does not move/copy files.
+- Creating or reorganizing gallery albums from a Personal Place requires a separate explicit action.
+
+### Gemini Responsibilities
+
+Gemini should work in analysis/design mode first:
+
+1. Read:
+   - `AGENT_SHARED_TODO.md`
+   - `WORKLOG_2026-07-26.md`
+   - `Photoplace_V2_Personal_Place_PRD.md`
+   - `BACKGROUND_PROCESSING_PLAN.md`
+2. Review existing code structures without editing:
+   - `PlaceNamePolicy`
+   - `MainActivity` location naming and result rendering flow
+   - `PhotoItem`
+   - `StoredAlbumSummary`
+   - `AlbumSummaryHistoryStore`
+   - `SortInputStore`
+   - `SortWorker`
+3. Produce a minimal implementation design:
+   - data model: `PersonalPlace`, `PlaceCandidate`, optional membership/cache model
+   - storage: likely `PersonalPlaceStore` JSON following existing `*Store` pattern
+   - candidate generation strategy
+   - privacy guardrails for home/work/private repeated places
+   - UI entry points and copy
+   - how app views apply confirmed Personal Place names
+   - how file movement remains separate
+   - risks and test cases
+4. Suggest small patch sequence for Codex.
+
+Gemini should not:
+
+- edit code before the design is accepted.
+- add broad POI scoring.
+- auto-rename albums/files.
+- auto-exclude flight/drive-through places.
+
+### Codex Responsibilities
+
+Codex should own implementation and device verification:
+
+1. Review Gemini design and trim MVP scope.
+2. Implement small patches only after scope is clear.
+3. Keep code split where practical instead of adding more bulk to `MainActivity`.
+4. Run:
+   - `testDebugUnitTest`
+   - `assembleDebug`
+   - device install / ADB checks
+5. Verify on phone with real test folders.
+6. Commit after each stable patch.
+
+### Suggested MVP Patch Order
+
+1. Add `PersonalPlace` model and `PersonalPlaceStore`.
+2. Add pure candidate grouping logic with tests.
+3. Add non-invasive recommendation surface in app UI.
+4. Add confirm/edit place name dialog.
+5. Apply confirmed Personal Place names in PhotoPlace internal views only.
+6. Add management affordance: edit/delete/hide recommendation.
+7. Later, add explicit "create album from this place" flow if still needed.
+
+### Open Questions For Next Session
+
+- Candidate radius:
+  - start conservative, maybe 100-200m for personal clusters.
+  - known venues may use custom smaller/larger radii only after sample review.
+- Candidate threshold:
+  - minimum photo count and minimum date spread should avoid one-off noise.
+- Sensitive places:
+  - home/work-like repeated private places should not be loudly surfaced without careful wording.
+- Flight/drive-through:
+  - keep as badge/review category later, not auto-delete/exclude.
+- Existing users:
+  - Personal Place recommendations should be generated from existing history/media without forcing album reorganization.
