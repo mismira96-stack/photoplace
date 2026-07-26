@@ -18,6 +18,9 @@ public class PlaceNamePolicyTest {
     public void seoulAdministrativeDongDoesNotBecomeDetailPlace() {
         assertNull(PlaceNamePolicy.cleanSeoulDetailName("송파동"));
         assertNull(PlaceNamePolicy.cleanSeoulDetailName("장지동"));
+        assertNull(PlaceNamePolicy.cleanSeoulDetailName("앤앤앤에스프레소"));
+        assertNull(PlaceNamePolicy.cleanSeoulDetailName("석촌호수"));
+        assertNull(PlaceNamePolicy.cleanSeoulDetailName("차호"));
         assertEquals("송파구", PlaceNamePolicy.firstDistrictName("서울특별시 송파구 장지동"));
     }
 
@@ -25,6 +28,28 @@ public class PlaceNamePolicyTest {
     public void strongPoiNamesAreKept() {
         assertEquals("에버랜드", PlaceNamePolicy.cleanPoiLocationName("Everland Resort"));
         assertEquals("롯데월드", PlaceNamePolicy.cleanPoiLocationName("서울특별시 송파구 롯데월드"));
+        assertEquals("롯데월드", PlaceNamePolicy.cleanPoiLocationName("Lotte World Adventure"));
+        assertEquals("예술의전당", PlaceNamePolicy.cleanPoiLocationName("Seoul Arts Center"));
+        assertEquals("분당서울대병원", PlaceNamePolicy.cleanPoiLocationName("분당서울대학교병원"));
+        assertEquals("인천국제공항", PlaceNamePolicy.cleanPoiLocationName("Incheon International Airport"));
+        assertEquals("인천국제공항", PlaceNamePolicy.cleanPoiLocationName("인천공항 제1여객터미널"));
+        assertEquals("인천국제공항", PlaceNamePolicy.cleanPoiLocationName("인천국제공항 제2여객터미널"));
+    }
+
+    @Test
+    public void nonAllowlistedPoiNamesFallBackToAdministrativeLocation() {
+        assertNull(PlaceNamePolicy.cleanPoiLocationName("광교중앙역"));
+        assertNull(PlaceNamePolicy.cleanPoiLocationName("광교고등학교"));
+        assertNull(PlaceNamePolicy.cleanPoiLocationName("앤앤앤 에스프레스"));
+        assertNull(PlaceNamePolicy.cleanPoiLocationName("부산 해운대 동백로"));
+        assertNull(PlaceNamePolicy.cleanPoiLocationName("일반 병원"));
+        assertNull(PlaceNamePolicy.cleanPoiLocationName("서울대학교병원"));
+        assertNull(PlaceNamePolicy.cleanPoiLocationName("서울대병원"));
+        assertNull(PlaceNamePolicy.cleanPoiLocationName("김포공항"));
+        assertNull(PlaceNamePolicy.cleanPoiLocationName("인천공항철도"));
+        assertNull(PlaceNamePolicy.cleanPoiLocationName("인천공항고속도로"));
+        assertNull(PlaceNamePolicy.cleanPoiLocationName("롯데월드몰"));
+        assertNull(PlaceNamePolicy.cleanPoiLocationName("롯데월드타워"));
     }
 
     @Test

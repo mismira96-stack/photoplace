@@ -182,6 +182,7 @@ public class MainActivity extends Activity {
     private boolean isWorking = false;
     private boolean resultScreenMode = false;
     private int resultFocusMode = RESULT_FOCUS_ALL;
+    private int resultRenderGeneration = 0;
     private int currentTopLevelTab = 0;
     private boolean recentPlacesScreenMode = false;
     private boolean recentPlaceDetailMode = false;
@@ -437,14 +438,46 @@ public class MainActivity extends Activity {
     }
 
     private void returnToMainScreen() {
+        this.resultRenderGeneration++;
         this.topLevelBackStack.clear();
-        loadPendingOriginalCleanup();
         buildUi();
         ensureReadPermission();
-        restoreMainUiFromState();
+        restoreMainUiStatusOnly();
+        refreshPendingOriginalCleanupAfterFirstDraw();
+    }
+
+    private void refreshPendingOriginalCleanupAfterFirstDraw() {
+        final int generation = this.resultRenderGeneration;
+        this.mainHandler.postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                if (generation != MainActivity.this.resultRenderGeneration || MainActivity.this.resultScreenMode || MainActivity.this.recentPlacesScreenMode || MainActivity.this.recentPlaceDetailMode || MainActivity.this.overseasMemoryScreenMode) {
+                    return;
+                }
+                MainActivity.this.loadPendingOriginalCleanup();
+                MainActivity.this.restoreMainUiFromState();
+            }
+        }, 250L);
+    }
+
+    private void restoreMainUiStatusOnly() {
+        if (restoreActiveSortProgressFromStore()) {
+            return;
+        }
+        if (this.previewItems.isEmpty()) {
+            setStatus("以鍮꾨맖", "0", "0", "0");
+            return;
+        }
+        ResultCounts resultCounts = countResultItems(this.previewItems);
+        int noLocationCount = resultCounts.noLocationCount;
+        int primaryCount = (this.copyCompletedMode || this.copyStoppedMode) ? resultCounts.recentlySortedCount : resultCounts.copyableCount;
+        int groupCount = this.copyCompletedMode ? resultCounts.recentlySortedGroupCount : resultCounts.newFolderCount;
+        int doneCount = this.copyCompletedMode ? primaryCount : this.copyStoppedMode ? resultCounts.copyableCount : resultCounts.alreadySortedCount;
+        setStatus(this.copyStoppedMode ? "?뺣━ 硫덉땄" : this.copyCompletedMode ? "?뺣━ ?꾨즺" : "?뺤씤 ?꾨즺", String.valueOf(groupCount), String.valueOf(noLocationCount), String.valueOf(doneCount));
     }
 
     private void buildUi() {
+        this.resultRenderGeneration++;
         this.resultScreenMode = false;
         this.recentPlacesScreenMode = false;
         this.recentPlaceDetailMode = false;
@@ -851,17 +884,12 @@ public class MainActivity extends Activity {
         if (linearLayout2 != null) {
             linearLayout2.setVisibility(0);
         }
-        Iterator<PhotoItem> it = this.previewItems.iterator();
-        int i2 = 0;
-        while (it.hasNext()) {
-            if (it.next().noLocation) {
-                i2++;
-            }
-        }
-        int iCountRecentlySortedItems = (this.copyCompletedMode || this.copyStoppedMode) ? countRecentlySortedItems(this.previewItems) : countCopyableItems(this.previewItems);
-        int iCountRecentlySortedGroups = this.copyCompletedMode ? countRecentlySortedGroups(this.previewItems) : countNewFolderItems(this.previewItems);
-        int iCountNewFolderItems = countNewFolderItems(this.previewItems);
-        int iCountAlreadySortedItems = countAlreadySortedItems(this.previewItems);
+        ResultCounts resultCounts = countResultItems(this.previewItems);
+        int i2 = resultCounts.noLocationCount;
+        int iCountRecentlySortedItems = (this.copyCompletedMode || this.copyStoppedMode) ? resultCounts.recentlySortedCount : resultCounts.copyableCount;
+        int iCountRecentlySortedGroups = this.copyCompletedMode ? resultCounts.recentlySortedGroupCount : resultCounts.newFolderCount;
+        int iCountNewFolderItems = resultCounts.newFolderCount;
+        int iCountAlreadySortedItems = resultCounts.alreadySortedCount;
         if (!this.copyCompletedMode && !this.copyStoppedMode && iCountRecentlySortedItems == 0 && iCountNewFolderItems == 0 && !hasPendingOriginalCleanup()) {
             if (linearLayout2 != null) {
                 linearLayout2.setVisibility(8);
@@ -880,7 +908,7 @@ public class MainActivity extends Activity {
         if (this.copyCompletedMode) {
             iCountAlreadySortedItems = iCountRecentlySortedItems;
         } else if (this.copyStoppedMode) {
-            iCountAlreadySortedItems = countCopyableItems(this.previewItems);
+            iCountAlreadySortedItems = resultCounts.copyableCount;
         }
         setStatus(str, strValueOf, strValueOf2, String.valueOf(iCountAlreadySortedItems));
         TextView textView = this.resultSummaryTitle;
@@ -889,7 +917,7 @@ public class MainActivity extends Activity {
         }
         TextView textView2 = this.summaryText;
         if (this.copyStoppedMode) {
-            strCompactResultSummary = stoppedResultSummary(iCountRecentlySortedItems, countCopyableItems(this.previewItems), i2);
+            strCompactResultSummary = stoppedResultSummary(iCountRecentlySortedItems, resultCounts.copyableCount, i2);
         } else if (this.copyCompletedMode) {
             strCompactResultSummary = completedResultSummary(iCountRecentlySortedGroups, i2, iCountRecentlySortedItems, pendingOriginalCleanupCount());
         } else {
@@ -4562,6 +4590,34 @@ public class MainActivity extends Activity {
         return i;
     }
 
+    private ResultCounts countResultItems(List<PhotoItem> list) {
+        boolean zShouldMoveVideos = shouldMoveVideos();
+        ResultCounts counts = new ResultCounts();
+        HashSet recentlySortedGroups = new HashSet();
+        for (PhotoItem photoItem : list) {
+            if (photoItem.noLocation) {
+                counts.noLocationCount++;
+            }
+            if (!photoItem.noLocation && !photoItem.duplicateInTarget && (!photoItem.video || zShouldMoveVideos)) {
+                counts.copyableCount++;
+            }
+            if (!photoItem.noLocation && !photoItem.targetExists && !photoItem.duplicateInTarget && (!photoItem.video || zShouldMoveVideos)) {
+                counts.newFolderCount++;
+            }
+            if (photoItem.duplicateInTarget) {
+                counts.alreadySortedCount++;
+            }
+            if (wasRecentlySorted(photoItem)) {
+                counts.recentlySortedCount++;
+                if (!photoItem.noLocation) {
+                    recentlySortedGroups.add(albumCandidateGroupKey(photoItem));
+                }
+            }
+        }
+        counts.recentlySortedGroupCount = recentlySortedGroups.size();
+        return counts;
+    }
+
     private String compactResultSummary(int i, int i2, int i3) {
         if (i2 > 0) {
             return "위치 없음 " + i2 + "개 · 정리 예정 " + i + "개";
@@ -4910,8 +4966,13 @@ public class MainActivity extends Activity {
         if (linearLayout != null) {
             linearLayout.setVisibility(8);
         }
+        if (this.resultList == null) {
+            return;
+        }
         this.resultList.removeAllViews();
-        this.unclassifiedPreviewRow.removeAllViews();
+        if (this.unclassifiedPreviewRow != null) {
+            this.unclassifiedPreviewRow.removeAllViews();
+        }
         View view = this.unclassifiedSectionCard;
         if (view != null) {
             view.setVisibility(8);
@@ -5799,7 +5860,6 @@ public class MainActivity extends Activity {
         boolean zFocusSorted = this.resultScreenMode && this.resultFocusMode == RESULT_FOCUS_SORTED;
         int i;
         DateRange dateRange;
-        ArrayList arrayList;
         int i2;
         PhotoItem photoItem;
         DateRange dateRange2;
@@ -5807,8 +5867,13 @@ public class MainActivity extends Activity {
         if (linearLayout != null) {
             linearLayout.setVisibility(list.isEmpty() ? 8 : 0);
         }
+        if (this.resultList == null) {
+            return;
+        }
         this.resultList.removeAllViews();
-        this.unclassifiedPreviewRow.removeAllViews();
+        if (this.unclassifiedPreviewRow != null) {
+            this.unclassifiedPreviewRow.removeAllViews();
+        }
         View view = this.unclassifiedSectionCard;
         if (view != null) {
             view.setVisibility(this.resultScreenMode ? 0 : 8);
@@ -5816,7 +5881,7 @@ public class MainActivity extends Activity {
         LinkedHashMap linkedHashMap = new LinkedHashMap();
         LinkedHashMap linkedHashMap2 = new LinkedHashMap();
         LinkedHashMap linkedHashMap3 = new LinkedHashMap();
-        ArrayList arrayList2 = new ArrayList();
+        int cleanupCandidateCount = 0;
         ArrayList arrayList3 = new ArrayList();
         PhotoItem photoItem2 = null;
         Object[] objArr = null;
@@ -5834,7 +5899,7 @@ public class MainActivity extends Activity {
             } else if (this.copyCompletedMode && wasRecentlySorted(photoItem3)) {
                 i3++;
                 if (!this.originalsTrashCompleted && !photoItem3.video && photoItem3.duplicateInTarget) {
-                    addUniqueUri(arrayList2, photoItem3.uri);
+                    cleanupCandidateCount++;
                 }
                 String strAlbumCandidateGroupKey = albumCandidateGroupKey(photoItem3);
                 Integer num = (Integer) linkedHashMap.get(strAlbumCandidateGroupKey);
@@ -5851,12 +5916,12 @@ public class MainActivity extends Activity {
             } else if (this.copyCompletedMode && photoItem3.duplicateInTarget) {
                 i3++;
                 if (!this.originalsTrashCompleted && !photoItem3.video) {
-                    addUniqueUri(arrayList2, photoItem3.uri);
+                    cleanupCandidateCount++;
                 }
             } else if (photoItem3.duplicateInTarget) {
                 i3++;
                 if (!this.originalsTrashCompleted && !photoItem3.video) {
-                    addUniqueUri(arrayList2, photoItem3.uri);
+                    cleanupCandidateCount++;
                 }
             } else {
                 String strAlbumCandidateGroupKey2 = albumCandidateGroupKey(photoItem3);
@@ -5929,10 +5994,9 @@ public class MainActivity extends Activity {
                 }
             }
             if (!zFocusNoLocation && !this.originalsTrashCompleted && !this.copiedOriginalUris.isEmpty()) {
-                ensurePendingOriginalUrisLoaded();
-                addOriginalDeleteAction(pendingOriginalCleanupCount(), new ArrayList(this.copiedOriginalUris));
-            } else if (!zFocusNoLocation && !this.originalsTrashCompleted && !arrayList2.isEmpty()) {
-                addOriginalDeleteAction(arrayList2.size(), arrayList2);
+                addOriginalDeleteAction(pendingOriginalCleanupCount(), null);
+            } else if (!zFocusNoLocation && !this.originalsTrashCompleted && cleanupCandidateCount > 0) {
+                addOriginalDeleteAction(cleanupCandidateCount, null);
             }
             if (zFocusNoLocation) {
                 addNoLocationResultRows(arrayList3, i2, dateRange2);
@@ -5952,12 +6016,10 @@ public class MainActivity extends Activity {
         if (zFocusNoLocation) {
             i = i3;
             dateRange = dateRange6;
-            arrayList = arrayList2;
         } else if (linkedHashMap.isEmpty()) {
             i = i3;
             addResultRow(null, "▣", "완료", "정리할 항목 없음", "0개", "", -1117441, -12619789);
             dateRange = dateRange6;
-            arrayList = arrayList2;
         } else {
             i = i3;
             int i9 = this.resultScreenMode ? MAX_RESULT_SCREEN_GROUPS : 3;
@@ -5979,13 +6041,11 @@ public class MainActivity extends Activity {
                 str6 = str6;
                 str5 = str5;
                 i9 = i9;
-                arrayList2 = arrayList2;
                 dateRange6 = dateRange6;
                 linkedHashMap4 = linkedHashMap5;
             }
             int i11 = i10;
             dateRange = dateRange6;
-            arrayList = arrayList2;
             String str7 = str5;
             String str8 = str6;
             if (linkedHashMap.size() > i11) {
@@ -6007,11 +6067,40 @@ public class MainActivity extends Activity {
         int i12 = i;
         if (((this.resultScreenMode && !zFocusNoLocation && !zFocusPlaces) || i12 > 0) && !zFocusNoLocation) {
             addResultRow(null, "✓", "이미 정리됨", "복사본이 있는 항목", i12 + "개", "", -920071, -10193781);
-            if (!arrayList.isEmpty()) {
-                addOriginalDeleteAction(arrayList.size(), arrayList);
+            if (cleanupCandidateCount > 0) {
+                addOriginalDeleteAction(cleanupCandidateCount, null);
             }
         }
         renderNoLocationSamples(arrayList3, i8);
+    }
+
+    private void renderPreviewResultsAfterFirstDraw(List<PhotoItem> list) {
+        if (this.resultList == null) {
+            return;
+        }
+        addResultLoadingHint();
+        final ArrayList<PhotoItem> snapshot = new ArrayList<>(list);
+        final int generation = ++this.resultRenderGeneration;
+        this.mainHandler.post(new Runnable() {
+            @Override
+            public void run() {
+                if (generation != MainActivity.this.resultRenderGeneration || !MainActivity.this.resultScreenMode || MainActivity.this.resultList == null) {
+                    return;
+                }
+                MainActivity.this.renderPreviewResults(snapshot);
+            }
+        });
+    }
+
+    private void addResultLoadingHint() {
+        if (this.resultList == null) {
+            return;
+        }
+        this.resultList.removeAllViews();
+        TextView loading = bodyText("정리 결과를 불러오는 중...");
+        loading.setGravity(17);
+        loading.setPadding(0, dp(14), 0, dp(14));
+        this.resultList.addView(loading, matchWidth());
     }
 
     /* renamed from: lambda$renderPreviewResults$54$com-example-gallerysorter-MainActivity, reason: not valid java name */
@@ -6225,11 +6314,35 @@ public class MainActivity extends Activity {
 
     /* renamed from: lambda$addOriginalDeleteAction$56$com-example-gallerysorter-MainActivity, reason: not valid java name */
     /* synthetic */ void m7xd0eada1c(List list, View view) {
-        this.copiedOriginalUris.clear();
-        this.copiedOriginalUris.addAll(list);
+        if (list != null) {
+            this.copiedOriginalUris.clear();
+            this.copiedOriginalUris.addAll(list);
+            savePendingOriginalCleanup();
+        } else {
+            ensurePendingOriginalUrisLoaded();
+            if (this.copiedOriginalUris.isEmpty()) {
+                collectCleanupOriginalUrisFromPreview();
+            }
+        }
         this.originalsTrashCompleted = false;
-        savePendingOriginalCleanup();
         deleteCopiedOriginals();
+    }
+
+    private void collectCleanupOriginalUrisFromPreview() {
+        HashSet seen = new HashSet();
+        for (PhotoItem photoItem : this.previewItems) {
+            if (photoItem == null || photoItem.noLocation || photoItem.video || !photoItem.duplicateInTarget || photoItem.uri == null) {
+                continue;
+            }
+            String key = photoItem.uri.toString();
+            if (seen.add(key)) {
+                this.copiedOriginalUris.add(photoItem.uri);
+            }
+        }
+        this.pendingOriginalCleanupCount = this.copiedOriginalUris.size();
+        if (!this.copiedOriginalUris.isEmpty()) {
+            savePendingOriginalCleanup();
+        }
     }
 
     private void renderNoLocationSamples(List<PhotoItem> list, int i) {
@@ -7557,17 +7670,11 @@ public class MainActivity extends Activity {
             return;
         }
         int size = this.previewItems.size();
-        Iterator<PhotoItem> it = this.previewItems.iterator();
-        int i2 = 0;
-        while (it.hasNext()) {
-            if (it.next().noLocation) {
-                i2++;
-            }
-        }
-        int iCountCopyableItems = countCopyableItems(this.previewItems);
-        int iCountRecentlySortedItems = countRecentlySortedItems(this.previewItems);
-        int iCountRecentlySortedGroups = countRecentlySortedGroups(this.previewItems);
-        countAlreadySortedItems(this.previewItems);
+        ResultCounts resultCounts = countResultItems(this.previewItems);
+        int i2 = resultCounts.noLocationCount;
+        int iCountCopyableItems = resultCounts.copyableCount;
+        int iCountRecentlySortedItems = resultCounts.recentlySortedCount;
+        int iCountRecentlySortedGroups = resultCounts.recentlySortedGroupCount;
         LinearLayout linearLayout3 = new LinearLayout(this);
         linearLayout3.setOrientation(1);
         linearLayout3.setGravity(17);
@@ -7621,7 +7728,7 @@ public class MainActivity extends Activity {
             addPlainStat(linearLayout4, "check", "정리 예정", iCountCopyableItems + "개", -15293622, true);
             addPlainStat(linearLayout4, "alert", "위치 없음", i2 + "개", -680437, false);
         }
-        if (hasCopyableItems(this.previewItems) && !this.copyCompletedMode) {
+        if (iCountCopyableItems > 0 && !this.copyCompletedMode) {
             Button button = new Button(this);
             button.setOnClickListener(new View.OnClickListener() { // from class: com.example.gallerysorter.MainActivity$$ExternalSyntheticLambda23
                 @Override // android.view.View.OnClickListener
@@ -7667,7 +7774,7 @@ public class MainActivity extends Activity {
                 this.logText.setText("아직 분석한 항목이 없습니다.");
             }
         } else {
-            renderPreviewResults(this.previewItems);
+            renderPreviewResultsAfterFirstDraw(this.previewItems);
         }
         Button button2 = new Button(this);
         button2.setOnClickListener(new View.OnClickListener() { // from class: com.example.gallerysorter.MainActivity$$ExternalSyntheticLambda24
@@ -8256,6 +8363,15 @@ public class MainActivity extends Activity {
             this.uri = uri;
             this.mimeType = str;
         }
+    }
+
+    private static class ResultCounts {
+        int noLocationCount;
+        int copyableCount;
+        int newFolderCount;
+        int alreadySortedCount;
+        int recentlySortedCount;
+        int recentlySortedGroupCount;
     }
 
     private static class IconBubbleDrawable extends Drawable {

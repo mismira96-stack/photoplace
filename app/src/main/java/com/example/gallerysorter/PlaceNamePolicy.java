@@ -105,9 +105,6 @@ final class PlaceNamePolicy {
             if (romanizedDistrict != null) {
                 return romanizedDistrict;
             }
-            if (trimmed.length() >= 2 && !isAdministrativeOnlyName(normalizeForMatch(trimmed)) && !isNoisySeoulDetailName(trimmed)) {
-                return trimmed;
-            }
         }
         return null;
     }
@@ -174,23 +171,7 @@ final class PlaceNamePolicy {
     }
 
     static int poiScore(String value) {
-        String normalized = normalizeForMatch(value);
-        if (normalized.contains("에버랜드") || normalized.contains("everland") || normalized.contains("롯데월드") || normalized.contains("lotteworld")) {
-            return 110;
-        }
-        if (normalized.contains("대학교병원") || normalized.contains("종합병원")) {
-            return 100;
-        }
-        if (normalized.contains("병원") || normalized.contains("대학교")) {
-            return 90;
-        }
-        if (normalized.contains("공항") || normalized.contains("역")) {
-            return 80;
-        }
-        if (normalized.contains("공원") || normalized.contains("미술관") || normalized.contains("박물관") || normalized.contains("예술의전당")) {
-            return 70;
-        }
-        return 0;
+        return knownPlaceName(normalizeForMatch(value)) == null ? 0 : 110;
     }
 
     static String normalizeLocationKey(String value) {
@@ -209,22 +190,37 @@ final class PlaceNamePolicy {
         if (hasAccessPointNoise(normalized)) {
             return null;
         }
-        if (normalized.contains("에버랜드") || normalized.contains("everland")) {
+        if (isKnownPlaceAlias(normalized, "에버랜드", "everland", "everlandresort")) {
             return "에버랜드";
         }
-        if (normalized.contains("롯데월드") || normalized.contains("lotteworld")) {
+        if (isKnownPlaceAlias(normalized, "롯데월드몰", "롯데월드타워", "롯데호텔월드", "lotteworldmall", "lotteworldtower", "lottehotelworld")) {
+            return null;
+        }
+        if (isKnownPlaceAlias(normalized, "롯데월드", "롯데월드어드벤처", "lotteworld", "lotteworldadventure")) {
             return "롯데월드";
         }
-        if (normalized.contains("코엑스") || normalized.contains("coex")) {
-            return "코엑스";
-        }
-        if (normalized.contains("봉은사") || normalized.contains("bongeunsa")) {
-            return "봉은사";
-        }
-        if (normalized.contains("예술의전당")) {
+        if (isKnownPlaceAlias(normalized, "예술의전당", "서울예술의전당", "seoulartscenter")) {
             return "예술의전당";
         }
+        if (isKnownPlaceAlias(normalized, "분당서울대병원", "분당서울대학교병원", "bundangseoulnationaluniversityhospital", "seoulnationaluniversitybundanghospital")) {
+            return "분당서울대병원";
+        }
+        if (isKnownPlaceAlias(normalized, "인천공항", "인천국제공항", "인천공항제1여객터미널", "인천국제공항제1여객터미널", "인천공항제2여객터미널", "인천국제공항제2여객터미널", "incheonairport", "incheoninternationalairport", "icnairport")) {
+            return "인천국제공항";
+        }
         return null;
+    }
+
+    static boolean isKnownPlaceAlias(String normalized, String... aliases) {
+        if (normalized == null || normalized.isEmpty()) {
+            return false;
+        }
+        for (String alias : aliases) {
+            if (normalized.equals(normalizeForMatch(alias))) {
+                return true;
+            }
+        }
+        return false;
     }
 
     static String stripAdministrativeSuffix(String value) {
