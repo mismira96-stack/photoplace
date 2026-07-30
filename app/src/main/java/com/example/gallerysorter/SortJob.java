@@ -66,6 +66,7 @@ final class SortJob {
             copyEngine.copy(item);
             result.copiedCount++;
             result.sortedUris.add(item.uri);
+            result.sortedItems.add(item);
             if (!item.video) {
                 addUniqueUri(result.copiedOriginalUris, item.uri);
             }

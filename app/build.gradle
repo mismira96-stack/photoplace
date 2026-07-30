@@ -16,8 +16,8 @@ android {
         applicationId "com.photoplace.app"
         minSdk 29
         targetSdk 36
-        versionCode 23
-        versionName "1.2.2"
+        versionCode 26
+        versionName "1.2.5"
     }
 
     signingConfigs {

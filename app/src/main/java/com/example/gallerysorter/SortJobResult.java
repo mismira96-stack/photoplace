@@ -7,6 +7,7 @@ import java.util.List;
 
 final class SortJobResult {
     final List<Uri> sortedUris = new ArrayList<>();
+    final List<PhotoItem> sortedItems = new ArrayList<>();
     final List<Uri> copiedOriginalUris = new ArrayList<>();
     final StringBuilder log = new StringBuilder();
     int copiedCount;

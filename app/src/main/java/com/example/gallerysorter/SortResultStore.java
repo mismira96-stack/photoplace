@@ -31,6 +31,7 @@ final class SortResultStore {
         root.put("failedCount", result == null ? 0 : result.failedCount);
         root.put("canceled", result != null && result.canceled);
         root.put("sortedUris", uriArray(result == null ? null : result.sortedUris));
+        root.put("sortedItems", itemArray(result == null ? null : result.sortedItems));
         root.put("copiedOriginalUris", uriArray(result == null ? null : result.copiedOriginalUris));
         root.put("log", result == null || result.log == null ? "" : result.log.toString());
         try (FileOutputStream output = context.openFileOutput(FILE_NAME, 0)) {
@@ -57,6 +58,7 @@ final class SortResultStore {
                     root.optInt("failedCount", 0),
                     root.optBoolean("canceled", false),
                     uriList(root.optJSONArray("sortedUris")),
+                    itemList(root.optJSONArray("sortedItems")),
                     uriList(root.optJSONArray("copiedOriginalUris")),
                     root.optString("log", ""));
         } catch (Exception unused) {
@@ -80,6 +82,18 @@ final class SortResultStore {
         return array;
     }
 
+    private JSONArray itemArray(List<PhotoItem> items) throws Exception {
+        JSONArray array = new JSONArray();
+        if (items != null) {
+            for (PhotoItem item : items) {
+                if (item != null) {
+                    array.put(PhotoItemJson.toJson(item));
+                }
+            }
+        }
+        return array;
+    }
+
     private List<Uri> uriList(JSONArray array) {
         ArrayList<Uri> uris = new ArrayList<>();
         if (array == null) {
@@ -97,6 +111,20 @@ final class SortResultStore {
         return uris;
     }
 
+    private List<PhotoItem> itemList(JSONArray array) {
+        ArrayList<PhotoItem> items = new ArrayList<>();
+        if (array == null) {
+            return items;
+        }
+        for (int i = 0; i < array.length(); i++) {
+            PhotoItem item = PhotoItemJson.fromJson(array.optJSONObject(i));
+            if (item != null) {
+                items.add(item);
+            }
+        }
+        return items;
+    }
+
     static final class Snapshot {
         final long completedAtMillis;
         final int copiedCount;
@@ -104,16 +132,18 @@ final class SortResultStore {
         final int failedCount;
         final boolean canceled;
         final List<Uri> sortedUris;
+        final List<PhotoItem> sortedItems;
         final List<Uri> copiedOriginalUris;
         final String log;
 
-        Snapshot(long completedAtMillis, int copiedCount, int skippedCount, int failedCount, boolean canceled, List<Uri> sortedUris, List<Uri> copiedOriginalUris, String log) {
+        Snapshot(long completedAtMillis, int copiedCount, int skippedCount, int failedCount, boolean canceled, List<Uri> sortedUris, List<PhotoItem> sortedItems, List<Uri> copiedOriginalUris, String log) {
             this.completedAtMillis = completedAtMillis;
             this.copiedCount = copiedCount;
             this.skippedCount = skippedCount;
             this.failedCount = failedCount;
             this.canceled = canceled;
             this.sortedUris = sortedUris == null ? new ArrayList<Uri>() : sortedUris;
+            this.sortedItems = sortedItems == null ? new ArrayList<PhotoItem>() : sortedItems;
             this.copiedOriginalUris = copiedOriginalUris == null ? new ArrayList<Uri>() : copiedOriginalUris;
             this.log = log == null ? "" : log;
         }
@@ -123,7 +153,7 @@ final class SortResultStore {
         }
 
         static Snapshot empty() {
-            return new Snapshot(0L, 0, 0, 0, false, new ArrayList<Uri>(), new ArrayList<Uri>(), "");
+            return new Snapshot(0L, 0, 0, 0, false, new ArrayList<Uri>(), new ArrayList<PhotoItem>(), new ArrayList<Uri>(), "");
         }
     }
 }

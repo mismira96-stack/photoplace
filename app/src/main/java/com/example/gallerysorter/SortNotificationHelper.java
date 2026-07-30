@@ -9,7 +9,7 @@ import android.content.Intent;
 import android.os.Build;
 
 final class SortNotificationHelper {
-    static final String CHANNEL_PROGRESS = "photoplace_sort_progress";
+    static final String CHANNEL_PROGRESS = "photoplace_sort_progress_v2";
     static final String CHANNEL_COMPLETE = "photoplace_sort_complete";
 
     private SortNotificationHelper() {
@@ -23,8 +23,11 @@ final class SortNotificationHelper {
         if (manager == null) {
             return;
         }
-        NotificationChannel progress = new NotificationChannel(CHANNEL_PROGRESS, "PhotoPlace 정리 진행", NotificationManager.IMPORTANCE_LOW);
+        NotificationChannel progress = new NotificationChannel(CHANNEL_PROGRESS, "PhotoPlace 정리 진행", NotificationManager.IMPORTANCE_DEFAULT);
         progress.setDescription("사진 정리 진행률을 표시합니다.");
+        progress.setSound(null, null);
+        progress.enableVibration(false);
+        progress.setShowBadge(true);
         manager.createNotificationChannel(progress);
         NotificationChannel complete = new NotificationChannel(CHANNEL_COMPLETE, "PhotoPlace 정리 완료", NotificationManager.IMPORTANCE_DEFAULT);
         complete.setDescription("정리 완료 알림을 표시합니다.");
@@ -39,7 +42,12 @@ final class SortNotificationHelper {
                 .setContentText(progressText(current, total, progressContext))
                 .setContentIntent(openAppIntent(context))
                 .setOngoing(true)
+                .setCategory(Notification.CATEGORY_PROGRESS)
+                .setPriority(Notification.PRIORITY_DEFAULT)
                 .setOnlyAlertOnce(true);
+        if (Build.VERSION.SDK_INT >= 31) {
+            builder.setForegroundServiceBehavior(Notification.FOREGROUND_SERVICE_IMMEDIATE);
+        }
         if (total > 0) {
             builder.setProgress(total, Math.min(Math.max(0, current), total), false);
         } else {

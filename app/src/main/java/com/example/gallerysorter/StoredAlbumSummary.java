@@ -27,9 +27,9 @@ final class StoredAlbumSummary {
         this.thumbnailUri = thumbnailUri;
         this.createdAt = createdAt;
         this.createdAtMillis = createdAtMillis;
-        this.countryName = countryName == null ? "" : countryName;
-        this.adminArea = adminArea == null ? "" : adminArea;
-        this.addressLine = addressLine == null ? "" : addressLine;
+        this.countryName = PhotoItemJson.clean(countryName);
+        this.adminArea = PhotoItemJson.clean(adminArea);
+        this.addressLine = PhotoItemJson.clean(addressLine);
     }
 
     static StoredAlbumSummary fromJson(JSONObject json) {

@@ -1,6 +1,6 @@
 # PhotoPlace Agent Shared TODO
 
-Updated: 2026-07-26
+Updated: 2026-07-30
 
 This file is the shared handoff note for Codex and Gemini CLI. Keep it short, current, and safe to act on.
 
@@ -14,6 +14,8 @@ Read these first:
 
 - `AGENT_SHARED_TODO.md`
   - Current shared status, stable baseline, open TODOs, and guardrails.
+- `WORKLOG_2026-07-30.md`
+  - Latest release/work record for 1.2.5, overseas-history metadata fix, Fold UI checks, and Play draft automation.
 - `WORKLOG_2026-07-26.md`
   - Date-based work record for the WorkManager/background-sort stabilization day.
 - `Photoplace_V2_Personal_Place_PRD.md`
@@ -35,53 +37,94 @@ Reference docs:
 ## Current Stable Baseline
 
 - Branch: `codex/photoplace-v2-bg-wip`
-- Latest release candidate commit: `bbcfb3b Bump version for 1.2.2 release`
-- Latest release build: `versionCode 23` / `versionName 1.2.2` / `targetSdk 36`
-- Release AAB: `app\build\outputs\bundle\release\photoplace-1.2.2-code23-api36-release.aab`
-- Play Console review was submitted on 2026-07-26 after completing the foreground service declaration/video.
-- Latest confirmed device result: home, sort history, sort result, background sort, notification entry, original-trash confirmation popup, and already-sorted re-run flow looked stable in user testing.
+- Latest built Play draft: `versionCode 26` / `versionName 1.2.5` / `targetSdk 36`
+- Release AAB: `photoplace-1.2.5-code26-overseas-history-fix-api36.aab`
+- Play Console status seen by user: production draft / pending manual review submission flow for 1.2.5.
+- Latest confirmed device result:
+  - Fold layout has no major blocking issue after home/record grid adjustments.
+  - Home, sort history, sort result, background sort, notification entry, and original-trash confirmation popup looked stable in user testing.
+  - Sort result performance was improved enough for current release testing.
+- Current worktree is not clean. Check `git status` before editing and do not discard local changes.
 - Keep avoiding the earlier broad Geocoder candidate scoring experiment. It caused POI overclassification.
 
 ## Completed Today
 
-- WorkManager-based background sort path is in place and tested with a large local test set.
-- Sort progress, completion notification, and notification app entry were verified.
-- Back during sorting now shows a choice dialog: continue in background, stop sorting, or cancel.
-- Already-sorted and missing-album states were reconciled against live MediaStore data.
-- Empty/stale thumbnails from deleted albums were hidden or recovered via fallback.
-- Home performance regression from pending-original cleanup loading was reduced.
-- Home/result/history navigation bugs were patched:
-  - result/detail fallback now routes to stored history when in-memory result detail is gone.
-  - bottom Home tab works from result/history screens.
-  - home CTA says "View sort history" when only stored history is available.
-- Pending original cleanup CTA is visible in both:
-  - Home, above overseas memories when pending originals exist.
-  - Sort history, at the top of the screen.
-- Result screen performance was significantly improved by avoiding eager construction of thousands of original-cleanup URI entries.
-- Home return now shows the main screen quickly and delays heavier pending-original cleanup validation.
-- Completed-result counts now fall back to live already-sorted items when recently-sorted in-memory markers are gone.
-- POI naming is now allowlist-based for the first safe set:
-  - Everland
-  - Lotte World
-  - Seoul Arts Center
-  - Bundang Seoul National University Hospital
-  - Incheon International Airport
-- Known bad POI/detail fallbacks such as random stations, schools, cafes, access points, and lake/store names should fall back to administrative names.
-- Release `1.2.2` / code `23` was built and submitted to Play review.
+- WorkManager background sort stabilization from 1.2.2 remains the baseline.
+- Fold/wide layout was adjusted:
+  - home uses compact status summary instead of large status cards.
+  - sort history/recent places use width-based grid behavior, with Fold opened layout kept at 3 columns after testing 4 columns.
+  - 4 columns showed more items but 3 columns was visually better.
+- Overseas history metadata persistence was fixed for background-completed sorts:
+  - Worker result now persists sorted `PhotoItem` metadata, not only sorted URIs.
+  - country/address/admin metadata is preserved for summary/history regeneration.
+  - empty literal `"null"` metadata is cleaned when restoring summaries.
+- Result/home performance patches were verified on device:
+  - home entry improved.
+  - sort result detail opens much faster after lazy/heavier work was deferred.
+- Play release automation skill was added:
+  - `C:\Users\mismi\.codex\skills\photoplace-release`
+  - It builds APK/AAB and can upload a Play Console production draft.
+  - Final Play Console review submission remains manual.
+- Release `1.2.5` / code `26` AAB was built and uploaded as a Play production draft.
 
 ## Known Open TODOs
 
-1. Wait for Play review result and collect user feedback after asking testers to update.
-2. Personal Place PRD should be analyzed before implementation.
-3. Airplane / drive-through location handling is not implemented. Prefer visible badges such as "in flight" / "moving", not automatic exclusion.
-4. Everland/Yongin and other POI edge cases should be handled later with real sample evidence, not broad POI promotion.
-5. Result album detail should eventually support viewing more/all photos, not only representative thumbnails.
-6. Process-death recovery can be hardened further for completed Worker results.
-7. Split `MainActivity` further once the current release settles:
+1. Friend device follow-up:
+  - Friend has 10,000+ photos.
+  - Albums are reportedly created correctly.
+  - Overseas history reportedly showed only Japan.
+  - Ask for at least 1-2 sample photos from missing overseas countries if possible.
+  - Run "rebuild discovered places" on the updated build and confirm country count.
+  - If possible, collect logs/dump and compare stored history JSON vs actual generated album folders.
+2. Investigate reported 5,300-folder anomaly:
+  - User observed record/history count around 5,300 folders while actual generated albums seemed around 40.
+  - Need dump/sample before assuming root cause.
+  - Suspect duplicate grouping/state regeneration, not necessarily file creation.
+3. Home latency:
+  - Current home is acceptable but slightly less instant than earlier.
+  - Watch for delays where overseas/recent places appear after first draw.
+  - Avoid blocking first draw on heavy MediaStore/history reconciliation.
+4. Back/navigation:
+  - Most back issues were patched, but keep this high in regression testing.
+  - Especially test sorting, result detail, history tab, Home tab, and Fold open/close.
+5. Notification reliability:
+  - Background notification was fixed in testing, but 10,000+ photo users should confirm it continues after pressing Home.
+6. Personal Place PRD should be analyzed before implementation.
+7. Airplane / drive-through location handling is not implemented. Prefer visible badges such as "in flight" / "moving", not automatic exclusion.
+8. POI policy:
+  - Do not broaden automatic POI classification.
+  - Everland / Seoul Arts Center may still fall back to administrative names because Google Photos place labels are not the same data returned by Android Geocoder.
+  - Prefer Personal Place recommendation for reliable user-confirmed names.
+9. Result album detail should eventually support viewing more/all photos, not only representative thumbnails.
+10. Process-death recovery can be hardened further for completed Worker results.
+11. Split `MainActivity` further once the current release settles:
   - background sort coordinator
   - result screen renderer/model
   - original cleanup state/store
   - memory/home sections
+
+## Immediate Next Session Checklist
+
+1. Confirm Play Console status for 1.2.5:
+  - draft submitted manually or review pending
+  - no extra foreground-service declaration issue
+2. On friend's device:
+  - install latest build or confirm Play update.
+  - run only "rebuild discovered places" first; no need to fully sort again if folders already exist.
+  - check overseas history country list.
+  - check sort history count vs actual generated album count.
+  - collect sample photos/logs if mismatch remains.
+3. If overseas history still fails:
+  - inspect `album_summary_history.json` / restored summary metadata path.
+  - verify `StoredAlbumSummary.countryName`, `addressLine`, `adminArea`, `albumName`, and `representativeUri`.
+4. If 5,300-folder count reproduces:
+  - do not patch blindly.
+  - first determine whether count means generated albums, history rows, photo groups, or raw media rows.
+5. Defer bigger features until release feedback settles:
+  - Personal Place MVP
+  - moving/in-flight badges
+  - resume-from-stop sorting
+  - all-photos result detail
 
 ## Personal Place Guardrails
 

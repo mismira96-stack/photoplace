@@ -12,6 +12,7 @@ import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.IntentSender;
 import android.content.SharedPreferences;
+import android.content.res.Configuration;
 import android.database.Cursor;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
@@ -49,6 +50,7 @@ import android.text.style.RelativeSizeSpan;
 import android.text.style.StyleSpan;
 import android.util.LruCache;
 import android.util.Size;
+import android.view.Gravity;
 import android.view.View;
 import android.view.Window;
 import android.view.WindowInsets;
@@ -159,6 +161,7 @@ public class MainActivity extends Activity {
     private TextView statBlockedText;
     private TextView statReadyLabel;
     private TextView statReadyText;
+    private LinearLayout statSummaryBar;
     private TextView statTotalLabel;
     private TextView statTotalText;
     private TextView summaryText;
@@ -214,6 +217,7 @@ public class MainActivity extends Activity {
     private boolean copyCompletedMode = false;
     private boolean copyStoppedMode = false;
     private boolean backgroundSortMode = false;
+    private boolean albumSummaryRebuildInProgress = false;
     private boolean workingBackDialogShowing = false;
     private boolean originalsTrashCompleted = false;
     private long lastNotificationProgressUpdateMillis = 0L;
@@ -225,6 +229,8 @@ public class MainActivity extends Activity {
     private String activeProgressContext = null;
     private int activeProgressCurrent = 0;
     private int activeProgressTotal = 0;
+    private boolean sortProgressTracking = false;
+    private int lastRenderedWindowWidthPx = -1;
     private long lastBackPressedAtMillis = 0L;
     private OnBackInvokedCallback backInvokedCallback = null;
     private final Runnable staleProgressRecoveryRunnable = new Runnable() {
@@ -307,10 +313,74 @@ public class MainActivity extends Activity {
             this.mainHandler.postDelayed(this.backgroundSortResultCheckRunnable, 1000L);
         }
         refreshActivePlaceDetailAfterExternalChange();
+        refreshScreenIfWindowWidthChanged();
+    }
+
+    @Override // android.app.Activity
+    public void onConfigurationChanged(Configuration newConfig) {
+        super.onConfigurationChanged(newConfig);
+        this.mainHandler.postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                MainActivity.this.refreshCurrentScreenForLayoutChange();
+            }
+        }, 120L);
+    }
+
+    private void refreshScreenIfWindowWidthChanged() {
+        final int currentWidth = currentWindowWidthPx();
+        if (this.lastRenderedWindowWidthPx <= 0) {
+            this.lastRenderedWindowWidthPx = currentWidth;
+            return;
+        }
+        if (Math.abs(currentWidth - this.lastRenderedWindowWidthPx) <= dp(24)) {
+            return;
+        }
+        this.mainHandler.postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                int latestWidth = MainActivity.this.currentWindowWidthPx();
+                if (Math.abs(latestWidth - MainActivity.this.lastRenderedWindowWidthPx) > MainActivity.this.dp(24)) {
+                    MainActivity.this.refreshCurrentScreenForLayoutChange();
+                }
+            }
+        }, 120L);
+    }
+
+    private void refreshCurrentScreenForLayoutChange() {
+        if (this.recentPlaceDetailMode && this.activePlaceDetailSummary != null) {
+            showRecentPlaceDetailScreen(this.activePlaceDetailSummary);
+            return;
+        }
+        if (this.overseasMemoryScreenMode && this.activeOverseasMemoryGroup != null) {
+            showOverseasMemoryScreen(this.activeOverseasMemoryGroup);
+            return;
+        }
+        if (this.recentPlacesScreenMode) {
+            showRecentPlacesScreen();
+            return;
+        }
+        if (this.currentTopLevelTab == 2) {
+            showSettingsScreen();
+            return;
+        }
+        if (this.resultScreenMode) {
+            showResultScreen();
+            return;
+        }
+        buildUi();
+        ensureReadPermission();
+        if (!restoreActiveSortProgressFromStore()) {
+            restoreMainUiFromState();
+        }
     }
 
     @Override // android.app.Activity
     public void onBackPressed() {
+        if (this.isWorking) {
+            showWorkingBackChoiceDialog();
+            return;
+        }
         if (this.recentPlaceDetailMode) {
             returnFromRecentPlaceDetail();
             return;
@@ -323,14 +393,8 @@ public class MainActivity extends Activity {
             returnToPreviousTopLevelTab();
             return;
         }
-        if (this.isWorking) {
-            showWorkingBackChoiceDialog();
-            return;
-        }
         if (this.resultScreenMode) {
             returnToMainScreen();
-        } else if (this.isWorking) {
-            showToast("백그라운드에서 계속 진행됩니다.");
         } else {
             long now = System.currentTimeMillis();
             if (now - this.lastBackPressedAtMillis < 1800L) {
@@ -415,7 +479,7 @@ public class MainActivity extends Activity {
         Window window = dialog.getWindow();
         if (window != null) {
             window.setBackgroundDrawable(new ColorDrawable(0));
-            window.setLayout(Math.min((int) (getResources().getDisplayMetrics().widthPixels * 0.9d), dp(480)), -2);
+            window.setLayout(dialogMaxWidthPx(), -2);
         }
         dialog.show();
     }
@@ -491,12 +555,12 @@ public class MainActivity extends Activity {
         scrollView.setBackgroundColor(-197377);
         LinearLayout linearLayout = new LinearLayout(this);
         linearLayout.setOrientation(1);
-        linearLayout.setPadding(dp(18), dp(48), dp(18), dp(REQUEST_WRITE_VIDEOS));
-        scrollView.addView(linearLayout);
+        linearLayout.setPadding(dp(18), dp(36), dp(18), dp(REQUEST_WRITE_VIDEOS));
+        scrollView.addView(linearLayout, scrollContentLayoutParams());
         LinearLayout linearLayout2 = new LinearLayout(this);
         linearLayout2.setOrientation(1);
         linearLayout2.setMinimumHeight(dp(44));
-        linearLayout.addView(linearLayout2, matchWidthWithBottom(dp(16)));
+        linearLayout.addView(linearLayout2, matchWidthWithBottom(dp(10)));
         LinearLayout linearLayout3 = new LinearLayout(this);
         linearLayout3.setOrientation(0);
         linearLayout3.setGravity(16);
@@ -536,9 +600,10 @@ public class MainActivity extends Activity {
         LinearLayout linearLayout4 = new LinearLayout(this);
         linearLayout4.setOrientation(0);
         linearLayout4.setGravity(17);
-        linearLayout4.setPadding(dp(10), dp(12), dp(10), dp(12));
+        linearLayout4.setPadding(dp(10), dp(8), dp(10), dp(8));
         linearLayout.addView(linearLayout4, matchWidthWithBottom(dp(14)));
         applyCardBackground(linearLayout4);
+        linearLayout4.setVisibility(8);
         this.statTotalText = statBlock(linearLayout4, "새 장소", "photoLibrary", "0개", -1, -10788888, true);
         this.statReadyText = statBlock(linearLayout4, "위치 없음", "locationOff", "0개", -1, -34257, true);
         this.statBlockedText = statBlock(linearLayout4, "정리 완료", "folder", "0개", -1, -14370705, false);
@@ -551,7 +616,8 @@ public class MainActivity extends Activity {
                 MainActivity.this.m17lambda$buildUi$1$comexamplegallerysorterMainActivity(view);
             }
         });
-        linearLayout.addView(this.previewButton, fullWidthButtonParams(dp(10), dp(94)));
+        linearLayout.addView(this.previewButton, fullWidthButtonParams(dp(8), dp(94)));
+        addStatusSummaryBar(linearLayout);
         Button button = new Button(this);
         this.copyButton = button;
         button.setText("장소별 앨범 만들기");
@@ -958,7 +1024,7 @@ public class MainActivity extends Activity {
 
     private boolean restoreActiveSortProgressFromStore() {
         SortProgressStore.Snapshot snapshot = SortProgressStore.read(this);
-        if (!snapshot.isFresh(System.currentTimeMillis()) || isProgressStale(snapshot, System.currentTimeMillis())) {
+        if (!isRestorableSortProgress(snapshot) || !snapshot.isFresh(System.currentTimeMillis()) || isProgressStale(snapshot, System.currentTimeMillis())) {
             SortProgressStore.finish(this);
             return false;
         }
@@ -968,6 +1034,7 @@ public class MainActivity extends Activity {
         this.activeProgressCurrent = snapshot.current;
         this.activeProgressTotal = snapshot.total;
         this.activeProgressContext = snapshot.progressContext;
+        this.sortProgressTracking = true;
         setStatus("정리 중", String.valueOf(snapshot.current), "0", String.valueOf(snapshot.total));
         if (this.summaryText != null) {
             this.summaryText.setText(snapshot.label);
@@ -978,8 +1045,18 @@ public class MainActivity extends Activity {
         return true;
     }
 
+    private boolean isRestorableSortProgress(SortProgressStore.Snapshot snapshot) {
+        if (snapshot == null || !snapshot.active || snapshot.label == null) {
+            return false;
+        }
+        return snapshot.label.contains("앨범")
+                || snapshot.label.contains("정리 중")
+                || snapshot.label.contains("정리할 항목")
+                || snapshot.label.contains("위치 정보 분석");
+    }
+
     private boolean isProgressStale(SortProgressStore.Snapshot snapshot, long nowMillis) {
-        return snapshot.active && snapshot.current > 0 && snapshot.total > 0 && nowMillis - snapshot.updatedAtMillis > 45L * 1000L;
+        return snapshot.active && nowMillis - snapshot.updatedAtMillis > 120L * 1000L;
     }
 
     private void ensureReadPermission() {
@@ -1096,7 +1173,7 @@ public class MainActivity extends Activity {
         this.recentlySortedUriKeys.clear();
         this.locationCache.clear();
         this.deleteOriginalsButton.setEnabled(false);
-        setWorking(true, "정리할 항목을 찾는 중...");
+        setWorking(true, "정리할 항목을 찾는 중...", true);
         setStatus("분석 중", "-", "-", "-");
         this.summaryText.setText("선택한 폴더와 기존 앨범을 확인하고 있어요.");
         this.logText.setText("사진과 동영상을 안전하게 읽는 중이에요.");
@@ -1183,6 +1260,8 @@ public class MainActivity extends Activity {
     /* synthetic */ void m44lambda$runPreview$10$comexamplegallerysorterMainActivity() {
         this.summaryText.setText("항목 확인을 멈췄어요.");
         this.logText.setText("");
+        this.copyStoppedMode = true;
+        setStatus("확인 중단", "0", "0", "0");
         setWorking(false, null);
     }
 
@@ -1320,9 +1399,13 @@ public class MainActivity extends Activity {
         Window window = dialog.getWindow();
         if (window != null) {
             window.setBackgroundDrawable(new ColorDrawable(0));
-            window.setLayout(Math.min((int) (getResources().getDisplayMetrics().widthPixels * 0.9d), dp(480)), -2);
+            window.setLayout(dialogMaxWidthPx(), -2);
         }
         dialog.show();
+        Window shownWindow = dialog.getWindow();
+        if (shownWindow != null) {
+            shownWindow.setLayout(dialogMaxWidthPx(), -2);
+        }
     }
 
     /* renamed from: lambda$showPreviewCompleteDialog$13$com-example-gallerysorter-MainActivity, reason: not valid java name */
@@ -1701,7 +1784,7 @@ public class MainActivity extends Activity {
         this.recentlySortedUriKeys.clear();
         final boolean zShouldMoveVideos = shouldMoveVideos();
         setStatus("정리 중", String.valueOf(countCopyableItems(this.previewItems)), String.valueOf(countNoLocationItems(this.previewItems)), String.valueOf(countAlreadySortedItems(this.previewItems)));
-        setWorking(true, "앨범으로 정리하는 중...");
+        setWorking(true, "앨범으로 정리하는 중...", true);
         final ArrayList arrayList = new ArrayList(this.previewItems);
         this.logText.setText("앨범으로 정리하는 중이에요. 잠시만 기다려 주세요.");
         if (startBackgroundSortWorker(arrayList, zShouldMoveVideos)) {
@@ -1758,7 +1841,7 @@ public class MainActivity extends Activity {
                 @Override
                 public void run() {
                     try {
-                        MainActivity.this.m40lambda$runCopy$22$comexamplegallerysorterMainActivity(result.sortedUris, result.copiedCount, result.skippedCount, result.failedCount, result.canceled);
+                        MainActivity.this.m40lambda$runCopy$22$comexamplegallerysorterMainActivity(result.sortedUris, list, result.copiedCount, result.skippedCount, result.failedCount, result.canceled);
                     } catch (Throwable e) {
                         MainActivity.this.handleCopyCompletionError(e, result.copiedCount, result.skippedCount, result.failedCount, result.canceled);
                     }
@@ -1824,7 +1907,7 @@ public class MainActivity extends Activity {
             @Override // java.lang.Runnable
             public final void run() {
                 try {
-                    MainActivity.this.m40lambda$runCopy$22$comexamplegallerysorterMainActivity(arrayList, i6, i7, i8, z2);
+                    MainActivity.this.m40lambda$runCopy$22$comexamplegallerysorterMainActivity(arrayList, MainActivity.this.previewItems, i6, i7, i8, z2);
                 } catch (Throwable e) {
                     MainActivity.this.handleCopyCompletionError(e, i6, i7, i8, z2);
                 }
@@ -1840,15 +1923,16 @@ public class MainActivity extends Activity {
     }
 
     /* renamed from: lambda$runCopy$22$com-example-gallerysorter-MainActivity, reason: not valid java name */
-    /* synthetic */ void m40lambda$runCopy$22$comexamplegallerysorterMainActivity(List list, int i, int i2, int i3, boolean z) throws JSONException {
+    /* synthetic */ void m40lambda$runCopy$22$comexamplegallerysorterMainActivity(List list, List photoItems, int i, int i2, int i3, boolean z) throws JSONException {
         rememberRecentlySortedItems(list);
         markItemsAsSorted(list);
-        saveAlbumSummaryHistory(this.previewItems, list, i, i2, i3);
-        int iCountRecentlySortedItems = countRecentlySortedItems(this.previewItems);
-        int iCountNoLocationItems = countNoLocationItems(this.previewItems);
-        countAlreadySortedItems(this.previewItems);
-        int iCountRecentlySortedGroups = countRecentlySortedGroups(this.previewItems);
-        int iCountCopyableItems = countCopyableItems(this.previewItems);
+        List historyItems = (photoItems == null || photoItems.isEmpty()) ? this.previewItems : photoItems;
+        saveAlbumSummaryHistory(historyItems, list, i, i2, i3);
+        int iCountRecentlySortedItems = countRecentlySortedItems(historyItems);
+        int iCountNoLocationItems = countNoLocationItems(historyItems);
+        countAlreadySortedItems(historyItems);
+        int iCountRecentlySortedGroups = countRecentlySortedGroups(historyItems);
+        int iCountCopyableItems = countCopyableItems(historyItems);
         this.copyCompletedMode = !z;
         this.copyStoppedMode = z;
         setStatus(z ? "정리 멈춤" : "정리 완료", String.valueOf(iCountRecentlySortedGroups), String.valueOf(iCountNoLocationItems), z ? String.valueOf(iCountCopyableItems) : String.valueOf(iCountRecentlySortedItems));
@@ -1895,7 +1979,7 @@ public class MainActivity extends Activity {
         this.copiedOriginalUris.clear();
         this.copiedOriginalUris.addAll(snapshot.copiedOriginalUris);
         try {
-            m40lambda$runCopy$22$comexamplegallerysorterMainActivity(snapshot.sortedUris, snapshot.copiedCount, snapshot.skippedCount, snapshot.failedCount, snapshot.canceled);
+            m40lambda$runCopy$22$comexamplegallerysorterMainActivity(snapshot.sortedUris, snapshot.sortedItems, snapshot.copiedCount, snapshot.skippedCount, snapshot.failedCount, snapshot.canceled);
         } catch (Throwable e) {
             handleCopyCompletionError(e, snapshot.copiedCount, snapshot.skippedCount, snapshot.failedCount, snapshot.canceled);
         }
@@ -2483,6 +2567,10 @@ public class MainActivity extends Activity {
             window.setBackgroundDrawable(new ColorDrawable(0));
         }
         dialog.show();
+        Window shownWindow = dialog.getWindow();
+        if (shownWindow != null) {
+            shownWindow.setLayout(dialogMaxWidthPx(), -2);
+        }
     }
 
     static /* synthetic */ void lambda$showSourceFolderDialog$31(List list, boolean[] zArr, TextView textView) {
@@ -2734,9 +2822,8 @@ public class MainActivity extends Activity {
     }
 
     private LocationResult cachedNoLocationResult(Uri uri, String name, long modifiedSeconds, long addedSeconds, long mediaTakenMillis, Double mediaLatitude, Double mediaLongitude, boolean video) {
-        // Disabled for the 1.2.0 release candidate: an unsafe no-location cache can
-        // incorrectly suppress location rechecks and make sortable items disappear.
-        // Re-enable only after a dedicated cache invalidation test pass.
+        // Disabled for now: an unsafe no-location cache can incorrectly suppress
+        // location rechecks and make sortable items disappear.
         if (!isNoLocationCacheEnabled()) {
             return null;
         }
@@ -2752,7 +2839,8 @@ public class MainActivity extends Activity {
     }
 
     private void rememberNoLocationIfNeeded(Uri uri, String name, long modifiedSeconds, long addedSeconds, long mediaTakenMillis, LocationResult locationResult, boolean video) {
-        // See cachedNoLocationResult(): keep writes disabled with reads.
+        // Keep writes disabled with reads until cache invalidation gets a
+        // dedicated test pass.
         if (!isNoLocationCacheEnabled()) {
             return;
         }
@@ -3452,7 +3540,7 @@ public class MainActivity extends Activity {
         Window window = dialog.getWindow();
         if (window != null) {
             window.setBackgroundDrawable(new ColorDrawable(0));
-            window.setLayout(Math.min((int) (getResources().getDisplayMetrics().widthPixels * 0.9d), dp(480)), -2);
+            window.setLayout(dialogMaxWidthPx(), -2);
         }
         dialog.show();
     }
@@ -3624,10 +3712,11 @@ public class MainActivity extends Activity {
     }
 
     private void rebuildAlbumSummaryHistoryFromExistingAlbums() {
-        if (this.isWorking) {
+        if (this.isWorking || this.albumSummaryRebuildInProgress) {
             showToast("작업 중에는 기록을 재생성할 수 없어요.");
         } else {
-            setWorking(true, "정리된 앨범 기록을 다시 만드는 중...");
+            this.albumSummaryRebuildInProgress = true;
+            showToast("정리 기록을 다시 만드는 중...");
             this.worker.execute(new Runnable() { // from class: com.example.gallerysorter.MainActivity$$ExternalSyntheticLambda9
                 @Override // java.lang.Runnable
                 public final void run() {
@@ -3659,7 +3748,7 @@ public class MainActivity extends Activity {
 
     /* renamed from: lambda$rebuildAlbumSummaryHistoryFromExistingAlbums$37$com-example-gallerysorter-MainActivity, reason: not valid java name */
     /* synthetic */ void m34x247f6d1b(Map map) {
-        setWorking(false, null);
+        this.albumSummaryRebuildInProgress = false;
         if (map.isEmpty()) {
             showToast("재생성할 정리 앨범을 찾지 못했어요.");
             return;
@@ -3667,9 +3756,7 @@ public class MainActivity extends Activity {
         try {
             writeRebuiltAlbumSummaryHistory(map);
             showToast("최근 발견 장소를 다시 만들었어요.");
-            buildUi();
-            ensureReadPermission();
-            restoreMainUiFromState();
+            refreshCurrentScreenAfterAlbumSummaryRebuild();
         } catch (Exception e) {
             showToast("기록 재생성 실패: " + e.getMessage());
         }
@@ -3677,8 +3764,22 @@ public class MainActivity extends Activity {
 
     /* renamed from: lambda$rebuildAlbumSummaryHistoryFromExistingAlbums$38$com-example-gallerysorter-MainActivity, reason: not valid java name */
     /* synthetic */ void m35x7b9d5dfa(Exception exc) {
-        setWorking(false, null);
+        this.albumSummaryRebuildInProgress = false;
         showToast("기록 재생성 실패: " + exc.getMessage());
+    }
+
+    private void refreshCurrentScreenAfterAlbumSummaryRebuild() {
+        if (this.recentPlacesScreenMode) {
+            showRecentPlacesScreen();
+            return;
+        }
+        if (this.currentTopLevelTab == 2) {
+            showSettingsScreen();
+            return;
+        }
+        buildUi();
+        ensureReadPermission();
+        restoreMainUiFromState();
     }
 
     private Map<String, AlbumSummary> collectExistingAlbumSummaries() {
@@ -4180,7 +4281,7 @@ public class MainActivity extends Activity {
         Window window = dialog.getWindow();
         if (window != null) {
             window.setBackgroundDrawable(new ColorDrawable(0));
-            window.setLayout(Math.min((int) (getResources().getDisplayMetrics().widthPixels * 0.9d), dp(480)), -2);
+            window.setLayout(dialogMaxWidthPx(), -2);
         }
         dialog.show();
     }
@@ -4800,14 +4901,114 @@ public class MainActivity extends Activity {
         return new LinearLayout.LayoutParams(-1, -2);
     }
 
+    private void addStatusSummaryBar(LinearLayout parent) {
+        LinearLayout bar = new LinearLayout(this);
+        this.statSummaryBar = bar;
+        bar.setOrientation(0);
+        bar.setGravity(16);
+        bar.setPadding(dp(6), dp(6), dp(6), dp(6));
+        bar.setVisibility(8);
+        parent.addView(bar, matchWidthWithBottom(dp(8)));
+        applyCompactBarBackground(bar);
+        this.statTotalText = addStatusSummaryItem(bar, "새 장소");
+        addCompactDivider(bar);
+        this.statReadyText = addStatusSummaryItem(bar, "위치 없음");
+        addCompactDivider(bar);
+        this.statBlockedText = addStatusSummaryItem(bar, "정리 완료");
+    }
+
+    private TextView addStatusSummaryItem(LinearLayout parent, final String label) {
+        TextView textView = new TextView(this);
+        textView.setText(label + " 0");
+        textView.setTextSize(13.0f);
+        textView.setTypeface(Typeface.DEFAULT_BOLD);
+        textView.setTextColor(-14735049);
+        textView.setGravity(17);
+        textView.setIncludeFontPadding(false);
+        textView.setClickable(true);
+        textView.setFocusable(true);
+        textView.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                MainActivity.this.openResultFocus(label);
+            }
+        });
+        parent.addView(textView, new LinearLayout.LayoutParams(0, dp(44), 1.0f));
+        return textView;
+    }
+
+    private void addCompactDivider(LinearLayout parent) {
+        View divider = new View(this);
+        divider.setBackgroundColor(-1709326);
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(1, dp(24));
+        params.setMargins(0, dp(10), 0, dp(10));
+        parent.addView(divider, params);
+    }
+
+    private void applyCompactBarBackground(View view) {
+        GradientDrawable gradientDrawable = new GradientDrawable();
+        gradientDrawable.setColor(getColor(R.color.surface));
+        gradientDrawable.setCornerRadius(dp(16));
+        gradientDrawable.setStroke(1, -1511945);
+        view.setBackground(gradientDrawable);
+        view.setElevation(0.0f);
+        view.setStateListAnimator(null);
+    }
+
+    private int wideContentWidthPx() {
+        float density = getResources().getDisplayMetrics().density;
+        int windowWidthPx = currentWindowWidthPx();
+        int currentWidthDp = Math.round(windowWidthPx / density);
+        if (currentWidthDp < 600) {
+            return -1;
+        }
+        int availableWidth = windowWidthPx - dp(32);
+        return Math.min(availableWidth, dp(600));
+    }
+
+    private int currentWindowWidthPx() {
+        if (Build.VERSION.SDK_INT >= 30) {
+            return getWindowManager().getCurrentWindowMetrics().getBounds().width();
+        }
+        return getResources().getDisplayMetrics().widthPixels;
+    }
+
+    private int dialogMaxWidthPx() {
+        return Math.min((int) (currentWindowWidthPx() * 0.9d), dp(480));
+    }
+
+    private ScrollView.LayoutParams scrollContentLayoutParams() {
+        ScrollView.LayoutParams layoutParams = new ScrollView.LayoutParams(-1, -2);
+        int wideContentWidth = wideContentWidthPx();
+        if (wideContentWidth > 0) {
+            layoutParams.width = wideContentWidth;
+            layoutParams.gravity = Gravity.CENTER_HORIZONTAL;
+        }
+        return layoutParams;
+    }
+
+    private LinearLayout.LayoutParams wideContentLayoutParams() {
+        int wideContentWidth = wideContentWidthPx();
+        if (wideContentWidth <= 0) {
+            return matchWidth();
+        }
+        LinearLayout.LayoutParams layoutParams = new LinearLayout.LayoutParams(wideContentWidth, -2);
+        layoutParams.gravity = Gravity.CENTER_HORIZONTAL;
+        return layoutParams;
+    }
+
     private void setStatus(String str, String str2, String str3, String str4) {
         TextView textView = this.statTotalText;
         if (textView == null || this.statReadyText == null || this.statBlockedText == null) {
             return;
         }
-        textView.setText(formatCount(str2));
-        this.statReadyText.setText(formatCount(str3));
-        this.statBlockedText.setText(formatCount(str4));
+        String totalCount = formatSummaryCount(str2);
+        String readyCount = formatSummaryCount(str3);
+        String blockedCount = formatSummaryCount(str4);
+        textView.setText(coloredSummaryText("새 장소", totalCount, -9609738));
+        this.statReadyText.setText(coloredSummaryText("위치 없음", readyCount, -34257));
+        this.statBlockedText.setText(coloredSummaryText("정리 완료", blockedCount, -14370705));
+        updateStatusSummaryVisibility(totalCount, readyCount, blockedCount);
         TextView textView2 = this.statTotalLabel;
         if (textView2 != null) {
             textView2.setText("새 장소");
@@ -4820,6 +5021,38 @@ public class MainActivity extends Activity {
         if (textView4 != null) {
             textView4.setText("정리 완료");
         }
+    }
+
+    private String formatSummaryCount(String str) {
+        if (str == null || str.equals("-")) {
+            return "0";
+        }
+        String value = str.trim();
+        if (value.endsWith("개")) {
+            value = value.substring(0, value.length() - 1).trim();
+        }
+        return value.isEmpty() ? "0" : value;
+    }
+
+    private SpannableString coloredSummaryText(String label, String count, int countColor) {
+        String text = label + "  " + count;
+        SpannableString spannableString = new SpannableString(text);
+        int start = label.length() + 2;
+        spannableString.setSpan(new ForegroundColorSpan(countColor), start, text.length(), 33);
+        spannableString.setSpan(new StyleSpan(1), start, text.length(), 33);
+        return spannableString;
+    }
+
+    private void updateStatusSummaryVisibility(String totalCount, String readyCount, String blockedCount) {
+        if (this.statSummaryBar == null) {
+            return;
+        }
+        boolean allZero = isZeroSummaryCount(totalCount) && isZeroSummaryCount(readyCount) && isZeroSummaryCount(blockedCount);
+        this.statSummaryBar.setVisibility(allZero ? 8 : 0);
+    }
+
+    private boolean isZeroSummaryCount(String count) {
+        return count == null || count.trim().isEmpty() || "0".equals(count.trim());
     }
 
     private String formatCount(String str) {
@@ -4850,13 +5083,13 @@ public class MainActivity extends Activity {
                 imageView.setImageResource(iStatIconAsset);
                 imageView.setScaleType(ImageView.ScaleType.CENTER_CROP);
             } else {
-                imageView.setImageDrawable(new IconBubbleDrawable(str2, i, i2, dp(58)));
+                imageView.setImageDrawable(new IconBubbleDrawable(str2, i, i2, dp(48)));
             }
-            linearLayout2.addView(imageView, squareParams(dp(58)));
+            linearLayout2.addView(imageView, squareParams(dp(48)));
         }
         TextView textView = new TextView(this);
         textView.setText(str3);
-        textView.setTextSize(19.0f);
+        textView.setTextSize(17.0f);
         textView.setTypeface(Typeface.DEFAULT_BOLD);
         textView.setIncludeFontPadding(false);
         textView.setGravity(17);
@@ -4865,7 +5098,7 @@ public class MainActivity extends Activity {
         linearLayout2.addView(textView);
         TextView textView2 = new TextView(this);
         textView2.setText(str);
-        textView2.setTextSize(13.0f);
+        textView2.setTextSize(12.0f);
         textView2.setTypeface(Typeface.DEFAULT_BOLD);
         textView2.setIncludeFontPadding(false);
         textView2.setGravity(17);
@@ -4878,19 +5111,19 @@ public class MainActivity extends Activity {
         textView3.setTypeface(Typeface.DEFAULT_BOLD);
         textView3.setTextColor(-14326805);
         textView3.setGravity(17);
-        textView3.setPadding(dp(10), dp(5), dp(10), dp(5));
+        textView3.setPadding(dp(9), dp(4), dp(9), dp(4));
         GradientDrawable gradientDrawable = new GradientDrawable();
         gradientDrawable.setColor(-1050881);
         gradientDrawable.setCornerRadius(dp(12));
         textView3.setBackground(gradientDrawable);
         LinearLayout.LayoutParams viewChipParams = new LinearLayout.LayoutParams(-2, -2);
-        viewChipParams.setMargins(0, dp(5), 0, 0);
+        viewChipParams.setMargins(0, dp(3), 0, 0);
         linearLayout2.addView(textView3, viewChipParams);
         rememberStatLabel(str, textView2);
         if (z) {
             View view = new View(this);
             view.setBackgroundColor(-1709326);
-            LinearLayout.LayoutParams layoutParams = new LinearLayout.LayoutParams(1, dp(58));
+            LinearLayout.LayoutParams layoutParams = new LinearLayout.LayoutParams(1, dp(48));
             layoutParams.setMargins(dp(2), 0, dp(2), 0);
             linearLayout.addView(view, layoutParams);
         }
@@ -5058,13 +5291,13 @@ public class MainActivity extends Activity {
     private void addRecentPlacesSection(LinearLayout linearLayout, List<StoredAlbumSummary> listLoadRecentAlbumSummaries) {
         LinearLayout linearLayout2 = new LinearLayout(this);
         linearLayout2.setOrientation(1);
-        linearLayout2.setPadding(0, dp(8), 0, dp(8));
-        linearLayout.addView(linearLayout2, matchWidthWithBottom(dp(8)));
+        linearLayout2.setPadding(0, dp(2), 0, dp(6));
+        linearLayout.addView(linearLayout2, matchWidthWithBottom(dp(4)));
         LinearLayout linearLayout3 = new LinearLayout(this);
         linearLayout3.setOrientation(0);
         linearLayout3.setGravity(16);
         linearLayout3.setPadding(dp(2), 0, dp(2), 0);
-        linearLayout2.addView(linearLayout3, matchWidthWithBottom(dp(6)));
+        linearLayout2.addView(linearLayout3, matchWidthWithBottom(dp(4)));
         linearLayout3.addView(sectionTitle("최근 발견한 장소"), weightedParams(1));
         if (listLoadRecentAlbumSummaries.isEmpty()) {
             linearLayout2.addView(bodyText("앨범 정리를 실행하면 새로 발견한 장소를 보여드려요."), matchWidthWithBottom(dp(12)));
@@ -5073,7 +5306,7 @@ public class MainActivity extends Activity {
         LinearLayout linearLayout4 = new LinearLayout(this);
         linearLayout4.setOrientation(0);
         linearLayout4.setGravity(17);
-        linearLayout2.addView(linearLayout4, matchWidthWithBottom(dp(10)));
+        linearLayout2.addView(linearLayout4, matchWidthWithBottom(dp(6)));
         int iMin = Math.min(3, listLoadRecentAlbumSummaries.size());
         int i = 0;
         while (i < iMin) {
@@ -5126,7 +5359,7 @@ public class MainActivity extends Activity {
         LinearLayout linearLayout = new LinearLayout(this);
         linearLayout.setOrientation(1);
         linearLayout.setPadding(dp(18), dp(56), dp(18), dp(REQUEST_WRITE_VIDEOS));
-        scrollView.addView(linearLayout);
+        scrollView.addView(linearLayout, scrollContentLayoutParams());
         addListHeader(linearLayout, "최근 발견한 장소");
         List<StoredAlbumSummary> listLoadRecentAlbumSummaries = filterLiveStoredAlbumSummaries(loadRecentAlbumSummariesForUi());
         addWorkingBanner(linearLayout);
@@ -5144,7 +5377,7 @@ public class MainActivity extends Activity {
         } else {
             addRecentPlacesSummaryCard(linearLayout, listLoadRecentAlbumSummaries);
             GridLayout gridLayout = new GridLayout(this);
-            gridLayout.setColumnCount(2);
+            gridLayout.setColumnCount(recentPlacesGridColumnCount());
             linearLayout.addView(gridLayout, matchWidthWithBottom(dp(12)));
             Iterator<StoredAlbumSummary> it = listLoadRecentAlbumSummaries.iterator();
             while (it.hasNext()) {
@@ -5204,7 +5437,7 @@ public class MainActivity extends Activity {
         LinearLayout linearLayout = new LinearLayout(this);
         linearLayout.setOrientation(1);
         linearLayout.setPadding(dp(18), dp(56), dp(18), dp(REQUEST_WRITE_VIDEOS));
-        scrollView.addView(linearLayout);
+        scrollView.addView(linearLayout, scrollContentLayoutParams());
         addListHeader(linearLayout, group.title);
         addWorkingBanner(linearLayout);
         LinearLayout summary = new LinearLayout(this);
@@ -5261,7 +5494,7 @@ public class MainActivity extends Activity {
         LinearLayout linearLayout = new LinearLayout(this);
         linearLayout.setOrientation(1);
         linearLayout.setPadding(dp(18), dp(56), dp(18), dp(REQUEST_WRITE_VIDEOS));
-        scrollView2.addView(linearLayout);
+        scrollView2.addView(linearLayout, scrollContentLayoutParams());
         addSimpleHeader(linearLayout, storedAlbumSummary.albumName);
         LinearLayout linearLayout2 = new LinearLayout(this);
         linearLayout2.setOrientation(1);
@@ -5556,7 +5789,7 @@ public class MainActivity extends Activity {
         if (str4 == null || str4.isEmpty()) {
             return str3;
         }
-        return str3 + " ~\n" + str4;
+        return str3 + " ~ " + str4;
     }
 
     private String compactMonth(String str) {
@@ -5587,8 +5820,7 @@ public class MainActivity extends Activity {
         linearLayout3.setOrientation(1);
         linearLayout3.setPadding(dp(9), dp(8), dp(7), dp(8));
         linearLayout2.addView(linearLayout3, matchWidth());
-        linearLayout3.addView(compactCardTitle(storedAlbumSummary.albumName, 13));
-        linearLayout3.addView(compactCardCount(storedAlbumSummary.itemCount + "개", 14));
+        linearLayout3.addView(compactCardTitleWithMutedSuffix(storedAlbumSummary.albumName, "(" + storedAlbumSummary.itemCount + "개)", 13));
         linearLayout3.addView(compactCardMetaSmall(formatStoredRecentDate(storedAlbumSummary)));
     }
 
@@ -5616,7 +5848,7 @@ public class MainActivity extends Activity {
         layoutParams.setMargins(dp(4), 0, dp(4), dp(10));
         gridLayout.addView(linearLayout, layoutParams);
         applyCardBackground(linearLayout);
-        linearLayout.addView(placePhotoFrame(storedAlbumSummary, -1, dp(112), dp(18)));
+        linearLayout.addView(placePhotoFrame(storedAlbumSummary, -1, recentPlacesGridPhotoHeight(), dp(18)));
         LinearLayout linearLayout2 = new LinearLayout(this);
         linearLayout2.setOrientation(1);
         linearLayout2.setPadding(dp(12), dp(8), dp(10), dp(10));
@@ -5648,6 +5880,14 @@ public class MainActivity extends Activity {
         }
         linearLayout2.addView(compactCardCount(storedAlbumSummary.itemCount + "개 사진", 16));
         linearLayout2.addView(compactCardMeta(formatStoredMonthRange(storedAlbumSummary)));
+    }
+
+    private int recentPlacesGridColumnCount() {
+        return wideContentWidthPx() > 0 ? 3 : 2;
+    }
+
+    private int recentPlacesGridPhotoHeight() {
+        return wideContentWidthPx() > 0 ? dp(104) : dp(112);
     }
 
     /* renamed from: lambda$addStoredAlbumGridCard$49$com-example-gallerysorter-MainActivity, reason: not valid java name */
@@ -5688,6 +5928,16 @@ public class MainActivity extends Activity {
         return textView;
     }
 
+    private TextView compactCardTitleWithMutedSuffix(String title, String suffix, int textSize) {
+        TextView textView = compactCardTitle(title + " " + suffix, textSize);
+        SpannableString spannableString = new SpannableString(textView.getText());
+        int start = title.length() + 1;
+        spannableString.setSpan(new ForegroundColorSpan(-10193781), start, spannableString.length(), 33);
+        spannableString.setSpan(new RelativeSizeSpan(0.92f), start, spannableString.length(), 33);
+        textView.setText(spannableString);
+        return textView;
+    }
+
     private TextView compactCardCount(String str, int i) {
         TextView textView = new TextView(this);
         textView.setText(str);
@@ -5722,9 +5972,8 @@ public class MainActivity extends Activity {
         textView.setTextSize(10.5f);
         textView.setTextColor(-10193781);
         textView.setPadding(0, dp(1), 0, 0);
-        textView.setSingleLine(false);
-        textView.setMaxLines(2);
-        textView.setLineSpacing(0.0f, 0.95f);
+        textView.setSingleLine(true);
+        textView.setEllipsize(TextUtils.TruncateAt.END);
         return textView;
     }
 
@@ -6407,13 +6656,13 @@ public class MainActivity extends Activity {
         }
         LinearLayout section = new LinearLayout(this);
         section.setOrientation(1);
-        section.setPadding(0, dp(2), 0, dp(8));
-        linearLayout.addView(section, matchWidthWithBottom(dp(8)));
+        section.setPadding(0, dp(2), 0, dp(6));
+        linearLayout.addView(section, matchWidthWithBottom(dp(4)));
         LinearLayout header = new LinearLayout(this);
         header.setOrientation(0);
         header.setGravity(16);
         header.setPadding(dp(2), 0, dp(2), 0);
-        section.addView(header, matchWidthWithBottom(dp(6)));
+        section.addView(header, matchWidthWithBottom(dp(4)));
         header.addView(sectionTitle("해외 기록"), weightedParams(1));
         TextView count = compactCardMetaSmall(groups.size() + "개 국가");
         count.setGravity(17);
@@ -6426,11 +6675,11 @@ public class MainActivity extends Activity {
         cards.setGravity(16);
         horizontalScrollView.addView(cards);
         for (int i = 0; i < groups.size(); i++) {
-            addOverseasMemoryCard(cards, groups.get(i), i == groups.size() - 1);
+            addOverseasMemoryCard(cards, groups.get(i), i == groups.size() - 1, groups.size());
         }
     }
 
-    private void addOverseasMemoryCard(LinearLayout linearLayout, final MemoryGroup group, boolean last) {
+    private void addOverseasMemoryCard(LinearLayout linearLayout, final MemoryGroup group, boolean last, int groupCount) {
         LinearLayout card = new LinearLayout(this);
         card.setOrientation(1);
         card.setPadding(0, 0, 0, dp(7));
@@ -6442,18 +6691,45 @@ public class MainActivity extends Activity {
                 MainActivity.this.showOverseasMemoryScreen(group);
             }
         });
-        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(dp(98), -2);
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(overseasMemoryHomeCardWidth(groupCount), -2);
         params.setMargins(0, 0, last ? 0 : dp(8), 0);
         linearLayout.addView(card, params);
         applyCardBackground(card);
-        card.addView(memoryGroupPhotoFrame(group, dp(62), dp(14)));
+        card.addView(memoryGroupPhotoFrame(group, overseasMemoryHomePhotoHeight(groupCount), dp(14)));
         LinearLayout body = new LinearLayout(this);
         body.setOrientation(1);
-        body.setPadding(dp(8), dp(6), dp(7), dp(7));
+        body.setPadding(dp(10), dp(7), dp(9), dp(8));
         card.addView(body, matchWidth());
-        body.addView(compactCardTitle(group.title, 12));
-        body.addView(compactCardCount(group.itemCount + "개", 13));
+        body.addView(compactCardTitleWithMutedSuffix(group.title, "(" + group.itemCount + "개)", 13));
         body.addView(compactCardDate(formatMemoryMonthRange(group.startDate, group.endDate)));
+    }
+
+    private int overseasMemoryHomeCardWidth(int groupCount) {
+        int availableWidth = homeContentInnerWidthPx();
+        if (groupCount > 0 && groupCount <= 3) {
+            int gaps = Math.max(0, groupCount - 1) * dp(8);
+            return Math.max(dp(98), (availableWidth - gaps) / groupCount);
+        }
+        int wideContentWidth = wideContentWidthPx();
+        if (wideContentWidth > 0) {
+            return Math.max(dp(132), (availableWidth - dp(16)) / 3);
+        }
+        return dp(132);
+    }
+
+    private int overseasMemoryHomePhotoHeight(int groupCount) {
+        if (groupCount == 1 && wideContentWidthPx() > 0) {
+            return dp(92);
+        }
+        return wideContentWidthPx() > 0 ? dp(74) : dp(72);
+    }
+
+    private int homeContentInnerWidthPx() {
+        int contentWidth = wideContentWidthPx();
+        if (contentWidth <= 0) {
+            contentWidth = currentWindowWidthPx();
+        }
+        return Math.max(dp(260), contentWidth - dp(36));
     }
 
     private FrameLayout memoryGroupPhotoFrame(MemoryGroup group, int height, int cornerRadius) {
@@ -6547,8 +6823,9 @@ public class MainActivity extends Activity {
             loadThumbnailInto(imageView, photoItem.uri, dp(40));
         } else {
             ImageView imageView2 = new ImageView(this);
-            imageView2.setImageDrawable(new IconBubbleDrawable(str, i2, i, dp(40)));
-            linearLayout.addView(imageView2, squareParams(dp(40)));
+            int iconSize = dp(38);
+            imageView2.setImageDrawable(new IconBubbleDrawable(normalizeResultIcon(str), i2, i, iconSize));
+            linearLayout.addView(imageView2, squareParams(iconSize));
         }
         LinearLayout linearLayout2 = new LinearLayout(this);
         linearLayout2.setOrientation(1);
@@ -6987,7 +7264,7 @@ public class MainActivity extends Activity {
         LinearLayout linearLayout = new LinearLayout(this);
         linearLayout.setOrientation(1);
         linearLayout.setPadding(dp(18), dp(56), dp(18), dp(REQUEST_WRITE_VIDEOS));
-        scrollView.addView(linearLayout);
+        scrollView.addView(linearLayout, scrollContentLayoutParams());
         addListHeader(linearLayout, "설정");
         addWorkingBanner(linearLayout);
         addSettingsSourceFolderCard(linearLayout);
@@ -7274,7 +7551,7 @@ public class MainActivity extends Activity {
         final LinearLayout linearLayout2 = new LinearLayout(this);
         linearLayout2.setOrientation(1);
         linearLayout2.setPadding(dp(18), dp(8), dp(18), dp(34));
-        linearLayout.addView(linearLayout2, matchWidth());
+        linearLayout.addView(linearLayout2, wideContentLayoutParams());
         addBottomTabs(linearLayout2, i);
         linearLayout.setOnApplyWindowInsetsListener(new View.OnApplyWindowInsetsListener() {
             @Override // android.view.View.OnApplyWindowInsetsListener
@@ -7298,6 +7575,7 @@ public class MainActivity extends Activity {
             }
         });
         setContentView(linearLayout);
+        this.lastRenderedWindowWidthPx = currentWindowWidthPx();
     }
 
     private void addBottomTab(LinearLayout linearLayout, String str, String str2, boolean z, View.OnClickListener onClickListener) {
@@ -7644,7 +7922,7 @@ public class MainActivity extends Activity {
         LinearLayout linearLayout = new LinearLayout(this);
         linearLayout.setOrientation(1);
         linearLayout.setPadding(dp(18), dp(56), dp(18), dp(REQUEST_WRITE_VIDEOS));
-        scrollView.addView(linearLayout);
+        scrollView.addView(linearLayout, scrollContentLayoutParams());
         LinearLayout linearLayout2 = new LinearLayout(this);
         linearLayout2.setOrientation(0);
         linearLayout2.setGravity(16);
@@ -7724,7 +8002,7 @@ public class MainActivity extends Activity {
         linearLayout3.addView(textView4, matchWidth());
         LinearLayout linearLayout4 = new LinearLayout(this);
         linearLayout4.setOrientation(0);
-        linearLayout4.setPadding(dp(14), dp(12), dp(14), dp(12));
+        linearLayout4.setPadding(dp(12), dp(10), dp(12), dp(10));
         linearLayout.addView(linearLayout4, matchWidthWithBottom(dp(14)));
         applyCardBackground(linearLayout4);
         if (this.copyStoppedMode) {
@@ -7893,8 +8171,8 @@ public class MainActivity extends Activity {
         linearLayout2.setGravity(17);
         linearLayout.addView(linearLayout2, new LinearLayout.LayoutParams(0, -2, 1.0f));
         ImageView imageView = new ImageView(this);
-        imageView.setImageDrawable(new IconBubbleDrawable(str, i, softenColor(i), dp(34)));
-        linearLayout2.addView(imageView, squareParams(dp(34)));
+        imageView.setImageDrawable(new IconBubbleDrawable(normalizeResultIcon(str), i, softenColor(i), dp(30)));
+        linearLayout2.addView(imageView, squareParams(dp(30)));
         TextView textView = new TextView(this);
         textView.setText(str2);
         textView.setTextSize(11.0f);
@@ -7903,7 +8181,7 @@ public class MainActivity extends Activity {
         linearLayout2.addView(textView);
         TextView textView2 = new TextView(this);
         textView2.setText(str3);
-        textView2.setTextSize(20.0f);
+        textView2.setTextSize(18.0f);
         textView2.setTypeface(Typeface.DEFAULT_BOLD);
         textView2.setTextColor(i);
         textView2.setGravity(17);
@@ -7911,10 +8189,27 @@ public class MainActivity extends Activity {
         if (z) {
             View view = new View(this);
             view.setBackgroundColor(-1710101);
-            LinearLayout.LayoutParams layoutParams = new LinearLayout.LayoutParams(1, dp(54));
+            LinearLayout.LayoutParams layoutParams = new LinearLayout.LayoutParams(1, dp(46));
             layoutParams.setMargins(dp(2), 0, dp(2), 0);
             linearLayout.addView(view, layoutParams);
         }
+    }
+
+    private String normalizeResultIcon(String icon) {
+        if (icon == null) {
+            return "";
+        }
+        String value = icon.trim();
+        if ("✓".equals(value)) {
+            return "check";
+        }
+        if ("!".equals(value)) {
+            return "alert";
+        }
+        if ("▣".equals(value) || "+".equals(value)) {
+            return "grid";
+        }
+        return value;
     }
 
     private void openGallery() {
@@ -8125,14 +8420,30 @@ public class MainActivity extends Activity {
     }
 
     private void setWorking(boolean z, String str) {
+        setWorking(z, str, false);
+    }
+
+    private void setWorking(boolean z, String str, boolean trackSortProgress) {
+        boolean wasSortProgressTracking = this.sortProgressTracking;
         this.isWorking = z;
         this.workingMessage = z ? str : null;
+        this.sortProgressTracking = z && trackSortProgress;
         if (z) {
-            startSortForegroundProgress(str);
-            scheduleStaleProgressRecoveryCheck();
+            if (this.sortProgressTracking) {
+                startSortForegroundProgress(str);
+                scheduleStaleProgressRecoveryCheck();
+            } else {
+                cancelStaleProgressRecoveryCheck();
+                this.activeProgressLabel = null;
+                this.activeProgressCurrent = 0;
+                this.activeProgressTotal = 0;
+                this.activeProgressContext = null;
+            }
         } else {
             cancelStaleProgressRecoveryCheck();
-            stopSortForegroundProgress();
+            if (wasSortProgressTracking || !this.backgroundSortMode) {
+                stopSortForegroundProgress();
+            }
         }
         if (!z) {
             updateProgress(null, 0, 0);
@@ -8248,7 +8559,7 @@ public class MainActivity extends Activity {
     }
 
     private void updateSortForegroundProgress(String str, int i, int i2, String str2) {
-        if (!this.isWorking || str == null) {
+        if (!this.isWorking || !this.sortProgressTracking || str == null) {
             return;
         }
         try {
@@ -8350,6 +8661,7 @@ public class MainActivity extends Activity {
             WorkManager.getInstance(this).cancelUniqueWork(SortWorker.WORK_NAME);
         }
         this.cancelButton.setEnabled(false);
+        setStatus("중단 요청", "-", "-", "-");
         this.summaryText.setText("취소 요청 중...");
     }
 
