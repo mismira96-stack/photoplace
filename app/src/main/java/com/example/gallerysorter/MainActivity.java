@@ -1879,9 +1879,6 @@ public class MainActivity extends Activity {
                 sb.append("동영상 이동 안 함, 건너뜀: ").append(photoItem.name).append("\n");
             } else if (photoItem.duplicateInTarget) {
                 i3++;
-                if (!photoItem.video) {
-                    addUniqueUri(this.copiedOriginalUris, photoItem.uri);
-                }
                 sb.append("복사본 있음, 건너뜀: ").append(photoItem.name).append(" -> ").append(photoItem.targetRelativePath).append("\n");
             } else {
                 try {
@@ -3079,7 +3076,11 @@ public class MainActivity extends Activity {
     private String preferredLocationName(Address address) {
         if (!isSeoulAddress(address)) {
             String strCleanPoiLocationName = cleanPoiLocationName(address.getFeatureName(), address.getAddressLine(0), address.getSubLocality(), address.getThoroughfare());
-            return strCleanPoiLocationName != null ? strCleanPoiLocationName : firstNonEmpty(address.getLocality(), address.getSubAdminArea(), address.getAdminArea(), address.getCountryName());
+            if (strCleanPoiLocationName != null) {
+                return strCleanPoiLocationName;
+            }
+            String strKnownTravelLocationName = knownTravelLocationName(address);
+            return strKnownTravelLocationName != null ? strKnownTravelLocationName : firstNonEmpty(address.getLocality(), address.getSubAdminArea(), address.getAdminArea(), address.getCountryName());
         }
         String strCleanSeoulDetailName = cleanSeoulDetailName(address.getSubLocality(), address.getThoroughfare(), address.getFeatureName(), address.getAddressLine(0));
         if (strCleanSeoulDetailName != null) {
@@ -3091,6 +3092,21 @@ public class MainActivity extends Activity {
 
     private boolean isSeoulAddress(Address address) {
         return normalizeForMatch(address.getAdminArea()).contains("서울") || normalizeForMatch(address.getLocality()).contains("서울") || isSeoulAddressLine(address.getAddressLine(0));
+    }
+
+    private String knownTravelLocationName(Address address) {
+        String joined = stringOrEmpty(address.getAddressLine(0)) + " "
+                + stringOrEmpty(address.getLocality()) + " "
+                + stringOrEmpty(address.getSubAdminArea()) + " "
+                + stringOrEmpty(address.getAdminArea()) + " "
+                + stringOrEmpty(address.getSubLocality()) + " "
+                + stringOrEmpty(address.getThoroughfare()) + " "
+                + stringOrEmpty(address.getCountryName());
+        return PlaceNamePolicy.knownTravelPlaceName(normalizeForMatch(joined));
+    }
+
+    private String stringOrEmpty(String value) {
+        return value == null ? "" : value;
     }
 
     private boolean isSeoulAddressLine(String str) {
@@ -5135,11 +5151,24 @@ public class MainActivity extends Activity {
             showToast("정리 중에는 결과를 볼 수 없어요.");
             return;
         }
+        ResultCounts counts = countResultItems(this.previewItems);
         if ("위치 없음".equals(str)) {
+            if (counts.noLocationCount <= 0) {
+                showToast("위치 정보 없는 항목이 없어요.");
+                return;
+            }
             this.resultFocusMode = RESULT_FOCUS_NO_LOCATION;
         } else if ("정리 완료".equals(str)) {
+            if (completedDisplayCount(counts) <= 0 && counts.alreadySortedCount <= 0) {
+                showToast("정리 완료된 항목이 없어요.");
+                return;
+            }
             this.resultFocusMode = RESULT_FOCUS_SORTED;
         } else {
+            if (counts.newFolderCount <= 0 && counts.copyableCount <= 0) {
+                showToast("새 장소 항목이 없어요.");
+                return;
+            }
             this.resultFocusMode = RESULT_FOCUS_PLACES;
         }
         showResultScreen();
@@ -6612,19 +6641,24 @@ public class MainActivity extends Activity {
         if (this.unclassifiedPreviewRow == null || this.logText == null) {
             return;
         }
+        if (i <= 0) {
+            this.unclassifiedPreviewRow.removeAllViews();
+            if (this.unclassifiedSectionCard != null) {
+                this.unclassifiedSectionCard.setVisibility(8);
+            }
+            this.logText.setVisibility(8);
+            return;
+        }
         String str;
         Iterator<PhotoItem> it = list.iterator();
         while (it.hasNext()) {
             this.unclassifiedPreviewRow.addView(thumbnailCard(it.next()));
         }
-        if (list.isEmpty()) {
-            this.unclassifiedPreviewRow.addView(emptyThumbnailCard("없음"));
-        }
         TextView textView = this.logText;
         if (i > list.size()) {
             str = "+" + (i - list.size()) + "개 더 있어요";
         } else {
-            str = i > 0 ? "위치 정보가 없는 항목입니다." : "위치 정보 없는 항목이 없습니다.";
+            str = "위치 정보가 없는 항목입니다.";
         }
         textView.setText(str);
         this.logText.setVisibility(8);

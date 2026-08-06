@@ -56,6 +56,13 @@ final class SortNotificationHelper {
         return builder.build();
     }
 
+    static void notifyProgress(Context context, String label, int current, int total, String progressContext) {
+        NotificationManager manager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
+        if (manager != null) {
+            manager.notify(SortForegroundService.NOTIFICATION_PROGRESS_ID, progressNotification(context, label, current, total, progressContext));
+        }
+    }
+
     static Notification completeNotification(Context context, String title, String text) {
         ensureChannels(context);
         return builder(context, CHANNEL_COMPLETE)

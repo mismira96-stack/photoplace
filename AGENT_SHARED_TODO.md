@@ -1,6 +1,6 @@
 # PhotoPlace Agent Shared TODO
 
-Updated: 2026-07-30
+Updated: 2026-08-06
 
 This file is the shared handoff note for Codex and Gemini CLI. Keep it short, current, and safe to act on.
 
@@ -16,6 +16,8 @@ Read these first:
   - Current shared status, stable baseline, open TODOs, and guardrails.
 - `WORKLOG_2026-07-30.md`
   - Latest release/work record for 1.2.5, overseas-history metadata fix, Fold UI checks, and Play draft automation.
+- `WORKLOG_2026-08-06.md`
+  - Current WIP stabilization record after Japan-trip overseas-history fixes caused home/history performance regressions.
 - `WORKLOG_2026-07-26.md`
   - Date-based work record for the WorkManager/background-sort stabilization day.
 - `Photoplace_V2_Personal_Place_PRD.md`
@@ -37,15 +39,42 @@ Reference docs:
 ## Current Stable Baseline
 
 - Branch: `codex/photoplace-v2-bg-wip`
-- Latest built Play draft: `versionCode 26` / `versionName 1.2.5` / `targetSdk 36`
-- Release AAB: `photoplace-1.2.5-code26-overseas-history-fix-api36.aab`
-- Play Console status seen by user: production draft / pending manual review submission flow for 1.2.5.
+- Latest built Play draft: `versionCode 27` / `versionName 1.2.6` / `targetSdk 36`
+- Release AAB: `photoplace-1.2.6-code27-overseas-japan-stability-api36.aab`
+- Release APK: `photoplace-1.2.6-code27-overseas-japan-stability-api36.apk`
+- Play Console status: production draft uploaded by API. Final "Send for review" remains manual.
 - Latest confirmed device result:
-  - Fold layout has no major blocking issue after home/record grid adjustments.
-  - Home, sort history, sort result, background sort, notification entry, and original-trash confirmation popup looked stable in user testing.
-  - Sort result performance was improved enough for current release testing.
+  - Japan album naming no longer shows `中央区` in the user's test.
+  - Existing test folder notification looked normal; the odd notification sequence seems tied to the Japan/travel folder case.
+  - Already-sorted duplicate items no longer create a misleading pending original-cleanup count.
+  - `위치 없음 0개` no longer shows an empty no-location preview/focus screen.
 - Current worktree is not clean. Check `git status` before editing and do not discard local changes.
 - Keep avoiding the earlier broad Geocoder candidate scoring experiment. It caused POI overclassification.
+
+## Current Release/WIP Note - 2026-08-06
+
+The current uncommitted WIP was built and uploaded as Play production draft `1.2.6 (27)`.
+
+Today started as a Japan/overseas-history fix, but changes spread into:
+
+- overseas country/place normalization
+- Japanese/English/Kanji place-name canonicalization
+- activity back-stack `singleTask`
+- original-cleanup count safety
+- no-location empty-state safety
+- notification progress experiments
+
+Some broad performance experiments were backed out during the session. Keep the final scope focused and do not reintroduce heavy home/history validation without profiling.
+
+Next work should avoid widening this stabilization batch:
+
+1. Keep pure overseas-history normalization candidates:
+  - `OverseasMemoryGrouper`
+  - focused `PlaceNamePolicy` mappings
+  - unit tests
+2. Keep the original-cleanup and no-location empty-state fixes.
+3. Treat notification progress as a follow-up architecture issue, not a quick patch.
+4. Commit a stable checkpoint after Play submission/review status is confirmed.
 
 ## Completed Today
 
@@ -66,38 +95,74 @@ Reference docs:
   - It builds APK/AAB and can upload a Play Console production draft.
   - Final Play Console review submission remains manual.
 - Release `1.2.5` / code `26` AAB was built and uploaded as a Play production draft.
+- Release `1.2.6` / code `27` APK+AAB was built.
+- Release `1.2.6` / code `27` AAB was uploaded as a Play production draft.
+- Release notes file:
+  - `release-notes-1.2.6-ko.txt`
 
 ## Known Open TODOs
 
-1. Friend device follow-up:
+1. Sort history search (V2 priority):
+  - User need: 정리기록/최근 발견한 장소가 많아지면 드래그로 찾기 어렵다.
+  - Add a search bar to the sort history/recent places screen.
+  - Search target: album/place display name, country, admin/address metadata, date text if practical.
+  - Selecting a result should open the matching album/place detail screen directly.
+  - Keep filtering local and fast; do not scan MediaStore on every keystroke.
+  - Suggested first implementation: filter already loaded `StoredAlbumSummary` list in memory, then reuse `showRecentPlaceDetailScreen(summary)`.
+2. International address normalization (design before coding):
+  - Current fix for `中央区` is a stabilization patch, not the final model.
+  - Do not keep growing `knownTravelPlaceName()` into a giant city alias table.
+  - Add a structured layer before final album naming:
+    - parse address components
+    - normalize country/admin/locality/subLocality
+    - decide canonical city/place
+    - then format display name
+  - Overseas rule: subLocality/ward alone must not become a final album name.
+  - Stable key/display name should eventually be separated, for example `JP|Hokkaido|Sapporo` vs `삿포로`.
+3. No-location folder move option (design + confirm UX):
+  - Problem: users with thousands of no-GPS photos repeatedly re-scan the same files.
+  - Do not default-enable file movement.
+  - Add a preview-time confirm checkbox/card only when no-location count is high.
+  - Suggested copy:
+    - `위치 정보 없는 항목 2,034개`
+    - `다음 정리 때 다시 검사하지 않도록 별도 폴더로 이동할까요?`
+    - Checkbox: `위치 정보 없는 항목을 PhotoPlace/위치 없음 폴더로 이동`
+    - Warning: `원본 파일 위치가 바뀝니다. 사진은 삭제되지 않으며 갤러리에서 계속 볼 수 있어요.`
+  - Keep default OFF; if user chooses it, remember preference but still surface it in preview.
+  - Start with photos only or very explicit video handling.
+4. Friend device follow-up:
   - Friend has 10,000+ photos.
   - Albums are reportedly created correctly.
   - Overseas history reportedly showed only Japan.
   - Ask for at least 1-2 sample photos from missing overseas countries if possible.
   - Run "rebuild discovered places" on the updated build and confirm country count.
   - If possible, collect logs/dump and compare stored history JSON vs actual generated album folders.
-2. Investigate reported 5,300-folder anomaly:
+5. Investigate reported 5,300-folder anomaly:
   - User observed record/history count around 5,300 folders while actual generated albums seemed around 40.
   - Need dump/sample before assuming root cause.
   - Suspect duplicate grouping/state regeneration, not necessarily file creation.
-3. Home latency:
+6. Home latency:
   - Current home is acceptable but slightly less instant than earlier.
   - Watch for delays where overseas/recent places appear after first draw.
   - Avoid blocking first draw on heavy MediaStore/history reconciliation.
-4. Back/navigation:
+7. Back/navigation:
   - Most back issues were patched, but keep this high in regression testing.
   - Especially test sorting, result detail, history tab, Home tab, and Fold open/close.
-5. Notification reliability:
-  - Background notification was fixed in testing, but 10,000+ photo users should confirm it continues after pressing Home.
-6. Personal Place PRD should be analyzed before implementation.
-7. Airplane / drive-through location handling is not implemented. Prefer visible badges such as "in flight" / "moving", not automatic exclusion.
-8. POI policy:
+8. Notification reliability:
+  - Still open as of 2026-08-06 late test.
+  - Device symptom: progress can move to a value such as `141`, then later jump/restart as `1 / 178`, then finish.
+  - Existing test folder notification looked normal. Japan/travel folder showed the odd sequence.
+  - This appears to be more than a simple notification refresh bug; a preview/rebuild/result-refresh phase may be reusing or reseeding the same progress path.
+  - Do not keep patching blindly tonight. Next pass should separate sort-copy progress from preview/rebuild/result-refresh progress, and decide which phases deserve OS notifications.
+9. Personal Place PRD should be analyzed before implementation.
+10. Airplane / drive-through location handling is not implemented. Prefer visible badges such as "in flight" / "moving", not automatic exclusion.
+11. POI policy:
   - Do not broaden automatic POI classification.
   - Everland / Seoul Arts Center may still fall back to administrative names because Google Photos place labels are not the same data returned by Android Geocoder.
   - Prefer Personal Place recommendation for reliable user-confirmed names.
-9. Result album detail should eventually support viewing more/all photos, not only representative thumbnails.
-10. Process-death recovery can be hardened further for completed Worker results.
-11. Split `MainActivity` further once the current release settles:
+12. Result album detail should eventually support viewing more/all photos, not only representative thumbnails.
+13. Process-death recovery can be hardened further for completed Worker results.
+14. Split `MainActivity` further once the current release settles:
   - background sort coordinator
   - result screen renderer/model
   - original cleanup state/store
@@ -105,26 +170,47 @@ Reference docs:
 
 ## Immediate Next Session Checklist
 
-1. Confirm Play Console status for 1.2.5:
+1. Confirm Play Console status for 1.2.6:
   - draft submitted manually or review pending
   - no extra foreground-service declaration issue
-2. On friend's device:
+2. Smoke-test the Play/installed 1.2.6 build:
+  - Japan folder still does not show `中央区`.
+  - Original cleanup prompt does not show the already-sorted count.
+  - `위치 없음 0개` has no empty preview.
+  - Existing test folder notification is still normal.
+3. On friend's device:
   - install latest build or confirm Play update.
   - run only "rebuild discovered places" first; no need to fully sort again if folders already exist.
   - check overseas history country list.
   - check sort history count vs actual generated album count.
   - collect sample photos/logs if mismatch remains.
-3. If overseas history still fails:
+4. If overseas history still fails:
   - inspect `album_summary_history.json` / restored summary metadata path.
   - verify `StoredAlbumSummary.countryName`, `addressLine`, `adminArea`, `albumName`, and `representativeUri`.
-4. If 5,300-folder count reproduces:
+5. If 5,300-folder count reproduces:
   - do not patch blindly.
   - first determine whether count means generated albums, history rows, photo groups, or raw media rows.
-5. Defer bigger features until release feedback settles:
+6. Next feature candidates, in recommended order:
+  - sort history search
+  - no-location folder move confirm option
+  - international address normalizer design
   - Personal Place MVP
   - moving/in-flight badges
-  - resume-from-stop sorting
   - all-photos result detail
+  - resume-from-stop sorting
+
+## Latest Late-Night Device Findings - 2026-08-06
+
+Keep from the current WIP if final device testing still agrees:
+
+- Japan album naming: `中央区` no longer appears after the Sapporo/Hokkaido context fix.
+- Original cleanup count: already-sorted/duplicate items are no longer added to pending original-trash candidates.
+- Empty no-location UI: when location-missing count is `0`, the no-location preview section is hidden and focus screen entry is blocked with a toast.
+
+Still unresolved:
+
+- OS notification progress is not reliable enough. It may stall, then restart with a different total (`1 / 178`) before completion.
+- Treat notification as follow-up architecture work, not a quick release blocker patch, unless a minimal phase-separation fix is identified.
 
 ## Personal Place Guardrails
 

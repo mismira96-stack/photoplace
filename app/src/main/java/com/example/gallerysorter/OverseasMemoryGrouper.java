@@ -7,44 +7,86 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.regex.Pattern;
 
 final class OverseasMemoryGrouper {
+    private static final Pattern NORMALIZE_PATTERN = Pattern.compile("[^0-9a-z가-힣\\p{IsHan}\\p{IsHiragana}\\p{IsKatakana}]+");
     private static final String[] KOREA_HINTS = {
-            "대한민국", "한국", "southkorea", "republicofkorea", "korea",
+            "대한민국", "한국", "southkorea", "republicofkorea",
             "서울", "부산", "대구", "인천", "광주", "대전", "울산", "세종",
-            "경기", "강원", "충북", "충청북", "충남", "충청남", "전북", "전라북",
-            "전남", "전라남", "경북", "경상북", "경남", "경상남", "제주",
+            "경기", "강원", "충북", "충청북도", "충남", "충청남도",
+            "전북", "전라북도", "전남", "전라남도",
+            "경북", "경상북도", "경남", "경상남도", "제주",
             "mapogu", "songpagu", "gangnamgu", "seochogu", "jongnogu", "yongsangu"
     };
-    private static final String[] OVERSEAS_COUNTRY_HINTS = {
-            "일본", "japan", "미국", "usa", "unitedstates", "태국", "thailand",
-            "베트남", "vietnam", "프랑스", "france", "이탈리아", "italy",
-            "스페인", "spain", "영국", "unitedkingdom", "중국", "china",
-            "대만", "taiwan", "홍콩", "hongkong", "싱가포르", "singapore",
-            "호주", "australia", "캐나다", "canada", "독일", "germany",
-            "스위스", "switzerland", "오스트리아", "austria", "체코", "czech",
-            "네덜란드", "netherlands", "괌", "guam"
+
+    private static final String[][] COUNTRY_ALIASES = {
+            {"일본", "일본", "japan", "日本", "にほん", "ニホン"},
+            {"미국", "미국", "usa", "unitedstates", "unitedstatesofamerica", "america"},
+            {"태국", "태국", "thailand"},
+            {"베트남", "베트남", "vietnam"},
+            {"프랑스", "프랑스", "france"},
+            {"이탈리아", "이탈리아", "italy"},
+            {"스페인", "스페인", "spain"},
+            {"영국", "영국", "unitedkingdom", "uk", "greatbritain", "england"},
+            {"중국", "중국", "china"},
+            {"대만", "대만", "taiwan"},
+            {"홍콩", "홍콩", "hongkong"},
+            {"싱가포르", "싱가포르", "singapore"},
+            {"호주", "호주", "australia"},
+            {"캐나다", "캐나다", "canada"},
+            {"독일", "독일", "germany"},
+            {"스위스", "스위스", "switzerland"},
+            {"오스트리아", "오스트리아", "austria"},
+            {"체코", "체코", "czech", "czechia"},
+            {"네덜란드", "네덜란드", "netherlands"},
+            {"괌", "괌", "guam"}
     };
+
     private static final String[][] PLACE_COUNTRY_HINTS = {
-            {"도쿄", "일본"}, {"오사카", "일본"}, {"교토", "일본"}, {"후쿠오카", "일본"}, {"삿포로", "일본"},
-            {"뉴욕", "미국"}, {"로스앤젤레스", "미국"}, {"샌프란시스코", "미국"}, {"라스베가스", "미국"}, {"하와이", "미국"},
-            {"방콕", "태국"}, {"푸켓", "태국"}, {"치앙마이", "태국"},
-            {"다낭", "베트남"}, {"하노이", "베트남"}, {"호치민", "베트남"},
-            {"파리", "프랑스"}, {"니스", "프랑스"},
-            {"로마", "이탈리아"}, {"밀라노", "이탈리아"}, {"베네치아", "이탈리아"},
-            {"바르셀로나", "스페인"}, {"마드리드", "스페인"},
-            {"런던", "영국"}, {"타이베이", "대만"}, {"홍콩", "홍콩"}, {"싱가포르", "싱가포르"},
-            {"시드니", "호주"}, {"멜버른", "호주"}, {"밴쿠버", "캐나다"}, {"토론토", "캐나다"},
-            {"투몬", "괌"}, {"tumon", "괌"},
-            {"fukuoka", "일본"}, {"kurume", "일본"}, {"tosu", "일본"}, {"yufu", "일본"}, {"tsushima", "일본"}, {"kiyama", "일본"},
-            {"anglesea", "호주"}, {"belgrave", "호주"}, {"bilinga", "호주"}, {"capewoolamai", "호주"},
-            {"cowes", "호주"}, {"docklands", "호주"}, {"easternview", "호주"}, {"flinders", "호주"},
-            {"grantville", "호주"}, {"kennettriver", "호주"}, {"kiama", "호주"}, {"melbourne", "호주"},
-            {"menziescreek", "호주"}, {"peterborough", "호주"}, {"portcampbell", "호주"}, {"princetown", "호주"},
-            {"sherbrooke", "호주"}, {"skenescreek", "호주"}, {"southwharf", "호주"}, {"southbank", "호주"},
-            {"stkilda", "호주"}, {"stanwelltops", "호주"}, {"summerlands", "호주"}, {"sydney", "호주"},
-            {"unanderra", "호주"}, {"wollongong", "호주"}, {"포트캠벨", "호주"}
+            {"도쿄", "일본"}, {"tokyo", "일본"}, {"東京", "일본"},
+            {"오사카", "일본"}, {"osaka", "일본"}, {"大阪", "일본"},
+            {"교토", "일본"}, {"kyoto", "일본"}, {"京都", "일본"},
+            {"후쿠오카", "일본"}, {"fukuoka", "일본"}, {"福岡", "일본"},
+            {"삿포로", "일본"}, {"sapporo", "일본"}, {"札幌", "일본"}, {"札幌市", "일본"}, {"札幌市中央区", "일본"},
+            {"치토세", "일본"}, {"chitose", "일본"}, {"千歳", "일본"}, {"千歳市", "일본"},
+            {"비에이", "일본"}, {"biei", "일본"}, {"美瑛", "일본"}, {"美瑛町", "일본"},
+            {"후라노", "일본"}, {"furano", "일본"}, {"富良野", "일본"}, {"富良野市", "일본"},
+            {"가미후라노", "일본"}, {"kamifurano", "일본"}, {"上富良野", "일본"}, {"上富良野町", "일본"},
+            {"나카후라노", "일본"}, {"nakafurano", "일본"}, {"中富良野", "일본"}, {"中富良野町", "일본"},
+            {"오타루", "일본"}, {"otaru", "일본"}, {"小樽", "일본"}, {"小樽市", "일본"},
+            {"이와미자와", "일본"}, {"iwamizawa", "일본"}, {"岩見沢", "일본"}, {"岩見沢市", "일본"},
+            {"홋카이도", "일본"}, {"hokkaido", "일본"}, {"北海道", "일본"},
+            {"kurume", "일본"}, {"久留米", "일본"}, {"tosu", "일본"}, {"鳥栖", "일본"},
+            {"yufu", "일본"}, {"由布", "일본"}, {"tsushima", "일본"}, {"対馬", "일본"}, {"kiyama", "일본"}, {"基山", "일본"},
+
+            {"newyork", "미국"}, {"losangeles", "미국"}, {"sanfrancisco", "미국"}, {"sanjose", "미국"},
+            {"lasvegas", "미국"}, {"seattle", "미국"}, {"honolulu", "미국"}, {"hawaii", "미국"},
+            {"boston", "미국"}, {"washingtondc", "미국"},
+
+            {"bangkok", "태국"}, {"chiangmai", "태국"}, {"phuket", "태국"},
+            {"danang", "베트남"}, {"hanoi", "베트남"}, {"hochiminh", "베트남"},
+            {"paris", "프랑스"}, {"nice", "프랑스"},
+            {"rome", "이탈리아"}, {"milano", "이탈리아"}, {"milan", "이탈리아"}, {"venice", "이탈리아"},
+            {"barcelona", "스페인"}, {"madrid", "스페인"},
+            {"london", "영국"}, {"taipei", "대만"}, {"香港", "홍콩"}, {"singapore", "싱가포르"},
+
+            {"sydney", "호주"}, {"melbourne", "호주"}, {"anglesea", "호주"}, {"belgrave", "호주"},
+            {"bilinga", "호주"}, {"capewoolamai", "호주"}, {"cowes", "호주"}, {"docklands", "호주"},
+            {"easternview", "호주"}, {"flinders", "호주"}, {"grantville", "호주"}, {"kennettriver", "호주"},
+            {"kiama", "호주"}, {"menziescreek", "호주"}, {"peterborough", "호주"}, {"portcampbell", "호주"},
+            {"princetown", "호주"}, {"sherbrooke", "호주"}, {"skenescreek", "호주"}, {"southwharf", "호주"},
+            {"southbank", "호주"}, {"stkilda", "호주"}, {"stanwelltops", "호주"}, {"summerlands", "호주"},
+            {"unanderra", "호주"}, {"wollongong", "호주"}, {"포트캠벨", "호주"},
+
+            {"vancouver", "캐나다"}, {"toronto", "캐나다"},
+            {"zurich", "스위스"}, {"interlaken", "스위스"}, {"vienna", "오스트리아"},
+            {"prague", "체코"}, {"amsterdam", "네덜란드"},
+            {"tumon", "괌"}, {"투몬", "괌"}
     };
+    private static final String[] NORMALIZED_KOREA_HINTS = normalizeValues(KOREA_HINTS);
+    private static final String[][] NORMALIZED_COUNTRY_ALIASES = normalizeRules(COUNTRY_ALIASES);
+    private static final String[][] NORMALIZED_PLACE_COUNTRY_HINTS = normalizeRules(PLACE_COUNTRY_HINTS);
 
     private OverseasMemoryGrouper() {
     }
@@ -95,6 +137,11 @@ final class OverseasMemoryGrouper {
         if (summary == null) {
             return "";
         }
+        String strongPlaceEvidence = join(summary.albumName, summary.relativePath);
+        String strongPlaceCountry = countryFromPlaceHint(normalize(strongPlaceEvidence));
+        if (!strongPlaceCountry.isEmpty()) {
+            return strongPlaceCountry;
+        }
         String country = cleanCountry(summary.countryName);
         if (!country.isEmpty()) {
             return isKoreaText(country) ? "" : country;
@@ -104,13 +151,22 @@ final class OverseasMemoryGrouper {
             return "";
         }
         String normalized = normalize(evidence);
-        for (String hint : OVERSEAS_COUNTRY_HINTS) {
-            if (normalized.contains(normalize(hint))) {
-                return displayCountry(hint);
+        for (String[] aliasGroup : NORMALIZED_COUNTRY_ALIASES) {
+            for (int i = 1; i < aliasGroup.length; i++) {
+                if (containsCountryAlias(normalized, aliasGroup[i])) {
+                    return aliasGroup[0];
+                }
             }
         }
-        for (String[] hint : PLACE_COUNTRY_HINTS) {
-            if (normalized.contains(normalize(hint[0]))) {
+        return countryFromPlaceHint(normalized);
+    }
+
+    private static String countryFromPlaceHint(String normalizedEvidence) {
+        if (normalizedEvidence == null || normalizedEvidence.isEmpty()) {
+            return "";
+        }
+        for (String[] hint : NORMALIZED_PLACE_COUNTRY_HINTS) {
+            if (normalizedEvidence.contains(hint[0])) {
                 return hint[1];
             }
         }
@@ -119,8 +175,11 @@ final class OverseasMemoryGrouper {
 
     private static boolean isKoreaText(String text) {
         String normalized = normalize(text);
-        for (String hint : KOREA_HINTS) {
-            if (normalized.contains(normalize(hint))) {
+        if (normalized.contains("northkorea")) {
+            return false;
+        }
+        for (String hint : NORMALIZED_KOREA_HINTS) {
+            if (normalized.contains(hint)) {
                 return true;
             }
         }
@@ -137,27 +196,21 @@ final class OverseasMemoryGrouper {
 
     private static String displayCountry(String value) {
         String normalized = normalize(value);
-        if (normalized.contains("japan")) return "일본";
-        if (normalized.contains("usa") || normalized.contains("unitedstates")) return "미국";
-        if (normalized.contains("thailand")) return "태국";
-        if (normalized.contains("vietnam")) return "베트남";
-        if (normalized.contains("france")) return "프랑스";
-        if (normalized.contains("italy")) return "이탈리아";
-        if (normalized.contains("spain")) return "스페인";
-        if (normalized.contains("unitedkingdom") || "uk".equals(normalized)) return "영국";
-        if (normalized.contains("china")) return "중국";
-        if (normalized.contains("taiwan")) return "대만";
-        if (normalized.contains("hongkong")) return "홍콩";
-        if (normalized.contains("singapore")) return "싱가포르";
-        if (normalized.contains("australia") || normalized.contains("오스트레일리아")) return "호주";
-        if (normalized.contains("canada")) return "캐나다";
-        if (normalized.contains("germany")) return "독일";
-        if (normalized.contains("switzerland")) return "스위스";
-        if (normalized.contains("austria")) return "오스트리아";
-        if (normalized.contains("czech")) return "체코";
-        if (normalized.contains("netherlands")) return "네덜란드";
-        if (normalized.contains("guam")) return "괌";
+        for (String[] aliasGroup : NORMALIZED_COUNTRY_ALIASES) {
+            for (int i = 1; i < aliasGroup.length; i++) {
+                if (normalized.equals(aliasGroup[i])) {
+                    return aliasGroup[0];
+                }
+            }
+        }
         return value.trim();
+    }
+
+    private static boolean containsCountryAlias(String normalizedEvidence, String alias) {
+        if (alias.length() <= 2) {
+            return normalizedEvidence.equals(alias);
+        }
+        return normalizedEvidence.contains(alias);
     }
 
     private static String join(String... parts) {
@@ -174,6 +227,28 @@ final class OverseasMemoryGrouper {
     }
 
     private static String normalize(String value) {
-        return value == null ? "" : value.toLowerCase(Locale.US).replaceAll("[^0-9a-z가-힣]+", "");
+        return value == null
+                ? ""
+                : NORMALIZE_PATTERN.matcher(value.toLowerCase(Locale.ROOT)).replaceAll("");
+    }
+
+    private static String[] normalizeValues(String[] values) {
+        String[] normalized = new String[values.length];
+        for (int i = 0; i < values.length; i++) {
+            normalized[i] = normalize(values[i]);
+        }
+        return normalized;
+    }
+
+    private static String[][] normalizeRules(String[][] rules) {
+        String[][] normalized = new String[rules.length][];
+        for (int i = 0; i < rules.length; i++) {
+            normalized[i] = new String[rules[i].length];
+            normalized[i][0] = normalize(rules[i][0]);
+            for (int j = 1; j < rules[i].length; j++) {
+                normalized[i][j] = rules[i][j];
+            }
+        }
+        return normalized;
     }
 }

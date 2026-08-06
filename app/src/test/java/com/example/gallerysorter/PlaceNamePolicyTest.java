@@ -69,5 +69,13 @@ public class PlaceNamePolicyTest {
     public void genericAdministrativeSuffixesAreStrippedSafely() {
         assertEquals("성남", PlaceNamePolicy.normalizeLocationKey("성남시"));
         assertEquals("강남구", PlaceNamePolicy.normalizeLocationKey("강남구"));
+        assertEquals("송파구", PlaceNamePolicy.normalizeLocationKey("Songpa-gu"));
+        assertEquals("삿포로", PlaceNamePolicy.normalizeLocationKey("Sapporo"));
+        assertEquals("삿포로", PlaceNamePolicy.normalizeLocationKey("札幌市"));
+        assertEquals("삿포로", PlaceNamePolicy.normalizeLocationKey("札幌市中央区"));
+        assertEquals("삿포로", PlaceNamePolicy.normalizeLocationKey("北海道 中央区"));
+        assertEquals("삿포로", PlaceNamePolicy.normalizeLocationKey("홋카이도 주오구"));
+        assertEquals("후쿠오카", PlaceNamePolicy.normalizeLocationKey("福岡市"));
+        assertEquals("후쿠오카", PlaceNamePolicy.normalizeLocationKey("Fukuoka"));
     }
 }

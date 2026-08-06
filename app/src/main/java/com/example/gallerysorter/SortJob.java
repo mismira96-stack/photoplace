@@ -31,10 +31,10 @@ final class SortJob {
                 break;
             }
             PhotoItem item = items.get(i);
+            processItem(item, shouldMoveVideos, result);
             if (progressListener != null) {
                 progressListener.onItem(i + 1, items.size(), item);
             }
-            processItem(item, shouldMoveVideos, result);
         }
         return result;
     }
@@ -56,9 +56,6 @@ final class SortJob {
         }
         if (item.duplicateInTarget) {
             result.skippedCount++;
-            if (!item.video) {
-                addUniqueUri(result.copiedOriginalUris, item.uri);
-            }
             result.log.append("복사본 있음, 건너뜀: ").append(item.name).append(" -> ").append(item.targetRelativePath).append("\n");
             return;
         }

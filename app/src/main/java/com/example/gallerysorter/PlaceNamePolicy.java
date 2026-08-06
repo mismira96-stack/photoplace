@@ -179,10 +179,62 @@ final class PlaceNamePolicy {
         if (knownPlaceName != null) {
             return knownPlaceName;
         }
+        String knownTravelPlaceName = knownTravelPlaceName(normalizeForMatch(value));
+        if (knownTravelPlaceName != null) {
+            return knownTravelPlaceName;
+        }
+        String districtName = extractDistrictName(value);
+        if (districtName != null) {
+            return districtName;
+        }
         String folderName = safeFolderName(stripAdministrativeSuffix(value.trim().replace("대한민국", "").replace("특별자치도", "").replace("특별자치시", "").replace("특별시", "").replace("광역시", "").replace("자치시", "")).replaceAll("\\s+", ""));
         return folderName.isEmpty() ? LOCATION_NONE : folderName;
     }
 
+    static String knownTravelPlaceName(String normalized) {
+        if (normalized == null || normalized.isEmpty()) {
+            return null;
+        }
+        if (containsAny(normalized, "\u4e2d\u592e\u533a", "주오구", "chuo")
+                && containsAny(normalized, "sapporo", "삿포로", "삿포로시", "\u672d\u5e4c", "hokkaido", "홋카이도", "\u5317\u6d77\u9053")) {
+            return "삿포로";
+        }
+        if (containsAny(normalized, "sapporo", "삿포로", "삿포로시", "札幌", "札幌市", "札幌市中央区")) {
+            return "삿포로";
+        }
+        if (containsAny(normalized, "fukuoka", "후쿠오카", "후쿠오카시", "福岡", "福岡市")) {
+            return "후쿠오카";
+        }
+        if (containsAny(normalized, "chitose", "千歳", "千歳市")) {
+            return "치토세";
+        }
+        if (containsAny(normalized, "biei", "美瑛", "美瑛町", "비에이조", "비에이町")) {
+            return "비에이";
+        }
+        if (containsAny(normalized, "kamifurano", "上富良野", "上富良野町")) {
+            return "가미후라노";
+        }
+        if (containsAny(normalized, "nakafurano", "中富良野", "中富良野町")) {
+            return "나카후라노";
+        }
+        if (containsAny(normalized, "otaru", "小樽", "小樽市")) {
+            return "오타루";
+        }
+        if (containsAny(normalized, "iwamizawa", "岩見沢", "岩見沢市")) {
+            return "이와미자와";
+        }
+        return null;
+    }
+
+    static boolean containsAny(String normalized, String... aliases) {
+        for (String alias : aliases) {
+            String normalizedAlias = normalizeForMatch(alias);
+            if (!normalizedAlias.isEmpty() && normalized.contains(normalizedAlias)) {
+                return true;
+            }
+        }
+        return false;
+    }
     static String knownPlaceName(String normalized) {
         if (normalized == null || normalized.isEmpty()) {
             return null;
