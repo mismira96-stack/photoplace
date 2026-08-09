@@ -42,9 +42,11 @@ import android.os.Looper;
 import android.os.ParcelFileDescriptor;
 import android.provider.MediaStore;
 import android.provider.Settings;
+import android.text.Editable;
 import android.text.InputFilter;
 import android.text.SpannableString;
 import android.text.TextUtils;
+import android.text.TextWatcher;
 import android.text.style.ForegroundColorSpan;
 import android.text.style.RelativeSizeSpan;
 import android.text.style.StyleSpan;
@@ -214,6 +216,8 @@ public class MainActivity extends Activity {
     };
     private boolean existingAlbumBackfillScheduled = false;
     private int recentPlacesScrollY = 0;
+    private String recentPlacesSearchQuery = "";
+    private boolean recentPlacesSearchVisible = false;
     private boolean copyCompletedMode = false;
     private boolean copyStoppedMode = false;
     private boolean backgroundSortMode = false;
@@ -5391,7 +5395,7 @@ public class MainActivity extends Activity {
         linearLayout.setOrientation(1);
         linearLayout.setPadding(dp(18), dp(56), dp(18), dp(REQUEST_WRITE_VIDEOS));
         scrollView.addView(linearLayout, scrollContentLayoutParams());
-        addListHeader(linearLayout, "최근 발견한 장소");
+        addRecentPlacesHeader(linearLayout);
         List<StoredAlbumSummary> listLoadRecentAlbumSummaries = filterLiveStoredAlbumSummaries(loadRecentAlbumSummariesForUi());
         addWorkingBanner(linearLayout);
         if (hasPendingOriginalCleanup()) {
@@ -5406,14 +5410,33 @@ public class MainActivity extends Activity {
             linearLayout2.addView(sectionTitle("아직 저장된 장소가 없어요"), matchWidthWithBottom(dp(6)));
             linearLayout2.addView(bodyText("앨범 정리를 실행하면 새로 발견한 장소가 여기에 쌓여요."), matchWidthWithBottom(dp(12)));
         } else {
-            addRecentPlacesSummaryCard(linearLayout, listLoadRecentAlbumSummaries);
-            GridLayout gridLayout = new GridLayout(this);
-            gridLayout.setColumnCount(recentPlacesGridColumnCount());
-            linearLayout.addView(gridLayout, matchWidthWithBottom(dp(12)));
-            Iterator<StoredAlbumSummary> it = listLoadRecentAlbumSummaries.iterator();
-            while (it.hasNext()) {
-                addStoredAlbumGridCard(gridLayout, it.next());
+            final List<StoredAlbumSummary> searchableSummaries = listLoadRecentAlbumSummaries;
+            final LinearLayout resultsContainer = new LinearLayout(this);
+            resultsContainer.setOrientation(1);
+            if (this.recentPlacesSearchVisible) {
+                EditText searchInput = recentPlacesSearchInput();
+                searchInput.setText(this.recentPlacesSearchQuery);
+                searchInput.setSelection(searchInput.getText().length());
+                linearLayout.addView(searchInput, matchWidthWithBottom(dp(14)));
+                searchInput.requestFocus();
+                searchInput.addTextChangedListener(new TextWatcher() {
+                    @Override
+                    public void beforeTextChanged(CharSequence s, int start, int count, int after) {
+                    }
+
+                    @Override
+                    public void onTextChanged(CharSequence s, int start, int before, int count) {
+                    }
+
+                    @Override
+                    public void afterTextChanged(Editable editable) {
+                        MainActivity.this.recentPlacesSearchQuery = editable == null ? "" : editable.toString();
+                        MainActivity.this.renderRecentPlacesSearchResults(resultsContainer, searchableSummaries, MainActivity.this.recentPlacesSearchQuery);
+                    }
+                });
             }
+            linearLayout.addView(resultsContainer, matchWidth());
+            renderRecentPlacesSearchResults(resultsContainer, searchableSummaries, this.recentPlacesSearchQuery);
         }
         setContentViewWithBottomTabs(scrollView, 1);
         if (this.recentPlacesScrollY > 0) {
@@ -5429,6 +5452,109 @@ public class MainActivity extends Activity {
     /* renamed from: lambda$showRecentPlacesScreen$44$com-example-gallerysorter-MainActivity, reason: not valid java name */
     /* synthetic */ void m56xa4116934(ScrollView scrollView) {
         scrollView.scrollTo(0, this.recentPlacesScrollY);
+    }
+
+    private void addRecentPlacesHeader(LinearLayout parent) {
+        LinearLayout header = new LinearLayout(this);
+        header.setOrientation(0);
+        header.setGravity(16);
+        parent.addView(header, matchWidthWithBottom(dp(18)));
+        TextView title = new TextView(this);
+        title.setText(this.recentPlacesSearchVisible ? "최근 발견한 장소 검색" : "최근 발견한 장소");
+        title.setTextSize(24.0f);
+        title.setTypeface(Typeface.DEFAULT_BOLD);
+        title.setTextColor(-15656921);
+        header.addView(title, weightedParams(1));
+        TextView searchButton = new TextView(this);
+        searchButton.setGravity(17);
+        searchButton.setClickable(true);
+        searchButton.setFocusable(true);
+        searchButton.setCompoundDrawables(new IconBubbleDrawable(this.recentPlacesSearchVisible ? "close" : "search", -9609738, -922113, dp(38)), null, null, null);
+        searchButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                MainActivity.this.recentPlacesSearchVisible = !MainActivity.this.recentPlacesSearchVisible;
+                if (!MainActivity.this.recentPlacesSearchVisible) {
+                    MainActivity.this.recentPlacesSearchQuery = "";
+                }
+                MainActivity.this.recentPlacesScrollY = 0;
+                MainActivity.this.showRecentPlacesScreen();
+            }
+        });
+        header.addView(searchButton, squareParams(dp(44)));
+    }
+
+    private EditText recentPlacesSearchInput() {
+        EditText editText = new EditText(this);
+        editText.setSingleLine(true);
+        editText.setTextSize(15.0f);
+        editText.setTextColor(-15656921);
+        editText.setHintTextColor(-7035976);
+        editText.setHint("장소, 국가, 주소 검색");
+        editText.setAllCaps(false);
+        editText.setIncludeFontPadding(false);
+        editText.setPadding(dp(16), 0, dp(16), 0);
+        editText.setMinHeight(dp(48));
+        editText.setCompoundDrawablePadding(dp(10));
+        editText.setCompoundDrawables(new IconBubbleDrawable("search", -7035976, 0, dp(22)), null, null, null);
+        GradientDrawable background = new GradientDrawable();
+        background.setColor(-1);
+        background.setCornerRadius(dp(16));
+        background.setStroke(1, -1709326);
+        editText.setBackground(background);
+        return editText;
+    }
+
+    private void renderRecentPlacesSearchResults(LinearLayout container, List<StoredAlbumSummary> summaries, String query) {
+        if (container == null) {
+            return;
+        }
+        container.removeAllViews();
+        List<StoredAlbumSummary> filtered = StoredAlbumSummarySearch.filter(summaries, query);
+        boolean searching = query != null && !query.trim().isEmpty();
+        if (filtered.isEmpty()) {
+            addRecentPlacesEmptySearchCard(container, searching);
+            return;
+        }
+        if (searching) {
+            addRecentPlacesSearchCountCard(container, filtered.size());
+        } else {
+            addRecentPlacesSummaryCard(container, filtered);
+        }
+        GridLayout gridLayout = new GridLayout(this);
+        gridLayout.setColumnCount(recentPlacesGridColumnCount());
+        container.addView(gridLayout, matchWidthWithBottom(dp(12)));
+        Iterator<StoredAlbumSummary> it = filtered.iterator();
+        while (it.hasNext()) {
+            addStoredAlbumGridCard(gridLayout, it.next());
+        }
+    }
+
+    private void addRecentPlacesSearchCountCard(LinearLayout parent, int resultCount) {
+        LinearLayout card = new LinearLayout(this);
+        card.setOrientation(1);
+        card.setPadding(dp(14), dp(12), dp(14), dp(12));
+        parent.addView(card, matchWidthWithBottom(dp(14)));
+        applyCardBackground(card);
+        TextView title = new TextView(this);
+        title.setText("검색 결과 " + resultCount + "개");
+        title.setTextSize(15.0f);
+        title.setTypeface(Typeface.DEFAULT_BOLD);
+        title.setTextColor(-15656921);
+        card.addView(title);
+        TextView body = bodyText("결과를 누르면 해당 장소 기록으로 이동해요.");
+        body.setPadding(0, dp(3), 0, 0);
+        card.addView(body);
+    }
+
+    private void addRecentPlacesEmptySearchCard(LinearLayout parent, boolean searching) {
+        LinearLayout card = new LinearLayout(this);
+        card.setOrientation(1);
+        card.setPadding(dp(16), dp(18), dp(16), dp(18));
+        parent.addView(card, matchWidth());
+        applyCardBackground(card);
+        card.addView(sectionTitle(searching ? "검색 결과가 없어요" : "아직 저장된 장소가 없어요"), matchWidthWithBottom(dp(6)));
+        card.addView(bodyText(searching ? "다른 장소명, 국가명, 날짜로 다시 찾아보세요." : "앨범 정리를 실행하면 새로 발견한 장소가 여기에 쌓여요."), matchWidth());
     }
 
     private void returnToRecentPlacesScreen() {
@@ -8973,6 +9099,11 @@ public class MainActivity extends Activity {
                 }
                 return;
             }
+            if ("search".equals(str2)) {
+                canvas.drawCircle(f * 0.46f, f * 0.44f, f * 0.17f, this.paint);
+                canvas.drawLine(f * 0.59f, f * 0.58f, f * 0.74f, f * 0.73f, this.paint);
+                return;
+            }
             if ("refresh".equals(str2)) {
                 float f69 = f * 0.28f;
                 float f70 = 0.72f * f;
@@ -8989,6 +9120,11 @@ public class MainActivity extends Activity {
                 float f74 = f * 0.68f;
                 canvas.drawLine(f * 0.28f, f * 0.52f, f73, f74, this.paint);
                 canvas.drawLine(f73, f74, f * 0.74f, f * 0.34f, this.paint);
+                return;
+            }
+            if ("close".equals(str2)) {
+                canvas.drawLine(f * 0.32f, f * 0.32f, f * 0.68f, f * 0.68f, this.paint);
+                canvas.drawLine(f * 0.68f, f * 0.32f, f * 0.32f, f * 0.68f, this.paint);
                 return;
             }
             if ("arrow".equals(str2)) {
