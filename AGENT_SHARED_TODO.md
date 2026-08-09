@@ -1,6 +1,6 @@
 # PhotoPlace Agent Shared TODO
 
-Updated: 2026-08-06
+Updated: 2026-08-09
 
 This file is the shared handoff note for Codex and Gemini CLI. Keep it short, current, and safe to act on.
 
@@ -18,6 +18,8 @@ Read these first:
   - Latest release/work record for 1.2.5, overseas-history metadata fix, Fold UI checks, and Play draft automation.
 - `WORKLOG_2026-08-06.md`
   - Current WIP stabilization record after Japan-trip overseas-history fixes caused home/history performance regressions.
+- `WORKLOG_2026-08-09.md`
+  - Post-1.2.6 polish record: completion badge clearing, result-screen action cleanup, and next V2 priorities.
 - `WORKLOG_2026-07-26.md`
   - Date-based work record for the WorkManager/background-sort stabilization day.
 - `Photoplace_V2_Personal_Place_PRD.md`
@@ -39,17 +41,45 @@ Reference docs:
 ## Current Stable Baseline
 
 - Branch: `codex/photoplace-v2-bg-wip`
-- Latest built Play draft: `versionCode 27` / `versionName 1.2.6` / `targetSdk 36`
+- Latest Play release/draft baseline: `versionCode 27` / `versionName 1.2.6` / `targetSdk 36`
+- Latest pushed code checkpoint: `a23147d Polish result actions and clear completion badge`
 - Release AAB: `photoplace-1.2.6-code27-overseas-japan-stability-api36.aab`
 - Release APK: `photoplace-1.2.6-code27-overseas-japan-stability-api36.apk`
-- Play Console status: production draft uploaded by API. Final "Send for review" remains manual.
+- Play Console status: 1.2.6 was handled separately. The latest `a23147d` polish commit is not uploaded to Play yet.
 - Latest confirmed device result:
   - Japan album naming no longer shows `中央区` in the user's test.
   - Existing test folder notification looked normal; the odd notification sequence seems tied to the Japan/travel folder case.
   - Already-sorted duplicate items no longer create a misleading pending original-cleanup count.
   - `위치 없음 0개` no longer shows an empty no-location preview/focus screen.
-- Current worktree is not clean. Check `git status` before editing and do not discard local changes.
+- Current worktree should be clean after `a23147d`; still check `git status` before editing and do not discard local changes.
 - Keep avoiding the earlier broad Geocoder candidate scoring experiment. It caused POI overclassification.
+
+## Current Release/WIP Note - 2026-08-09
+
+Post-1.2.6 polish was committed and pushed, but not released to Play.
+
+Kept changes small:
+
+- completion notification is cleared when the app opens/resumes, so Samsung launcher badge does not stay stuck after the user enters the app.
+- preview-only result screen no longer shows the large `확인 완료` header card.
+- low-value result-screen recheck action was removed.
+- original-photo cleanup card appears higher in the result screen when pending originals exist.
+- action button icons were made smaller/lighter, closer to a One UI-like line tone.
+
+Decision:
+
+- Do not make a Play update only for this polish patch.
+- Bundle with the next meaningful feature/fix unless badge behavior becomes urgent in production.
+
+Next work should be design-led and split out of `MainActivity` where practical.
+
+Recommended next feature order:
+
+1. Sort history search.
+2. No-location UX decision flow.
+3. International address normalization design.
+4. Result/detail UI consistency pass.
+5. Personal Place MVP design/implementation.
 
 ## Current Release/WIP Note - 2026-08-06
 
