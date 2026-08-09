@@ -41,11 +41,11 @@ Reference docs:
 ## Current Stable Baseline
 
 - Branch: `codex/photoplace-v2-bg-wip`
-- Latest Play release/draft baseline: `versionCode 27` / `versionName 1.2.6` / `targetSdk 36`
-- Latest pushed code checkpoint: `a23147d Polish result actions and clear completion badge`
-- Release AAB: `photoplace-1.2.6-code27-overseas-japan-stability-api36.aab`
-- Release APK: `photoplace-1.2.6-code27-overseas-japan-stability-api36.apk`
-- Play Console status: 1.2.6 was handled separately. The latest `a23147d` polish commit is not uploaded to Play yet.
+- Latest Play release/draft baseline: `versionCode 28` / `versionName 1.2.7` / `targetSdk 36`
+- Latest pushed search checkpoint: `0ba4c4f Polish sort history search affordance`
+- Release AAB: `photoplace-1.2.7-code28-sort-history-search-api36.aab`
+- Release APK: `photoplace-1.2.7-code28-sort-history-search-api36.apk`
+- Play Console status: 1.2.7 production draft uploaded by API. Final "Send for review" remains manual.
 - Latest confirmed device result:
   - Japan album naming no longer shows `中央区` in the user's test.
   - Existing test folder notification looked normal; the odd notification sequence seems tied to the Japan/travel folder case.
@@ -56,7 +56,7 @@ Reference docs:
 
 ## Current Release/WIP Note - 2026-08-09
 
-Post-1.2.6 polish was committed and pushed, but not released to Play.
+Post-1.2.6 polish and sort history search MVP were committed, pushed, and prepared as Play draft `1.2.7 (28)`.
 
 Kept changes small:
 
@@ -68,8 +68,8 @@ Kept changes small:
 
 Decision:
 
-- Do not make a Play update only for this polish patch.
-- Bundle with the next meaningful feature/fix unless badge behavior becomes urgent in production.
+- Search MVP made the update worth releasing.
+- Production draft is uploaded; user still needs to manually review Play policy warnings and send for review.
 
 Next work should be design-led and split out of `MainActivity` where practical.
 
