@@ -24,6 +24,10 @@ Read these first:
   - Date-based work record for the WorkManager/background-sort stabilization day.
 - `Photoplace_V2_Personal_Place_PRD.md`
   - Personal Place PRD draft. Encoding may look broken in some terminals, but the final Gemini handoff section was already understood by Gemini.
+- `Photoplace_V2_Epic_PRD_2026-08-09.md`
+  - V2 PRD reorganized by Epic/P0/P1/P2 with code-based implementation status after 1.2.7.
+- `MEMORY_PERSONALIZATION_P1_DESIGN.md`
+  - P1 Memory Personalization design for display name, memo, and user cover storage. Use this before coding personalization UI.
 
 Reference docs:
 
@@ -51,7 +55,7 @@ Reference docs:
   - Existing test folder notification looked normal; the odd notification sequence seems tied to the Japan/travel folder case.
   - Already-sorted duplicate items no longer create a misleading pending original-cleanup count.
   - `위치 없음 0개` no longer shows an empty no-location preview/focus screen.
-- Current worktree should be clean after `a23147d`; still check `git status` before editing and do not discard local changes.
+- Current WIP after 1.2.7 adds the first Memory Personalization storage layer. Check `git status` before editing and do not discard local changes.
 - Keep avoiding the earlier broad Geocoder candidate scoring experiment. It caused POI overclassification.
 
 ## Current Release/WIP Note - 2026-08-09
@@ -75,11 +79,28 @@ Next work should be design-led and split out of `MainActivity` where practical.
 
 Recommended next feature order:
 
-1. Sort history search.
-2. No-location UX decision flow.
-3. International address normalization design.
-4. Result/detail UI consistency pass.
-5. Personal Place MVP design/implementation.
+1. Memory Personalization displayName MVP on top of the new store.
+2. Search displayName integration.
+3. No-location UX decision flow.
+4. International address normalization design.
+5. Result/detail UI consistency pass.
+6. Personal Place MVP design/implementation.
+
+## Current WIP Note - Memory Personalization Base
+
+Implemented as a low-risk first step:
+
+- Added `MemoryPersonalization`, `MemoryPersonalizationKey`, and `MemoryPersonalizationStore`.
+- Existing memo UI still behaves the same from the user's point of view.
+- `MainActivity.albumMemory()` and `saveAlbumMemory()` now delegate to the store instead of owning SharedPreferences key logic.
+- Legacy `album_memory_` and `album_alias_` values are treated as memo fallback only, not as display names.
+- Lazy migration writes legacy memo into `memory_personalization.json` and removes legacy keys only after the JSON write succeeds.
+- Gemini review edge case was addressed: if displayName/userCover is saved before memo migration, the update path now seeds from legacy memo first so old notes are not hidden.
+- Corrupt existing `memory_personalization.json` is not treated as a writable empty store; write paths stop instead of overwriting it.
+- `displayName` and `userCoverUri` fields exist in the model/store, but no UI uses them yet.
+- Unit tests cover key policy and model update behavior.
+
+Do not assume display-name editing, cover editing, or displayName search is complete yet.
 
 ## Current Release/WIP Note - 2026-08-06
 

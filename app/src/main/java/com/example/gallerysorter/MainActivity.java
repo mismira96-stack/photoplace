@@ -129,8 +129,6 @@ public class MainActivity extends Activity {
     private static final int DETAIL_BACK_OVERSEAS = 2;
     private static final int DETAIL_BACK_RESULT = 3;
     private static final String PREFS_NAME = "album_sorter";
-    private static final String PREF_ALBUM_ALIAS_PREFIX = "album_alias_";
-    private static final String PREF_ALBUM_MEMORY_PREFIX = "album_memory_";
     private static final String PREF_EXISTING_ALBUM_BACKFILL_DONE = "existing_album_backfill_v2_done";
     private static final String PREF_MOVE_VIDEOS = "move_videos";
     private static final String PREF_PENDING_ORIGINAL_CLEANUP = "pending_original_cleanup";
@@ -201,6 +199,7 @@ public class MainActivity extends Activity {
     private long recentAlbumSummaryCacheMillis = 0L;
     private NoLocationCache noLocationCache = null;
     private AlbumSummaryHistoryStore albumSummaryHistoryStore = null;
+    private MemoryPersonalizationStore memoryPersonalizationStore = null;
     private MediaCopyEngine mediaCopyEngine = null;
     private MediaMetadataReader mediaMetadataReader = null;
     private final MediaScanProgressListener mediaScanProgressListener = new MediaScanProgressListener() {
@@ -289,6 +288,7 @@ public class MainActivity extends Activity {
         SortNotificationHelper.clearCompleteNotification(this);
         this.noLocationCache = new NoLocationCache(getSharedPreferences(PREFS_NAME, 0));
         this.albumSummaryHistoryStore = new AlbumSummaryHistoryStore(this);
+        this.memoryPersonalizationStore = new MemoryPersonalizationStore(this);
         this.mediaCopyEngine = new MediaCopyEngine(this);
         this.mediaMetadataReader = new MediaMetadataReader(this);
         loadPendingOriginalCleanup();
@@ -4202,28 +4202,14 @@ public class MainActivity extends Activity {
         return (str2 == null || str2.trim().isEmpty()) ? str == null ? "" : str : (str == null || str.trim().isEmpty()) ? str2 : "(" + str + ") AND (" + str2 + ")";
     }
 
-    private String albumPreferenceKey(String str, StoredAlbumSummary storedAlbumSummary) {
-        return str + Uri.encode(storedAlbumSummary != null ? firstNonEmpty(storedAlbumSummary.relativePath, storedAlbumSummary.albumName, "") : "");
-    }
-
     private String albumMemory(StoredAlbumSummary storedAlbumSummary) {
-        SharedPreferences sharedPreferences = getSharedPreferences(PREFS_NAME, 0);
-        String string = sharedPreferences.getString(albumPreferenceKey(PREF_ALBUM_MEMORY_PREFIX, storedAlbumSummary), "");
-        return (string == null || string.trim().isEmpty()) ? sharedPreferences.getString(albumPreferenceKey(PREF_ALBUM_ALIAS_PREFIX, storedAlbumSummary), "") : string;
+        return this.memoryPersonalizationStore == null ? "" : this.memoryPersonalizationStore.memoFor(storedAlbumSummary);
     }
 
     private void saveAlbumMemory(StoredAlbumSummary storedAlbumSummary, String str) {
-        SharedPreferences.Editor editorEdit = getSharedPreferences(PREFS_NAME, 0).edit();
-        String strAlbumPreferenceKey = albumPreferenceKey(PREF_ALBUM_ALIAS_PREFIX, storedAlbumSummary);
-        String strAlbumPreferenceKey2 = albumPreferenceKey(PREF_ALBUM_MEMORY_PREFIX, storedAlbumSummary);
-        String strTrim = str == null ? "" : str.trim();
-        editorEdit.remove(strAlbumPreferenceKey);
-        if (strTrim.isEmpty()) {
-            editorEdit.remove(strAlbumPreferenceKey2);
-        } else {
-            editorEdit.putString(strAlbumPreferenceKey2, strTrim);
+        if (this.memoryPersonalizationStore != null) {
+            this.memoryPersonalizationStore.saveMemo(storedAlbumSummary, str);
         }
-        editorEdit.apply();
     }
 
     private void showAlbumMemoryEditor(final StoredAlbumSummary storedAlbumSummary) {
