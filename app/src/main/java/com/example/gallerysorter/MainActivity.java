@@ -282,6 +282,7 @@ public class MainActivity extends Activity {
     @Override // android.app.Activity
     protected void onCreate(Bundle bundle) {
         super.onCreate(bundle);
+        SortNotificationHelper.clearCompleteNotification(this);
         this.noLocationCache = new NoLocationCache(getSharedPreferences(PREFS_NAME, 0));
         this.albumSummaryHistoryStore = new AlbumSummaryHistoryStore(this);
         this.mediaCopyEngine = new MediaCopyEngine(this);
@@ -297,6 +298,7 @@ public class MainActivity extends Activity {
     @Override // android.app.Activity
     protected void onResume() {
         super.onResume();
+        SortNotificationHelper.clearCompleteNotification(this);
         if (handleBackgroundSortResultIfAvailable()) {
             refreshActivePlaceDetailAfterExternalChange();
             return;
@@ -1988,7 +1990,7 @@ public class MainActivity extends Activity {
         this.copyCompletedMode = !z;
         this.copyStoppedMode = z;
         this.summaryText.setText("정리 작업은 처리됐지만 결과 화면을 여는 중 문제가 생겼어요.");
-        this.logText.setText("다시 확인하기를 눌러 남은 항목을 확인해 주세요. 오류: " + safeErrorMessage(th));
+        this.logText.setText("홈에서 새 사진 확인을 다시 실행해 주세요. 오류: " + safeErrorMessage(th));
         this.copyButton.setEnabled(hasCopyableItems(this.previewItems));
         this.copyButton.setVisibility(hasCopyableItems(this.previewItems) ? 0 : 8);
         this.deleteOriginalsButton.setEnabled(!z && hasPendingOriginalCleanup());
@@ -6285,10 +6287,8 @@ public class MainActivity extends Activity {
                     });
                 }
             }
-            if (!zFocusNoLocation && !this.originalsTrashCompleted && !this.copiedOriginalUris.isEmpty()) {
+            if (!this.resultScreenMode && !zFocusNoLocation && !this.originalsTrashCompleted && !this.copiedOriginalUris.isEmpty()) {
                 addOriginalDeleteAction(pendingOriginalCleanupCount(), null);
-            } else if (!zFocusNoLocation && !this.originalsTrashCompleted && cleanupCandidateCount > 0) {
-                addOriginalDeleteAction(cleanupCandidateCount, null);
             }
             if (zFocusNoLocation) {
                 addNoLocationResultRows(arrayList3, i2, dateRange2);
@@ -6359,9 +6359,6 @@ public class MainActivity extends Activity {
         int i12 = i;
         if (((this.resultScreenMode && !zFocusNoLocation && !zFocusPlaces) || i12 > 0) && !zFocusNoLocation) {
             addResultRow(null, "✓", "이미 정리됨", "복사본이 있는 항목", i12 + "개", "", -920071, -10193781);
-            if (cleanupCandidateCount > 0) {
-                addOriginalDeleteAction(cleanupCandidateCount, null);
-            }
         }
         renderNoLocationSamples(arrayList3, i8);
     }
@@ -6563,10 +6560,17 @@ public class MainActivity extends Activity {
     }
 
     private void addOriginalDeleteAction(int i, final List<Uri> list) {
+        addOriginalDeleteAction(this.resultList, i, list, 0);
+    }
+
+    private void addOriginalDeleteAction(LinearLayout parent, int i, final List<Uri> list, int bottomMargin) {
+        if (parent == null) {
+            return;
+        }
         LinearLayout linearLayout = new LinearLayout(this);
         linearLayout.setOrientation(1);
         linearLayout.setPadding(dp(14), dp(14), dp(14), dp(14));
-        this.resultList.addView(linearLayout, matchWidth());
+        parent.addView(linearLayout, matchWidthWithBottom(bottomMargin));
         GradientDrawable gradientDrawable = new GradientDrawable();
         gradientDrawable.setColor(-3598);
         gradientDrawable.setCornerRadius(dp(16));
@@ -7715,9 +7719,9 @@ public class MainActivity extends Activity {
         button.setMinimumHeight(0);
         button.setMinWidth(0);
         button.setMinimumWidth(0);
-        button.setPadding(dp(14), dp(6), dp(10), dp(6));
-        button.setCompoundDrawablePadding(dp(10));
-        button.setCompoundDrawables(new IconBubbleDrawable(str, i3, softenColor(i3), dp(42)), null, null, null);
+        button.setPadding(dp(18), dp(6), dp(12), dp(6));
+        button.setCompoundDrawablePadding(dp(12));
+        button.setCompoundDrawables(new IconBubbleDrawable(str, i3, 0, dp(24)), null, null, null);
         GradientDrawable gradientDrawable = new GradientDrawable();
         gradientDrawable.setColor(-1);
         gradientDrawable.setCornerRadius(dp(14));
@@ -8001,39 +8005,34 @@ public class MainActivity extends Activity {
         int iCountCopyableItems = resultCounts.copyableCount;
         int iCountRecentlySortedItems = completedDisplayCount(resultCounts);
         int iCountRecentlySortedGroups = completedDisplayGroupCount(resultCounts);
-        LinearLayout linearLayout3 = new LinearLayout(this);
-        linearLayout3.setOrientation(1);
-        linearLayout3.setGravity(17);
-        linearLayout3.setPadding(dp(18), dp(18), dp(18), dp(18));
-        linearLayout.addView(linearLayout3, matchWidthWithBottom(dp(14)));
         boolean z = this.copyCompletedMode;
         boolean z2 = this.copyStoppedMode;
-        applyGradientBackground(linearLayout3, z ? -11550817 : z2 ? -11553849 : -8477448, z ? -13652327 : z2 ? -1378321 : -10780696, dp(16));
-        TextView textView3 = new TextView(this);
-        textView3.setText(z ? "✓ 정리 완료" : z2 ? "정리를 멈췄어요" : "✓ 확인 완료");
-        textView3.setTextSize(20.0f);
-        textView3.setTypeface(Typeface.DEFAULT_BOLD);
-        textView3.setTextColor(-1);
-        textView3.setGravity(17);
-        linearLayout3.addView(textView3, matchWidthWithBottom(dp(8)));
-        TextView textView4 = new TextView(this);
-        if (this.copyStoppedMode) {
-            str = "정리됨 " + iCountRecentlySortedItems + "개 · 남은 항목 " + iCountCopyableItems + "개";
-        } else if (this.copyCompletedMode) {
-            str = "총 " + iCountRecentlySortedItems + "개 정리됨";
-        } else {
-            str = z ? "앨범에서 결과를 확인해요." : "정리할 항목을 확인해요.";
+        if (z || z2) {
+            LinearLayout linearLayout3 = new LinearLayout(this);
+            linearLayout3.setOrientation(1);
+            linearLayout3.setGravity(17);
+            linearLayout3.setPadding(dp(18), dp(18), dp(18), dp(18));
+            linearLayout.addView(linearLayout3, matchWidthWithBottom(dp(14)));
+            applyGradientBackground(linearLayout3, z ? -11550817 : -11553849, z ? -13652327 : -1378321, dp(16));
+            TextView textView3 = new TextView(this);
+            textView3.setText(z ? "✓ 정리 완료" : "정리를 멈췄어요");
+            textView3.setTextSize(20.0f);
+            textView3.setTypeface(Typeface.DEFAULT_BOLD);
+            textView3.setTextColor(-1);
+            textView3.setGravity(17);
+            linearLayout3.addView(textView3, matchWidthWithBottom(dp(8)));
+            TextView textView4 = new TextView(this);
+            if (z2) {
+                str = "이미 만들어진 폴더와 정리된 사진은 유지됩니다.\n다시 실행하면 남은 사진만 정리해요.";
+            } else {
+                str = "새로 발견한 장소 " + iCountRecentlySortedGroups + "개\n총 " + iCountRecentlySortedItems + "개 사진 정리";
+            }
+            textView4.setText(str);
+            textView4.setTextSize(13.0f);
+            textView4.setTextColor(-268435457);
+            textView4.setGravity(17);
+            linearLayout3.addView(textView4, matchWidth());
         }
-        textView4.setText(str);
-        if (this.copyStoppedMode) {
-            textView4.setText("이미 만들어진 폴더와 정리된 사진은 유지됩니다.\n다시 실행하면 남은 사진만 정리해요.");
-        } else if (this.copyCompletedMode) {
-            textView4.setText("새로 발견한 장소 " + iCountRecentlySortedGroups + "개\n총 " + iCountRecentlySortedItems + "개 사진 정리");
-        }
-        textView4.setTextSize(13.0f);
-        textView4.setTextColor(-268435457);
-        textView4.setGravity(17);
-        linearLayout3.addView(textView4, matchWidth());
         LinearLayout linearLayout4 = new LinearLayout(this);
         linearLayout4.setOrientation(0);
         linearLayout4.setPadding(dp(12), dp(10), dp(12), dp(10));
@@ -8053,6 +8052,9 @@ public class MainActivity extends Activity {
             addPlainStat(linearLayout4, "grid", "전체", size + "개", -14326805, true);
             addPlainStat(linearLayout4, "check", "정리 예정", iCountCopyableItems + "개", -15293622, true);
             addPlainStat(linearLayout4, "alert", "위치 없음", i2 + "개", -680437, false);
+        }
+        if (this.copyCompletedMode && this.resultFocusMode != RESULT_FOCUS_NO_LOCATION && hasPendingOriginalCleanup()) {
+            addOriginalDeleteAction(linearLayout, pendingOriginalCleanupCount(), null, dp(14));
         }
         if (iCountCopyableItems > 0 && !this.copyCompletedMode) {
             Button button = new Button(this);
@@ -8110,16 +8112,7 @@ public class MainActivity extends Activity {
             }
         });
         styleActionButton(button2, "갤러리에서 보기", "gallery", -1050881, -4203522, -14326805);
-        linearLayout.addView(button2, matchWidthWithBottom(dp(10)));
-        Button button3 = new Button(this);
-        button3.setOnClickListener(new View.OnClickListener() { // from class: com.example.gallerysorter.MainActivity$$ExternalSyntheticLambda25
-            @Override // android.view.View.OnClickListener
-            public final void onClick(View view) {
-                MainActivity.this.m60x4f43bcb0(view);
-            }
-        });
-        styleActionButton(button3, "다시 확인하기", "refresh", -658433, -2238722, -8635667);
-        linearLayout.addView(button3, matchWidth());
+        linearLayout.addView(button2, matchWidth());
         setContentViewWithBottomTabs(scrollView, -1);
     }
 
@@ -8765,11 +8758,12 @@ public class MainActivity extends Activity {
                 this.paint.setColor(this.backgroundColor);
                 RectF rectF = this.rect;
                 int i = this.size;
-                rectF.set(0.0f, 0.0f, i, i);
+                float inset = Math.max(1.0f, this.size * 0.035f);
+                rectF.set(inset, inset, i - inset, i - inset);
                 canvas.drawRoundRect(this.rect, f, f, this.paint);
             }
             this.paint.setColor(this.iconColor);
-            this.paint.setStrokeWidth(Math.max(2.0f, this.size * 0.075f));
+            this.paint.setStrokeWidth(Math.max(1.6f, this.size * 0.052f));
             this.paint.setStrokeCap(Paint.Cap.ROUND);
             this.paint.setStrokeJoin(Paint.Join.ROUND);
             this.paint.setStyle(Paint.Style.STROKE);
@@ -8927,7 +8921,6 @@ public class MainActivity extends Activity {
                 return;
             }
             if ("app".equals(str2)) {
-                this.paint.setStyle(Paint.Style.FILL);
                 float f52 = 0.18f * f;
                 float f53 = 0.1f * f;
                 float f54 = 0.27f * f;
@@ -8941,7 +8934,6 @@ public class MainActivity extends Activity {
                         canvas.drawRoundRect(this.rect, f58, f58, this.paint);
                     }
                 }
-                this.paint.setStyle(Paint.Style.STROKE);
                 return;
             }
             if ("grid".equals(str2)) {

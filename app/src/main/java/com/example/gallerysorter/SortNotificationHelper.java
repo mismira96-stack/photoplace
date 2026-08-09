@@ -63,6 +63,13 @@ final class SortNotificationHelper {
         }
     }
 
+    static void clearCompleteNotification(Context context) {
+        NotificationManager manager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
+        if (manager != null) {
+            manager.cancel(SortForegroundService.NOTIFICATION_COMPLETE_ID);
+        }
+    }
+
     static Notification completeNotification(Context context, String title, String text) {
         ensureChannels(context);
         return builder(context, CHANNEL_COMPLETE)
