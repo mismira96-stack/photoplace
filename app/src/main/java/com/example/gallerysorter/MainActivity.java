@@ -5395,13 +5395,18 @@ public class MainActivity extends Activity {
         linearLayout.setOrientation(1);
         linearLayout.setPadding(dp(18), dp(56), dp(18), dp(REQUEST_WRITE_VIDEOS));
         scrollView.addView(linearLayout, scrollContentLayoutParams());
-        addRecentPlacesHeader(linearLayout);
         List<StoredAlbumSummary> listLoadRecentAlbumSummaries = filterLiveStoredAlbumSummaries(loadRecentAlbumSummariesForUi());
+        boolean hasRecentPlaces = !listLoadRecentAlbumSummaries.isEmpty();
+        if (!hasRecentPlaces) {
+            this.recentPlacesSearchVisible = false;
+            this.recentPlacesSearchQuery = "";
+        }
+        addRecentPlacesHeader(linearLayout, hasRecentPlaces);
         addWorkingBanner(linearLayout);
         if (hasPendingOriginalCleanup()) {
             addPendingOriginalCleanupCompactCard(linearLayout);
         }
-        if (listLoadRecentAlbumSummaries.isEmpty()) {
+        if (!hasRecentPlaces) {
             LinearLayout linearLayout2 = new LinearLayout(this);
             linearLayout2.setOrientation(1);
             linearLayout2.setPadding(dp(16), dp(18), dp(16), dp(18));
@@ -5454,7 +5459,7 @@ public class MainActivity extends Activity {
         scrollView.scrollTo(0, this.recentPlacesScrollY);
     }
 
-    private void addRecentPlacesHeader(LinearLayout parent) {
+    private void addRecentPlacesHeader(LinearLayout parent, boolean showSearchAction) {
         LinearLayout header = new LinearLayout(this);
         header.setOrientation(0);
         header.setGravity(16);
@@ -5465,10 +5470,14 @@ public class MainActivity extends Activity {
         title.setTypeface(Typeface.DEFAULT_BOLD);
         title.setTextColor(-15656921);
         header.addView(title, weightedParams(1));
+        if (!showSearchAction) {
+            return;
+        }
         TextView searchButton = new TextView(this);
         searchButton.setGravity(17);
         searchButton.setClickable(true);
         searchButton.setFocusable(true);
+        searchButton.setContentDescription(this.recentPlacesSearchVisible ? "검색 닫기" : "검색 열기");
         searchButton.setCompoundDrawables(new IconBubbleDrawable(this.recentPlacesSearchVisible ? "close" : "search", -9609738, -922113, dp(38)), null, null, null);
         searchButton.setOnClickListener(new View.OnClickListener() {
             @Override
