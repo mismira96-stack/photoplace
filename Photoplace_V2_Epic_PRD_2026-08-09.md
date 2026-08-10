@@ -503,6 +503,8 @@ Cleanup should be safe, explicit, and separate from memory personalization.
 
 Do not start with cover change first. It requires photo grid selection and override propagation.
 
+Do not start with Personal Place UI first either. Users must first be able to browse discovered memories inside PhotoPlace without creating Gallery albums. Personal Place is a refinement layer on top of that memory view.
+
 Safer next sequence:
 
 1. `DiscoverySnapshotStore`.
@@ -511,16 +513,18 @@ Safer next sequence:
 2. `DiscoverySnapshotMapper`.
    - Convert `PhotoItem` into discovery memory groups and source photo refs.
    - Add no-location analyzed-result skip metadata.
-3. Repeated-place candidate logic.
+3. MemoryRepository / MemoryRecord browsing path.
+   - Merge organized albums and discovery-only snapshots for UI.
+   - Add `발견한 장소 둘러보기`.
+   - Use original URI-based detail.
+   - Keep `Gallery 앨범으로 정리` visible as a later action.
+4. Repeated-place candidate logic.
    - Pure clustering first, with tests.
    - Detect smaller repeated memories inside broad admin groups.
-4. Candidate Quality Validation.
+5. Candidate Quality Validation.
    - Output top 20 candidates from real photos.
    - Manually judge candidate quality before UI.
    - Tune threshold/radius as experiment parameters.
-5. Preview/Memory entry.
-   - `발견한 장소 둘러보기`.
-   - Original URI-based detail.
 6. Personal Place confirmation.
    - Start from the parent Memory/place detail.
    - Show `이 안에서 여러 번 방문한 장소가 있어요`.

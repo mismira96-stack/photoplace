@@ -121,15 +121,16 @@ Recommended next feature order:
   - `DiscoverySnapshotStore`
   - `DiscoverySnapshotMapper`
   - Preview result saved as discovery-only memory data.
-2. Repeated-place / Personal Place recommendation MVP:
+2. MemoryRepository / MemoryRecord UI path:
+  - Preview complete -> `발견한 장소 둘러보기`
+  - discovery-only Memory detail using original photo URIs
+  - merge organized albums and discovery-only memories without storing discovery-only rows in `AlbumSummaryHistoryStore`
+  - keep `Gallery 앨범으로 정리`
+3. Repeated-place / Personal Place recommendation MVP:
   - Detect dense GPS clusters inside broad admin groups such as `수원`, `성남`, `송파구`.
   - Suggest user-confirmed names like `집`, `회사`, `발레학원`.
   - Keep saving a place separate from moving files.
   - Must pass `Candidate Quality Validation` before any recommendation UI or Gallery action is built.
-3. MemoryRepository / MemoryRecord UI path:
-  - Preview complete -> `발견한 장소 둘러보기`
-  - keep `Gallery 앨범으로 정리`
-  - use original photo URI-based detail, not `relativePath`
 4. Country/date/place search expansion:
   - `일본`, `Japan`, `JP`
   - `8월`, `2026년 8월`
@@ -483,17 +484,19 @@ Codex should own implementation and device verification:
 ### Suggested MVP Patch Order
 
 1. Add `DiscoverySnapshotStore` so analysis results can be reused without Gallery albums.
-2. Add no-location skip metadata to the snapshot/cache path.
-3. Add `DiscoverySnapshotMapper`.
-4. Add pure repeated-place candidate grouping logic with tests.
-5. Add Candidate Quality Validation output for top candidates; no UI yet.
-6. Tune thresholds/radius based on real data.
-7. Add `PersonalPlace`, `PlaceCandidate`, `PhotoPlaceMembership`, and store models after the candidate contract is clear.
-8. Add contextual recommendation surface inside parent Memory/place detail only after candidate quality is acceptable.
-9. Add candidate photo review and confirm/edit place name dialog.
-10. Apply confirmed Personal Place names in PhotoPlace internal views only.
-11. Add management affordance: edit/delete/hide recommendation.
-12. Later, add explicit "create album from this place" flow if still needed.
+2. Add `DiscoverySnapshotMapper`.
+3. Add `MemoryRepository` / `MemoryRecord` adapter so users can browse discovered memories before any Gallery album is created.
+4. Add discovery-only Memory detail using original photo URIs, not `relativePath`.
+5. Add no-location skip metadata to the snapshot/cache path.
+6. Add pure repeated-place candidate grouping logic with tests.
+7. Add Candidate Quality Validation output for top candidates; no UI yet.
+8. Tune thresholds/radius based on real data.
+9. Add `PersonalPlace`, `PlaceCandidate`, `PhotoPlaceMembership`, and store models after the candidate contract is clear.
+10. Add contextual recommendation surface inside parent Memory/place detail only after candidate quality is acceptable.
+11. Add candidate photo review and confirm/edit place name dialog.
+12. Apply confirmed Personal Place names in PhotoPlace internal views only.
+13. Add management affordance: edit/delete/hide recommendation.
+14. Later, add explicit "create album from this place" flow if still needed.
 
 ### Open Questions For Next Session
 

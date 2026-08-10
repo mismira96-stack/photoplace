@@ -35,6 +35,18 @@ Display First / Organize Optional 방향에서 반복 위치 클러스터 추천
 
 Initial Personal Place MVP should use **contextual recommendation first**.
 
+Important prerequisite:
+
+```text
+DiscoverySnapshotStore
+  -> DiscoverySnapshotMapper
+  -> MemoryRepository / MemoryRecord browsing
+  -> discovery-only Memory detail
+  -> Personal Place recommendation
+```
+
+In other words, users must first be able to browse location-based memories inside PhotoPlace without creating Gallery albums. Personal Place is a refinement layer on top of that memory browsing experience, not the first screen of V2.
+
 The first recommendation surface is not Home/global popup. It appears inside an existing parent PhotoPlace memory/place group, such as `송파구`, `수원`, or `성남`.
 
 Here "folder" means a PhotoPlace parent memory/place group. It does **not** mean a physical Gallery folder.
