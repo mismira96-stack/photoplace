@@ -121,6 +121,7 @@ Recommended next feature order:
   - Detect dense GPS clusters inside broad admin groups such as `수원`, `성남`, `송파구`.
   - Suggest user-confirmed names like `집`, `회사`, `발레학원`.
   - Keep saving a place separate from moving files.
+  - Must pass `Candidate Quality Validation` before any recommendation UI or Gallery action is built.
 3. MemoryRepository / MemoryRecord UI path:
   - Preview complete -> `발견한 장소 둘러보기`
   - keep `Gallery 앨범으로 정리`
@@ -142,6 +143,7 @@ Latest product observation:
 - Repeated-place clustering is now a core V2 memory feature, not a distant POI feature.
   - Example: if broad groups show `수원 400장` or `성남 800장`, the app should help discover smaller meaningful places such as home, company, family home, or ballet academy.
   - The app should recommend a candidate and ask the user to name/confirm it; it must not automatically create or move Gallery albums.
+  - The first risk to validate is whether repeated GPS clusters are actually meaningful to users. Treat radius/count/date thresholds as experiment parameters until validated.
 - Search TODO from user feedback:
   - UI says country search is supported, but `일본` may not work for some records. Verify current/rebuilt/older history metadata.
   - Add Korean date query support later: `8월`, `2026년 8월`, `8월 2일`.
@@ -341,6 +343,13 @@ Still unresolved:
 - It solves the broad-admin-group problem:
   - `수원에서 400장` may contain home, company, school, cafe, or family place memories.
   - `성남에서 800장` may contain home/work/frequent routines that should not stay buried inside one city card.
+- Add a `Candidate Quality Validation` gate before UI:
+  - generate candidates from existing photos
+  - output top 20 candidates
+  - review photos/date distribution/coordinate spread
+  - manually label each as meaningful / ambiguous / false positive
+  - tune thresholds before building recommendation UI
+- Do not implement Gallery creation, History, or Undo for Personal Place until candidate quality is validated.
 - Do not strengthen automatic POI classification broadly.
 - Personal Place is a user-confirmed layer, not automatic folder renaming.
 - Saving a personal place must not move/copy files by itself.
@@ -367,6 +376,7 @@ Goal: propose the minimum-change design for Personal Place MVP:
 
 - repeated GPS cluster candidate generation
 - separating broad admin groups into user-confirmed personal memories
+- Candidate Quality Validation before UI
 - preview/home recommendation card
 - candidate photo review screen
 - user-entered place name storage
@@ -420,6 +430,7 @@ Gemini should work in analysis/design mode first:
    - data model: `PersonalPlace`, `PlaceCandidate`, optional membership/cache model
    - storage: likely `PersonalPlaceStore` JSON following existing `*Store` pattern
    - candidate generation strategy
+   - Candidate Quality Validation report format for the top 20 candidates
    - privacy guardrails for home/work/private repeated places
    - UI entry points and copy
    - how app views apply confirmed Personal Place names
@@ -454,11 +465,13 @@ Codex should own implementation and device verification:
 2. Add no-location skip metadata to the snapshot/cache path.
 3. Add `PersonalPlace` model and `PersonalPlaceStore`.
 4. Add pure repeated-place candidate grouping logic with tests.
-5. Add non-invasive recommendation surface in Preview/Memory view.
-6. Add candidate photo review and confirm/edit place name dialog.
-7. Apply confirmed Personal Place names in PhotoPlace internal views only.
-8. Add management affordance: edit/delete/hide recommendation.
-9. Later, add explicit "create album from this place" flow if still needed.
+5. Add Candidate Quality Validation output for top candidates; no UI yet.
+6. Tune thresholds/radius based on real data.
+7. Add non-invasive recommendation surface in Preview/Memory view only after candidate quality is acceptable.
+8. Add candidate photo review and confirm/edit place name dialog.
+9. Apply confirmed Personal Place names in PhotoPlace internal views only.
+10. Add management affordance: edit/delete/hide recommendation.
+11. Later, add explicit "create album from this place" flow if still needed.
 
 ### Open Questions For Next Session
 
@@ -467,6 +480,9 @@ Codex should own implementation and device verification:
   - known venues may use custom smaller/larger radii only after sample review.
 - Candidate threshold:
   - minimum photo count and minimum date spread should avoid one-off noise.
+- Candidate Quality Validation:
+  - define what "good enough" means before UI work starts.
+  - track false positive types such as station/road/parking lot/mall clusters.
 - Sensitive places:
   - home/work-like repeated private places should not be loudly surfaced without careful wording.
 - Flight/drive-through:

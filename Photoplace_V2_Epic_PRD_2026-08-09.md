@@ -266,6 +266,7 @@ Users should quickly find memories that PhotoPlace already discovered.
 | International address normalization | 부분 구현 | Stabilization mappings exist, but structured `AddressNormalizer` is not implemented. |
 | Travel Session | 미구현 | No trip/session grouping yet. |
 | Repeated-place recommendations | 미구현 | Personal Place PRD exists. This is now a core V2 memory feature for splitting broad admin groups into user-confirmed places. |
+| Candidate Quality Validation | 미구현 | Before recommendation UI, generate top candidates from real photos and manually judge whether clusters are meaningful. |
 
 ### P0 - Discovery Current
 
@@ -289,6 +290,11 @@ Users should quickly find memories that PhotoPlace already discovered.
    - Recommend user-confirmed personal memories such as `집`, `회사`, `발레학원`.
    - Do not auto-promote unknown POIs or rename/move files without confirmation.
    - Saving a Personal Place changes PhotoPlace's internal display/grouping first; Gallery album creation remains optional.
+   - Add Candidate Quality Validation as an implementation gate before UI:
+     - output top 20 candidates
+     - inspect photos/date spread/coordinate spread
+     - label meaningful / ambiguous / false positive
+     - tune 100m / 20 photos / 3 days / 2 weeks before treating them as product specs
 4. International address normalization design.
    - Do not keep growing one-off aliases.
    - Separate stable key from display name.
@@ -469,6 +475,7 @@ Cleanup should be safe, explicit, and separate from memory personalization.
 | Memory name change | 미구현 | Add `displayName` override and search integration. |
 | Display snapshot persistence | 미구현 | Add `DiscoverySnapshotStore`; this is now the next foundation step. |
 | Repeated-place recommendations | 미구현 | Detect dense GPS clusters and ask the user to name/confirm them. |
+| Candidate Quality Validation | 미구현 | Must run before recommendation UI or Gallery Personal Place actions. |
 | Representative cover change | 미구현 | Add `userCoverUri` override. |
 | Memo UX improvement | 부분 구현 | Formalize existing SharedPreferences memo into personalization model. |
 | CTA/Icon/Detail consistency | 부분 구현 | Continue hidden-screen audit. |
@@ -502,21 +509,25 @@ Safer next sequence:
 3. Repeated-place candidate logic.
    - Pure clustering first, with tests.
    - Detect smaller repeated memories inside broad admin groups.
-4. Preview/Memory entry.
+4. Candidate Quality Validation.
+   - Output top 20 candidates from real photos.
+   - Manually judge candidate quality before UI.
+   - Tune threshold/radius as experiment parameters.
+5. Preview/Memory entry.
    - `발견한 장소 둘러보기`.
    - Original URI-based detail.
-5. Personal Place confirmation.
+6. Personal Place confirmation.
    - Review photos, name place, save internal display/grouping.
-6. Country/date/place search expansion.
+7. Country/date/place search expansion.
    - `일본`, `Japan`, `JP`.
    - `8월`, `2026년 8월`.
    - `삿포로` / `sapporo`.
-7. Memory personalization display name/search integration.
+8. Memory personalization display name/search integration.
    - Still important, but should ride on stable `memoryKey`.
-8. Cover override.
+9. Cover override.
    - Needs photo picker/grid from memory detail.
-9. Home `기억해 둔 장소`.
-10. Travel Session after memory/grouping base is stable.
+10. Home `기억해 둔 장소`.
+11. Travel Session after memory/grouping base is stable.
 
 ## Deferred / Possibly Unneeded
 
