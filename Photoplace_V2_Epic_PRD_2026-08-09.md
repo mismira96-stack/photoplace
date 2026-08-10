@@ -34,6 +34,9 @@ Relevant current structures:
   - First personalization storage layer for memo/displayName/userCover overlay. UI currently still only uses memo.
 - `MainActivity`
   - Still owns too much UI/state/rendering logic. New features should be split out where practical.
+- `DiscoverySnapshot`, `DiscoveryMemoryGroup`, `DiscoveryPhotoRef`, `MemoryRecord`
+  - First Display First model skeleton exists after 2026-08-10.
+  - Not yet wired to Preview/Home/Search/Detail.
 
 ## Product North Star
 
@@ -224,7 +227,8 @@ Users must feel safe letting PhotoPlace analyze and organize large photo librari
 | Completion notification / badge cleanup | 완료 | `SortNotificationHelper.clearCompleteNotification()` is called on app open/resume. |
 | Original photo cleanup | 부분 구현 | Pending original cleanup card exists and moved higher in result flow. Full Step UI and rollback/delete-copy management are not complete. |
 | No-location repeated analysis prevention | 부분 구현 | `NoLocationCache` exists, but final user-facing no-location decision flow is not complete. |
-| No-location folder move option | 미구현 | No confirm/default-off UX or separate folder move flow yet. |
+| No-location snapshot/cache skip | 미구현 | Display First snapshot should remember unchanged no-location items so they do not get re-analyzed every time. |
+| No-location folder move option | 미구현 | Later optional cleanup only. Do not use file movement as the primary repeated-analysis fix. |
 | Back/navigation reliability | 부분 구현 | Several fixes landed, but still a regression-test area for sorting/detail/history/Fold flows. |
 
 ### P0 - Trust Next
@@ -232,10 +236,11 @@ Users must feel safe letting PhotoPlace analyze and organize large photo librari
 1. Validate 1.2.7 on large real libraries.
    - Friend device with 10,000+ photos.
    - Check sort history speed, overseas history, and abnormal folder/history counts.
-2. No-location UX decision flow.
-   - Default OFF.
-   - Ask only during/after preview when count is meaningful.
-   - Explain that files move but photos are not deleted.
+2. No-location repeated-analysis prevention.
+   - Prefer snapshot/cache identity skip over moving files.
+   - Store unchanged no-location item signatures and skip them on later analysis.
+   - Explain skipped counts clearly and provide `다시 확인하기`.
+   - Keep folder move as a later explicit cleanup option, default OFF.
 3. Notification/progress phase cleanup.
    - Separate scan/preview/rebuild/copy progress concepts.
    - Decide which phases deserve OS notifications.
@@ -250,6 +255,7 @@ Users should quickly find memories that PhotoPlace already discovered.
 | --- | --- | --- |
 | Home recent places | 완료 | Home shows recent discovered places from stored summaries. |
 | Home overseas records | 부분 구현 | Overseas groups display on Home and open filtered memory view. International normalization is still fragile. |
+| Display First model skeleton | 부분 구현 | `DiscoverySnapshot`, `DiscoveryMemoryGroup`, `DiscoveryPhotoRef`, and `MemoryRecord` exist, but no Store/UI wiring yet. |
 | Display First experiment | 미구현 | Preview can already analyze without creating albums, but there is no separate `발견한 장소 둘러보기` path or URI-based discovery detail yet. |
 | Sort history / recent place search | 완료 | `StoredAlbumSummarySearch` filters loaded summaries in memory. UI uses search icon toggle and opens existing detail screen. |
 | Search by place/country/address/date | 완료 | Implemented in `StoredAlbumSummarySearch`; unit tests cover fields and date separators. |
@@ -259,6 +265,7 @@ Users should quickly find memories that PhotoPlace already discovered.
 | POI | 부분 구현 | Conservative POI/name policy exists, but broad automatic POI expansion is intentionally avoided. |
 | International address normalization | 부분 구현 | Stabilization mappings exist, but structured `AddressNormalizer` is not implemented. |
 | Travel Session | 미구현 | No trip/session grouping yet. |
+| Repeated-place recommendations | 미구현 | Personal Place PRD exists. This is now a core V2 memory feature for splitting broad admin groups into user-confirmed places. |
 
 ### P0 - Discovery Current
 
@@ -277,7 +284,12 @@ Users should quickly find memories that PhotoPlace already discovered.
    - Keep `Gallery 앨범으로 정리` visible.
    - Do not store discovery-only records in `AlbumSummaryHistoryStore`.
    - Discovery detail must use original photo URIs, not Gallery album `relativePath`.
-3. International address normalization design.
+3. Repeated-place / Personal Place candidate design.
+   - Detect dense GPS clusters inside broad groups such as `수원`, `성남`, `송파구`.
+   - Recommend user-confirmed personal memories such as `집`, `회사`, `발레학원`.
+   - Do not auto-promote unknown POIs or rename/move files without confirmation.
+   - Saving a Personal Place changes PhotoPlace's internal display/grouping first; Gallery album creation remains optional.
+4. International address normalization design.
    - Do not keep growing one-off aliases.
    - Separate stable key from display name.
    - Overseas ward/subLocality must not become final album name alone.
@@ -344,7 +356,7 @@ originalPlaceName / stableKey separation
 | Search by custom display name | 미구현 | `displayName` is not included in `StoredAlbumSummarySearch` yet. |
 | Representative cover change | 미구현 | `userCoverUri` field exists in storage only. No picker/edit UI. |
 | User cover applied consistently | 미구현 | Store can return cover override, but UI still uses auto `thumbnailUri`. |
-| Personal Place recommendation | 미구현 | PRD exists, but no `PersonalPlace`, `PlaceCandidate`, or `PersonalPlaceStore`. |
+| Personal Place recommendation | 미구현 | PRD exists, but no `PersonalPlace`, `PlaceCandidate`, or `PersonalPlaceStore`. Now treated as V2 core memory personalization, not distant POI expansion. |
 
 ### P1 - Personalization Next
 
@@ -366,16 +378,20 @@ originalPlaceName / stableKey separation
    - Display priority: `userCoverUri -> thumbnailUri`.
    - Pick from existing memory photos.
    - Do not crop/edit photos.
+5. Repeated-place / Personal Place MVP.
+   - Start from DiscoverySnapshot photo refs, not Gallery album folders.
+   - Generate candidate clusters inside broad admin groups.
+   - User reviews photos before naming the place.
+   - Apply confirmed names inside PhotoPlace before offering Gallery organization.
 
 ### P2 - Personalization Expansion
 
 1. Home `기억해 둔 장소`.
    - Show memories with memo and/or custom name.
    - Tap card to open detail.
-2. Personal Place MVP.
-   - Recommend repeated GPS clusters.
-   - User confirms/edits place name.
-   - Saving a place does not move files.
+2. Personal Place management.
+   - Edit/delete/hide confirmed places and dismissed recommendations.
+   - Optional album creation from a saved personal place.
 
 ## Epic 4 - Rediscovery
 
@@ -425,9 +441,11 @@ Cleanup should be safe, explicit, and separate from memory personalization.
 2. Generated album cleanup / rollback.
    - Requires action log such as `PhotoAction`.
 3. No-location folder move.
+   - Later optional cleanup only.
    - Default OFF.
    - Explicit confirmation.
    - Strong warning that file location changes.
+   - Primary repeated-analysis prevention should come from snapshot/cache skip.
 
 ## Updated Priority
 
@@ -438,9 +456,10 @@ Cleanup should be safe, explicit, and separate from memory personalization.
 | WorkManager/background sorting | 부분 구현 | Core path exists; recovery/progress reliability remains. |
 | Preview / trust UX | 부분 구현 | Existing preview/result flow, needs polish. |
 | Progress reliability | 부분 구현 | App UI mostly works; OS notification phase issue remains. |
-| No-location repeated analysis prevention | 부분 구현 | Cache exists; UX and safety need work. |
+| No-location repeated analysis prevention | 부분 구현 | Cache exists; next direction is snapshot/cache skip, not folder move first. |
 | Sort history search | 완료 | Released as 1.2.7 draft. |
 | Large-library validation | 미구현 | Needs friend device follow-up. |
+| Display First model skeleton | 부분 구현 | Model/JSON foundation exists; no Store/UI wiring yet. |
 | Display First experiment | 미구현 | Add Preview -> discovered places browsing without forcing Gallery album creation. |
 
 ## P1 - Next
@@ -448,7 +467,8 @@ Cleanup should be safe, explicit, and separate from memory personalization.
 | Item | Status | First MVP Step |
 | --- | --- | --- |
 | Memory name change | 미구현 | Add `displayName` override and search integration. |
-| Display snapshot persistence | 미구현 | If the experiment works, add `DiscoverySnapshotStore` / `MemorySnapshotStore`. |
+| Display snapshot persistence | 미구현 | Add `DiscoverySnapshotStore`; this is now the next foundation step. |
+| Repeated-place recommendations | 미구현 | Detect dense GPS clusters and ask the user to name/confirm them. |
 | Representative cover change | 미구현 | Add `userCoverUri` override. |
 | Memo UX improvement | 부분 구현 | Formalize existing SharedPreferences memo into personalization model. |
 | CTA/Icon/Detail consistency | 부분 구현 | Continue hidden-screen audit. |
@@ -462,7 +482,7 @@ Cleanup should be safe, explicit, and separate from memory personalization.
 | Home remembered places | 미구현 | Depends on memo/displayName model. |
 | Travel Session | 미구현 | Trip-level grouping. |
 | Memory Dashboard | 부분 구현 | Home has early memory sections only. |
-| Personal Place MVP | 미구현 | Requires design-first, user-confirmed layer. |
+| Personal Place management | 미구현 | Edit/delete/hide saved places and optional album creation. |
 | POI expansion | 부분 구현 | Keep conservative; prefer Personal Place for reliability. |
 | Revisit / old memory rediscovery | 미구현 | Future dashboard feature. |
 | Moving / in-flight badges | 미구현 | Classifier exists; UI/storage integration missing. |
@@ -473,21 +493,56 @@ Do not start with cover change first. It requires photo grid selection and overr
 
 Safer next sequence:
 
-1. Memory personalization storage design.
-   - Add a small store/model first.
-   - Preserve existing `albumMemory()` notes.
-2. Display name MVP.
-   - Low file risk.
-   - Directly improves search and detail UX.
-3. Search displayName integration.
-   - Extend `StoredAlbumSummarySearch` or wrap summaries with personalization.
-4. Memo model cleanup.
-   - Keep current one-line memo compatible.
-   - Decide home exposure later.
-5. Cover override.
-   - Needs photo picker/grid from existing album/detail.
-6. Home `기억해 둔 장소`.
-7. Personal Place and Travel Session after the personalization base is stable.
+1. `DiscoverySnapshotStore`.
+   - Save analysis results separately from Gallery album history.
+   - Use atomic JSON write/read and corruption protection.
+2. `DiscoverySnapshotMapper`.
+   - Convert `PhotoItem` into discovery memory groups and source photo refs.
+   - Add no-location analyzed-result skip metadata.
+3. Repeated-place candidate logic.
+   - Pure clustering first, with tests.
+   - Detect smaller repeated memories inside broad admin groups.
+4. Preview/Memory entry.
+   - `발견한 장소 둘러보기`.
+   - Original URI-based detail.
+5. Personal Place confirmation.
+   - Review photos, name place, save internal display/grouping.
+6. Country/date/place search expansion.
+   - `일본`, `Japan`, `JP`.
+   - `8월`, `2026년 8월`.
+   - `삿포로` / `sapporo`.
+7. Memory personalization display name/search integration.
+   - Still important, but should ride on stable `memoryKey`.
+8. Cover override.
+   - Needs photo picker/grid from memory detail.
+9. Home `기억해 둔 장소`.
+10. Travel Session after memory/grouping base is stable.
+
+## Deferred / Possibly Unneeded
+
+### No-location folder move
+
+The earlier idea was to move no-location photos into a separate folder so they would not be analyzed every time.
+
+After the Display First / snapshot direction, this is no longer the preferred solution.
+
+Preferred approach:
+
+```text
+Analyze once
+  -> remember unchanged no-location item identity
+  -> skip in later scans
+  -> let user explicitly re-check if needed
+```
+
+Why:
+
+- It avoids changing the user's Gallery/file structure.
+- It fits the trust principle better.
+- It solves the repeated-analysis cost without creating another album/folder.
+- Users who only want to view memories should not be pushed into file movement.
+
+Keep folder move as a future optional cleanup idea only if snapshot/cache skip is insufficient in real large-library tests.
 
 ## Non-Goals For Next Patch
 

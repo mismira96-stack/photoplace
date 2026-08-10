@@ -113,22 +113,35 @@ Next work should be design-led and split out of `MainActivity` where practical.
 
 Recommended next feature order:
 
-1. Memory Personalization displayName MVP on top of the new store.
-2. Search displayName integration.
-3. Display First experiment design:
+1. Display First snapshot foundation:
+  - `DiscoverySnapshotStore`
+  - `DiscoverySnapshotMapper`
+  - Preview result saved as discovery-only memory data.
+2. Repeated-place / Personal Place recommendation MVP:
+  - Detect dense GPS clusters inside broad admin groups such as `수원`, `성남`, `송파구`.
+  - Suggest user-confirmed names like `집`, `회사`, `발레학원`.
+  - Keep saving a place separate from moving files.
+3. MemoryRepository / MemoryRecord UI path:
   - Preview complete -> `발견한 장소 둘러보기`
   - keep `Gallery 앨범으로 정리`
   - use original photo URI-based detail, not `relativePath`
-4. No-location UX decision flow.
-5. International address normalization design.
-6. Result/detail UI consistency pass.
-7. Personal Place MVP design/implementation.
+4. Country/date/place search expansion:
+  - `일본`, `Japan`, `JP`
+  - `8월`, `2026년 8월`
+  - `삿포로` / `sapporo`
+5. Memory Personalization displayName MVP and search integration.
+6. No-location repeated-analysis prevention via snapshot/cache, not file movement first.
+7. International address normalization design.
+8. Result/detail UI consistency pass.
 
 Latest product observation:
 
 - In a real user test, the user immediately searched `일본` instead of first focusing on album creation.
 - Treat this as evidence that PhotoPlace can be perceived as a place-based memory search tool.
 - This strengthens the priority of visible/fast search, country/place search quality, displayName, and the Display First experiment.
+- Repeated-place clustering is now a core V2 memory feature, not a distant POI feature.
+  - Example: if broad groups show `수원 400장` or `성남 800장`, the app should help discover smaller meaningful places such as home, company, family home, or ballet academy.
+  - The app should recommend a candidate and ask the user to name/confirm it; it must not automatically create or move Gallery albums.
 - Search TODO from user feedback:
   - UI says country search is supported, but `일본` may not work for some records. Verify current/rebuilt/older history metadata.
   - Add Korean date query support later: `8월`, `2026년 8월`, `8월 2일`.
@@ -222,17 +235,21 @@ Next work should avoid widening this stabilization batch:
     - then format display name
   - Overseas rule: subLocality/ward alone must not become a final album name.
   - Stable key/display name should eventually be separated, for example `JP|Hokkaido|Sapporo` vs `삿포로`.
-3. No-location folder move option (design + confirm UX):
+3. No-location repeated-analysis prevention (snapshot/cache first):
   - Problem: users with thousands of no-GPS photos repeatedly re-scan the same files.
-  - Do not default-enable file movement.
-  - Add a preview-time confirm checkbox/card only when no-location count is high.
-  - Suggested copy:
-    - `위치 정보 없는 항목 2,034개`
-    - `다음 정리 때 다시 검사하지 않도록 별도 폴더로 이동할까요?`
-    - Checkbox: `위치 정보 없는 항목을 PhotoPlace/위치 없음 폴더로 이동`
-    - Warning: `원본 파일 위치가 바뀝니다. 사진은 삭제되지 않으며 갤러리에서 계속 볼 수 있어요.`
-  - Keep default OFF; if user chooses it, remember preference but still surface it in preview.
-  - Start with photos only or very explicit video handling.
+  - With Display First snapshots, solve this primarily by remembering analyzed no-location file identities.
+  - Store enough signature data to skip unchanged no-location items:
+    - mediaStoreId or sourceUri
+    - displayName
+    - taken/modified time where available
+    - size/path signal if available
+    - no-location analysis result timestamp/policy version
+  - Preview copy should be transparent, for example:
+    - `위치 정보 없는 항목 2,034개는 이전에 확인되어 이번 분석에서 제외했어요.`
+    - Action: `다시 확인하기`
+  - Folder move is deferred and may never be needed if snapshot/cache skip works well.
+  - Do not default-enable moving files just to avoid re-analysis.
+  - Prefer not implementing no-location folder move until real tests prove skip/cache is insufficient.
 4. Friend device follow-up:
   - Friend has 10,000+ photos.
   - Albums are reportedly created correctly.
@@ -294,10 +311,13 @@ Next work should avoid widening this stabilization batch:
   - do not patch blindly.
   - first determine whether count means generated albums, history rows, photo groups, or raw media rows.
 6. Next feature candidates, in recommended order:
-  - sort history search
-  - no-location folder move confirm option
+  - DiscoverySnapshotStore
+  - DiscoverySnapshotMapper
+  - no-location skip via snapshot/cache
+  - repeated-place / Personal Place candidate logic
+  - MemoryRepository / discovery-only detail
+  - country/date/place search expansion
   - international address normalizer design
-  - Personal Place MVP
   - moving/in-flight badges
   - all-photos result detail
   - resume-from-stop sorting
@@ -317,6 +337,10 @@ Still unresolved:
 
 ## Personal Place Guardrails
 
+- Repeated GPS cluster recommendation is a V2 core memory feature.
+- It solves the broad-admin-group problem:
+  - `수원에서 400장` may contain home, company, school, cafe, or family place memories.
+  - `성남에서 800장` may contain home/work/frequent routines that should not stay buried inside one city card.
 - Do not strengthen automatic POI classification broadly.
 - Personal Place is a user-confirmed layer, not automatic folder renaming.
 - Saving a personal place must not move/copy files by itself.
@@ -342,6 +366,7 @@ Analyze only first. Do not edit code.
 Goal: propose the minimum-change design for Personal Place MVP:
 
 - repeated GPS cluster candidate generation
+- separating broad admin groups into user-confirmed personal memories
 - preview/home recommendation card
 - candidate photo review screen
 - user-entered place name storage
@@ -365,10 +390,10 @@ Personal Place should solve reliable place naming without broad automatic POI pr
 
 Preferred UX:
 
-- The app finds repeated GPS clusters or strong known-place candidates.
+- The app finds repeated GPS clusters inside broad places like `수원`, `성남`, `송파구`.
 - The app recommends a memory place, for example:
-  - "Photos near Seoul Arts Center were found."
-  - "Remember this place as 'Seoul Arts Center'?"
+  - "이 근처에서 여러 번 찍은 사진이 있어요."
+  - "이 장소를 `회사` 또는 `발레학원`처럼 기억할까요?"
 - The user confirms or edits the name.
 - Confirmed Personal Place names are used first inside PhotoPlace memory/result views.
 - Saving a Personal Place does not move/copy files.
@@ -425,13 +450,15 @@ Codex should own implementation and device verification:
 
 ### Suggested MVP Patch Order
 
-1. Add `PersonalPlace` model and `PersonalPlaceStore`.
-2. Add pure candidate grouping logic with tests.
-3. Add non-invasive recommendation surface in app UI.
-4. Add confirm/edit place name dialog.
-5. Apply confirmed Personal Place names in PhotoPlace internal views only.
-6. Add management affordance: edit/delete/hide recommendation.
-7. Later, add explicit "create album from this place" flow if still needed.
+1. Add `DiscoverySnapshotStore` so analysis results can be reused without Gallery albums.
+2. Add no-location skip metadata to the snapshot/cache path.
+3. Add `PersonalPlace` model and `PersonalPlaceStore`.
+4. Add pure repeated-place candidate grouping logic with tests.
+5. Add non-invasive recommendation surface in Preview/Memory view.
+6. Add candidate photo review and confirm/edit place name dialog.
+7. Apply confirmed Personal Place names in PhotoPlace internal views only.
+8. Add management affordance: edit/delete/hide recommendation.
+9. Later, add explicit "create album from this place" flow if still needed.
 
 ### Open Questions For Next Session
 
