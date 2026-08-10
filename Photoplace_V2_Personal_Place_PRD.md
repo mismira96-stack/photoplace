@@ -31,6 +31,74 @@ Display First / Organize Optional 방향에서 반복 위치 클러스터 추천
 
 ---
 
+## 2026-08-10 UX/Data Contract Decision
+
+Initial Personal Place MVP should use **contextual recommendation first**.
+
+The first recommendation surface is not Home/global popup. It appears inside an existing parent PhotoPlace memory/place group, such as `송파구`, `수원`, or `성남`.
+
+Here "folder" means a PhotoPlace parent memory/place group. It does **not** mean a physical Gallery folder.
+
+Example flow:
+
+```text
+송파구
+  -> 사진 둘러보기
+  -> 이 안에서 여러 번 방문한 장소가 있어요
+  -> 후보 사진 확인
+  -> 사용자가 "라비에벨 발레"로 이름 지정
+  -> PhotoPlace 내부에서 우선 표시/검색
+  -> 원할 때만 Gallery에도 앨범 만들기
+```
+
+Why:
+
+- The user is already looking at `송파구`, so a smaller repeated-place suggestion feels natural.
+- Home/work/private repeated places are less surprising than a global proactive recommendation.
+- False positives are easier to understand as "a detail inside this broader place".
+- It keeps Personal Place as a memory refinement feature, not an intrusive surveillance-like discovery feature.
+
+P0 ends at:
+
+```text
+candidate found
+  -> candidate photos reviewed
+  -> user names the place
+  -> internal Personal Place saved
+  -> PhotoPlace display/search priority applies
+```
+
+P1 begins at:
+
+```text
+saved Personal Place
+  -> optional "Gallery에도 앨범 만들기"
+  -> file move/copy
+  -> history
+  -> Undo / rollback
+```
+
+Data-contract decisions before implementation:
+
+- Keep the original `placeKey` / parent `MemoryRecord`. Do not replace `송파구` with `라비에벨 발레`.
+- `PersonalPlace` is a user-confirmed overlay attached to a memory/group.
+- `PhotoPlaceMembership` records which existing `DiscoveryPhotoRef` items the user confirmed for the personal place.
+- Future GPS matches are provisional/candidate matches until the user confirms or the app has a later confidence policy.
+- `PlaceCandidate` must carry `sourceSnapshotVersion`, `candidatePolicyVersion`, `candidateSignature`, score, count/date/radius metadata, and review state.
+- Dismiss identity for MVP can be based on `candidatePolicyVersion + clusterSignature + sourceSnapshotVersion`; refine approximate matching later.
+- Same display names can exist inside PhotoPlace. Gallery album name collision is checked only when the user explicitly creates a Gallery album.
+- Coordinates, membership, and candidate signatures are sensitive local data. Do not send them to analytics by default.
+
+Future resurfacing can be added only after the contextual flow proves useful:
+
+```text
+새로운 나만의 장소 2개를 발견했어요
+```
+
+Until then, avoid global proactive Personal Place cards.
+
+---
+
 ## 1. 배경
 
 Photoplace의 기본 장소 분류는 행정구역과 확실한 대형 POI를 사용한다.
@@ -136,7 +204,7 @@ Gate 기준:
 ```mermaid
 flowchart TD
     A["사진 분석"] --> B["반복 촬영 위치 발견"]
-    B --> C["Preview 추천 카드"]
+    B --> C["부모 Memory/장소 상세 추천 카드"]
     C --> D["적용 사진 확인"]
     D --> E{"같은 장소인가요?"}
     E -->|"예"| F["장소 이름 입력"]
@@ -147,14 +215,14 @@ flowchart TD
     I -->|"나중에"| K["장소명만 적용"]
 ```
 
-### 6.1 주 진입점 — 자동 추천
+### 6.1 주 진입점 — 부모 장소 상세 안의 추천
 
-Preview 또는 Memory Dashboard 안에 추천 카드를 노출한다.
+MVP에서는 `송파구`, `수원`, `성남`처럼 이미 사용자가 보고 있는 부모 Memory/장소 상세 안에 추천 카드를 노출한다. Preview나 Home의 전역 추천은 후속 단계로 둔다.
 
 예시:
 
-> **여러 번 방문한 장소를 발견했어요**  
-> 2022년부터 186장  
+> **이 안에서 여러 번 방문한 장소가 있어요**
+> 여러 날 반복해서 찍은 사진 48장
 > `[대표 사진 썸네일]`  
 > 이 장소를 나만의 이름으로 기억할까요?  
 > `[사진 확인]` `[나중에]`
@@ -162,9 +230,10 @@ Preview 또는 Memory Dashboard 안에 추천 카드를 노출한다.
 원칙:
 
 - 팝업으로 작업을 방해하지 않는다.
-- 한 화면에서 최대 1~3개만 제안한다.
+- 한 부모 장소 상세 안에서 최대 1~3개만 제안한다.
 - 이미 이름을 붙인 장소와 확실한 POI는 추천하지 않는다.
 - 숨긴 후보는 같은 조건으로 다시 제안하지 않는다.
+- 집/회사 같은 민감 장소를 직접 추론하거나 문구로 암시하지 않는다.
 
 ### 6.2 사진 확인
 

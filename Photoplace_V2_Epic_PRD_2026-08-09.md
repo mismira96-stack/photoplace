@@ -288,8 +288,13 @@ Users should quickly find memories that PhotoPlace already discovered.
 3. Repeated-place / Personal Place candidate design.
    - Detect dense GPS clusters inside broad groups such as `수원`, `성남`, `송파구`.
    - Recommend user-confirmed personal memories such as `집`, `회사`, `발레학원`.
+   - MVP recommendation appears inside the parent PhotoPlace memory/place detail first, not as a global Home popup.
+   - Treat "folder" in this flow as a PhotoPlace parent memory/place group, not a physical Gallery folder.
+   - Example: `송파구` detail -> `이 안에서 여러 번 방문한 장소가 있어요` -> candidate photo review -> user names it `라비에벨 발레`.
    - Do not auto-promote unknown POIs or rename/move files without confirmation.
    - Saving a Personal Place changes PhotoPlace's internal display/grouping first; Gallery album creation remains optional.
+   - Keep original `placeKey` / parent `MemoryRecord`; Personal Place is a user-confirmed overlay, not a replacement for the original analysis result.
+   - Existing confirmed photos and future GPS matches must be separated: confirmed membership now, provisional/candidate match later.
    - Add Candidate Quality Validation as an implementation gate before UI:
      - output top 20 candidates
      - inspect photos/date spread/coordinate spread
@@ -517,7 +522,10 @@ Safer next sequence:
    - `발견한 장소 둘러보기`.
    - Original URI-based detail.
 6. Personal Place confirmation.
-   - Review photos, name place, save internal display/grouping.
+   - Start from the parent Memory/place detail.
+   - Show `이 안에서 여러 번 방문한 장소가 있어요`.
+   - Review candidate photos, name place, save internal display/grouping.
+   - Do not create/move Gallery albums in this step.
 7. Country/date/place search expansion.
    - `일본`, `Japan`, `JP`.
    - `8월`, `2026년 8월`.

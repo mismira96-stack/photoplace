@@ -34,6 +34,10 @@ Read these first:
   - P1 Memory Personalization design for display name, memo, and user cover storage. Use this before coding personalization UI.
 - `DISPLAY_FIRST_ORGANIZE_OPTIONAL_DESIGN_2026-08-10.md`
   - Final V2 direction for showing location-based memories inside PhotoPlace before optional Gallery album creation.
+- `PERSONAL_PLACE_PRD_REVIEW_2026-08-10.md`
+  - Gemini review of the Personal Place PRD. Use it as the data-contract checklist before implementation.
+- `COMMIT_9E51A2C_REVIEW.md`
+  - Gemini review for the DiscoverySnapshot model hardening commit.
 
 Reference docs:
 
@@ -354,6 +358,20 @@ Still unresolved:
 - Personal Place is a user-confirmed layer, not automatic folder renaming.
 - Saving a personal place must not move/copy files by itself.
 - Actual gallery album creation/move must be a separate explicit confirmation.
+- Initial MVP uses contextual recommendation first:
+  - show candidates inside the parent PhotoPlace memory/place detail such as `송파구`, `수원`, or `성남`.
+  - do not start with a global Home popup like "여러 번 방문한 장소를 발견했어요".
+  - here "folder" means a PhotoPlace parent memory/place group, not a physical Gallery folder.
+  - example: `송파구` detail -> "이 안에서 여러 번 방문한 장소가 있어요" -> photo review -> user names it `라비에벨 발레`.
+- Home/global resurfacing is a later step only after contextual recommendations prove useful.
+- Keep model contracts explicit:
+  - `PersonalPlace` is a user-confirmed overlay on a parent `MemoryRecord`, not a replacement for the original `placeKey`.
+  - `PhotoPlaceMembership` stores confirmed existing photo membership.
+  - Future GPS matches start as candidate/provisional, not automatically confirmed membership.
+  - `PlaceCandidate` needs `sourceSnapshotVersion`, `candidatePolicyVersion`, `candidateSignature`, score/count/date/radius metadata, and review state.
+  - dismissed candidates need stable identity; MVP can use `candidatePolicyVersion + clusterSignature + sourceSnapshotVersion`, then improve approximate matching later.
+  - same displayName can exist inside PhotoPlace; check Gallery album name collision only when explicitly creating a Gallery album.
+  - candidate coordinates, membership, and signatures are sensitive local data; do not send them to analytics by default.
 - Priority order should be:
   1. user-confirmed Personal Place
   2. highly reliable known POI
@@ -377,7 +395,7 @@ Goal: propose the minimum-change design for Personal Place MVP:
 - repeated GPS cluster candidate generation
 - separating broad admin groups into user-confirmed personal memories
 - Candidate Quality Validation before UI
-- preview/home recommendation card
+- contextual recommendation inside a parent Memory/place detail first
 - candidate photo review screen
 - user-entered place name storage
 - personal place priority in app views
@@ -431,6 +449,9 @@ Gemini should work in analysis/design mode first:
    - storage: likely `PersonalPlaceStore` JSON following existing `*Store` pattern
    - candidate generation strategy
    - Candidate Quality Validation report format for the top 20 candidates
+   - contextual entry flow from parent Memory/detail, not a global Home popup
+   - `PersonalPlace` / `PhotoPlaceMembership` / future provisional match separation
+   - candidate dismiss identity policy
    - privacy guardrails for home/work/private repeated places
    - UI entry points and copy
    - how app views apply confirmed Personal Place names
@@ -463,15 +484,16 @@ Codex should own implementation and device verification:
 
 1. Add `DiscoverySnapshotStore` so analysis results can be reused without Gallery albums.
 2. Add no-location skip metadata to the snapshot/cache path.
-3. Add `PersonalPlace` model and `PersonalPlaceStore`.
+3. Add `DiscoverySnapshotMapper`.
 4. Add pure repeated-place candidate grouping logic with tests.
 5. Add Candidate Quality Validation output for top candidates; no UI yet.
 6. Tune thresholds/radius based on real data.
-7. Add non-invasive recommendation surface in Preview/Memory view only after candidate quality is acceptable.
-8. Add candidate photo review and confirm/edit place name dialog.
-9. Apply confirmed Personal Place names in PhotoPlace internal views only.
-10. Add management affordance: edit/delete/hide recommendation.
-11. Later, add explicit "create album from this place" flow if still needed.
+7. Add `PersonalPlace`, `PlaceCandidate`, `PhotoPlaceMembership`, and store models after the candidate contract is clear.
+8. Add contextual recommendation surface inside parent Memory/place detail only after candidate quality is acceptable.
+9. Add candidate photo review and confirm/edit place name dialog.
+10. Apply confirmed Personal Place names in PhotoPlace internal views only.
+11. Add management affordance: edit/delete/hide recommendation.
+12. Later, add explicit "create album from this place" flow if still needed.
 
 ### Open Questions For Next Session
 
