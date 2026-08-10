@@ -113,8 +113,8 @@ final class OverseasMemoryGrouper {
                     summary.startDate,
                     summary.endDate,
                     summary.thumbnailUri,
-                    CountryIdentityNormalizer.countryCode(summary.countryCode, summary.countryName),
-                    summary.countryName,
+                    countryCode,
+                    CountryIdentityNormalizer.displayNameForCode(countryCode),
                     summary.adminArea,
                     summary.addressLine));
         }

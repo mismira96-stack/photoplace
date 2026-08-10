@@ -22,6 +22,10 @@ public class OverseasMemoryGrouperTest {
         assertEquals(1, groups.size());
         assertEquals("일본", groups.get(0).countryName);
         assertEquals(33, groups.get(0).itemCount);
+        for (MemoryItem item : groups.get(0).items) {
+            assertEquals("JP", item.countryCode);
+            assertEquals("일본", item.countryName);
+        }
     }
 
     @Test
@@ -44,6 +48,8 @@ public class OverseasMemoryGrouperTest {
 
         assertEquals(1, groups.size());
         assertEquals("일본", groups.get(0).countryName);
+        assertEquals("JP", groups.get(0).items.get(0).countryCode);
+        assertEquals("일본", groups.get(0).items.get(0).countryName);
     }
 
     @Test
@@ -69,6 +75,10 @@ public class OverseasMemoryGrouperTest {
         assertEquals(1, groups.size());
         assertEquals("호주", groups.get(0).countryName);
         assertEquals(20, groups.get(0).itemCount);
+        for (MemoryItem item : groups.get(0).items) {
+            assertEquals("AU", item.countryCode);
+            assertEquals("호주", item.countryName);
+        }
     }
 
     @Test
@@ -89,7 +99,11 @@ public class OverseasMemoryGrouperTest {
 
         assertEquals(2, groups.size());
         assertEquals("체코", groups.get(0).countryName);
+        assertEquals("CZ", groups.get(0).items.get(0).countryCode);
+        assertEquals("체코", groups.get(0).items.get(0).countryName);
         assertEquals("튀르키예", groups.get(1).countryName);
+        assertEquals("TR", groups.get(1).items.get(0).countryCode);
+        assertEquals("튀르키예", groups.get(1).items.get(0).countryName);
     }
 
     @Test
