@@ -1,6 +1,6 @@
 # PhotoPlace Agent Shared TODO
 
-Updated: 2026-08-09
+Updated: 2026-08-10
 
 This file is the shared handoff note for Codex and Gemini CLI. Keep it short, current, and safe to act on.
 
@@ -20,6 +20,8 @@ Read these first:
   - Current WIP stabilization record after Japan-trip overseas-history fixes caused home/history performance regressions.
 - `WORKLOG_2026-08-09.md`
   - Post-1.2.6 polish record: completion badge clearing, result-screen action cleanup, and next V2 priorities.
+- `WORKLOG_2026-08-10.md`
+  - 1.2.8 overseas country identity release record and Display First / Organize Optional architecture checkpoint.
 - `WORKLOG_2026-07-26.md`
   - Date-based work record for the WorkManager/background-sort stabilization day.
 - `Photoplace_V2_Personal_Place_PRD.md`
@@ -30,6 +32,8 @@ Read these first:
   - Discovery-first product hypothesis and architecture review. Treat as supporting rationale; the final PRD principle is `Display First, Organize Optional`.
 - `MEMORY_PERSONALIZATION_P1_DESIGN.md`
   - P1 Memory Personalization design for display name, memo, and user cover storage. Use this before coding personalization UI.
+- `DISPLAY_FIRST_ORGANIZE_OPTIONAL_DESIGN_2026-08-10.md`
+  - Final V2 direction for showing location-based memories inside PhotoPlace before optional Gallery album creation.
 
 Reference docs:
 
@@ -47,18 +51,46 @@ Reference docs:
 ## Current Stable Baseline
 
 - Branch: `codex/photoplace-v2-bg-wip`
-- Latest Play release/draft baseline: `versionCode 28` / `versionName 1.2.7` / `targetSdk 36`
-- Latest pushed search checkpoint: `0ba4c4f Polish sort history search affordance`
-- Release AAB: `photoplace-1.2.7-code28-sort-history-search-api36.aab`
-- Release APK: `photoplace-1.2.7-code28-sort-history-search-api36.apk`
-- Play Console status: 1.2.7 production draft uploaded by API. Final "Send for review" remains manual.
+- Latest Play release/draft baseline: `versionCode 29` / `versionName 1.2.8` / `targetSdk 36`
+- Latest pushed release checkpoint: `7c6275e Bump version for overseas country identity fix`
+- Release AAB: `photoplace-1.2.8-code29-overseas-country-identity-api36.aab`
+- Release APK: `photoplace-1.2.8-code29-overseas-country-identity-api36.apk`
+- Play Console status: 1.2.8 production draft uploaded by API; user manually sent for review.
 - Latest confirmed device result:
   - Japan album naming no longer shows `中央区` in the user's test.
   - Existing test folder notification looked normal; the odd notification sequence seems tied to the Japan/travel folder case.
   - Already-sorted duplicate items no longer create a misleading pending original-cleanup count.
   - `위치 없음 0개` no longer shows an empty no-location preview/focus screen.
-- Current WIP after 1.2.7 adds the first Memory Personalization storage layer. Check `git status` before editing and do not discard local changes.
+- Current WIP after 1.2.8 adds the first Display First / Organize Optional model skeleton. Check `git status` before editing and do not discard local changes.
 - Keep avoiding the earlier broad Geocoder candidate scoring experiment. It caused POI overclassification.
+
+## Current WIP Note - Display First Model Boundary
+
+Current local WIP intentionally does not change visible UI behavior.
+
+Added as the first architecture checkpoint for V2:
+
+- `MemorySourceType`
+- `MediaKind`
+- `DiscoveryPhotoRef`
+- `DiscoveryMemoryGroup`
+- `DiscoverySnapshot`
+- `DiscoverySnapshotJson`
+- `OrganizedAlbumRef`
+- `MemoryRecord`
+- `DiscoverySnapshotJsonTest`
+
+Important boundary:
+
+- Do not store discovery-only memories in `AlbumSummaryHistoryStore`.
+- Do not represent discovery-only memories as `StoredAlbumSummary` with an empty `relativePath`.
+- Do not add new Display First logic to `MainActivity` directly.
+- Next implementation should add `DiscoverySnapshotStore`, `DiscoverySnapshotMapper`, and later `MemoryRepository` as separate classes.
+- The current skeleton is not wired to Preview, Home, Search, Detail, or SortWorker yet.
+
+Validation:
+
+- `testDebugUnitTest` passes after adding JVM-only `testImplementation "org.json:json:20240303"` for JSON unit tests.
 
 ## Current Release/WIP Note - 2026-08-09
 
