@@ -65,9 +65,9 @@ final class MemoryRecord {
         this.startDateMillis = startDateMillis;
         this.endDateMillis = endDateMillis;
         this.coverUri = clean(coverUri);
-        this.sourceType = sourceType == null ? MemorySourceType.DISCOVERED_ONLY : sourceType;
         this.discoveryGroup = discoveryGroup;
         this.organizedAlbum = organizedAlbum;
+        this.sourceType = resolveSourceType(sourceType, discoveryGroup, organizedAlbum);
         this.staleCount = Math.max(0, staleCount);
         this.availableCount = Math.max(0, availableCount);
         this.canOpenPhotos = canOpenPhotos;
@@ -78,5 +78,20 @@ final class MemoryRecord {
 
     private static String clean(String value) {
         return value == null ? "" : value.trim();
+    }
+
+    private static MemorySourceType resolveSourceType(MemorySourceType sourceType,
+                                                      DiscoveryMemoryGroup discoveryGroup,
+                                                      OrganizedAlbumRef organizedAlbum) {
+        if (sourceType != null) {
+            return sourceType;
+        }
+        if (discoveryGroup != null && organizedAlbum != null) {
+            return MemorySourceType.MIXED;
+        }
+        if (organizedAlbum != null) {
+            return MemorySourceType.ORGANIZED_ALBUM;
+        }
+        return MemorySourceType.DISCOVERED_ONLY;
     }
 }

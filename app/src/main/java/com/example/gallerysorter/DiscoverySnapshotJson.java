@@ -49,7 +49,10 @@ final class DiscoverySnapshotJson {
             for (int i = 0; i < groupArray.length(); i++) {
                 JSONObject groupJson = groupArray.optJSONObject(i);
                 if (groupJson != null) {
-                    groups.add(groupFromJson(groupJson));
+                    DiscoveryMemoryGroup group = groupFromJson(groupJson);
+                    if (group != null) {
+                        groups.add(group);
+                    }
                 }
             }
         }
@@ -96,26 +99,47 @@ final class DiscoverySnapshotJson {
             for (int i = 0; i < refArray.length(); i++) {
                 JSONObject refJson = refArray.optJSONObject(i);
                 if (refJson != null) {
-                    refs.add(photoRefFromJson(refJson));
+                    DiscoveryPhotoRef ref = photoRefFromJson(refJson);
+                    if (ref != null) {
+                        refs.add(ref);
+                    }
                 }
             }
         }
+        String memoryKey = json.optString("memoryKey", "");
+        String placeKey = json.optString("placeKey", "");
+        if (!hasText(memoryKey) || !hasText(placeKey)) {
+            return null;
+        }
+        int itemCount = json.optInt("itemCount", refs.size());
+        int photoCount = json.optInt("photoCount", 0);
+        int videoCount = json.optInt("videoCount", 0);
+        int staleCount = json.optInt("staleCount", 0);
+        if (!refs.isEmpty()) {
+            itemCount = refs.size();
+            photoCount = countKind(refs, MediaKind.PHOTO);
+            videoCount = countKind(refs, MediaKind.VIDEO);
+            staleCount = countStale(refs);
+        }
+        if (refs.isEmpty() && itemCount <= 0) {
+            return null;
+        }
         return new DiscoveryMemoryGroup(
-                json.optString("memoryKey", ""),
-                json.optString("placeKey", ""),
+                memoryKey,
+                placeKey,
                 json.optString("placeName", ""),
                 json.optString("countryCode", ""),
                 json.optString("countryName", ""),
                 json.optString("adminArea", ""),
                 json.optString("addressLine", ""),
-                json.optInt("itemCount", refs.size()),
-                json.optInt("photoCount", 0),
-                json.optInt("videoCount", 0),
+                itemCount,
+                photoCount,
+                videoCount,
                 json.optLong("startDateMillis", 0L),
                 json.optLong("endDateMillis", 0L),
                 json.optString("coverUri", ""),
                 refs,
-                json.optInt("staleCount", 0),
+                staleCount,
                 json.optLong("snapshotVersion", 0L));
     }
 
@@ -141,8 +165,12 @@ final class DiscoverySnapshotJson {
     }
 
     private static DiscoveryPhotoRef photoRefFromJson(JSONObject json) {
+        String sourceUri = json.optString("sourceUri", "");
+        if (!hasText(sourceUri)) {
+            return null;
+        }
         return new DiscoveryPhotoRef(
-                json.optString("sourceUri", ""),
+                sourceUri,
                 json.optLong("mediaStoreId", DiscoveryPhotoRef.UNKNOWN_ID),
                 mediaKindFrom(json.optString("mediaKind", "")),
                 json.optString("mimeType", ""),
@@ -158,6 +186,26 @@ final class DiscoverySnapshotJson {
                 json.optLong("firstSeenSnapshotVersion", 0L),
                 json.optLong("lastSeenSnapshotVersion", 0L),
                 json.optBoolean("stale", false));
+    }
+
+    private static int countKind(List<DiscoveryPhotoRef> refs, MediaKind kind) {
+        int count = 0;
+        for (DiscoveryPhotoRef ref : refs) {
+            if (ref.mediaKind == kind) {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    private static int countStale(List<DiscoveryPhotoRef> refs) {
+        int count = 0;
+        for (DiscoveryPhotoRef ref : refs) {
+            if (ref.stale) {
+                count++;
+            }
+        }
+        return count;
     }
 
     private static MediaKind mediaKindFrom(String value) {
@@ -181,5 +229,9 @@ final class DiscoverySnapshotJson {
 
     private static Object emptyToNull(String value) {
         return value == null || value.trim().isEmpty() ? JSONObject.NULL : value;
+    }
+
+    private static boolean hasText(String value) {
+        return value != null && !value.trim().isEmpty();
     }
 }
