@@ -48,6 +48,146 @@ When deciding whether to add a feature, use these two questions:
 
 If neither is true, lower the priority.
 
+## V2 UX Principle - Display First, Organize Optional
+
+PhotoPlace V2 should not become a discovery-only app, and it should not weaken the existing Gallery album creation value.
+
+Instead, V2 adopts this product principle:
+
+```text
+Display First, Organize Optional
+
+먼저 장소별 사진을 보여준다.
+사용자가 기억을 확인한다.
+필요한 경우 실제 Gallery에 정리한다.
+```
+
+This is not a mode split.
+
+Do not introduce:
+
+```text
+○ 발견 모드
+○ 정리 모드
+```
+
+Use one natural flow:
+
+```text
+Analyze
+  -> Display discovered places
+  -> Explore photos inside PhotoPlace
+  -> Organize into Gallery albums if wanted
+```
+
+### Why This Matters
+
+User feedback shows two user intents:
+
+- `Organizer`: wants actual Gallery albums created by place.
+- `Viewer / Explorer`: wants to see place-based memories inside PhotoPlace but does not want Gallery structure changed.
+
+Both users first need to trust what PhotoPlace found.
+
+### User Observation - Search Before Organize
+
+During a real user test, a user immediately searched for `일본` after seeing PhotoPlace instead of first asking how to create albums.
+
+This is an important product signal:
+
+```text
+User mental model:
+  "Where did I go?"
+  before
+  "How do I organize these files?"
+```
+
+It supports the idea that PhotoPlace can be perceived as a place-based memory search tool, not only a Gallery album creation tool.
+
+Implications:
+
+- Search should remain highly visible and fast.
+- Country/city/place search quality matters.
+- Search guidance must match actual behavior. If UI says country search works, `일본` should work reliably for current and rebuilt records.
+- Date search should support user language, not only stored formats. Users may try `8월`, `2026년 8월`, or `8월 2일`, not only `2026-08` / `2026.08`.
+- Place search should support common localized/romanized aliases where practical. For example, both `삿포로` and `sapporo` should find the same memory.
+- `displayName` and user-personalized naming become more important.
+- Display First should expose discovered places before asking users to commit Gallery changes.
+- Gallery album creation should remain available as a clear next action after the user finds a memory worth organizing.
+
+Therefore V2 should shift from:
+
+```text
+Forced Organization
+```
+
+to:
+
+```text
+Intentional Organization
+```
+
+Gallery album creation remains a core capability. Optional means user-confirmed, not unimportant.
+
+### Architecture Boundary
+
+Do not put discovery-only results directly into `AlbumSummaryHistoryStore`.
+
+Current `AlbumSummaryHistoryStore` and many detail/gallery flows assume:
+
+- a real Gallery album exists.
+- `relativePath` identifies that album.
+- MediaStore can load thumbnails/photos from that album folder.
+
+For Display First experiments, use a separate model/store later, such as:
+
+```text
+DiscoverySnapshotStore
+or
+MemorySnapshotStore
+```
+
+Potential fields:
+
+```text
+placeKey
+placeName
+country
+adminArea
+photoCount
+dateRange
+coverUri
+sourcePhotoReferences
+```
+
+The eventual long-term direction can be a common `MemoryRecord` abstraction:
+
+```text
+sourceType:
+  ORGANIZED_ALBUM
+  DISCOVERED_ONLY
+```
+
+But do not introduce that abstraction before the Display First experiment proves useful.
+
+### Minimum Experiment
+
+The lowest-risk V2 experiment is:
+
+```text
+Preview complete
+  -> 발견한 장소 둘러보기
+  -> Gallery 앨범으로 정리
+```
+
+Rules:
+
+- Keep the existing Organizer flow.
+- Do not remove the Gallery album creation CTA.
+- Discovery-only detail should use original photo URIs, not `relativePath`.
+- If no Gallery album exists, hide album-open actions and offer photo viewing instead.
+- Measure whether users open discovered places, view photos, return later, and then optionally create albums.
+
 ## Product Boundary
 
 ### Allowed
@@ -110,6 +250,7 @@ Users should quickly find memories that PhotoPlace already discovered.
 | --- | --- | --- |
 | Home recent places | 완료 | Home shows recent discovered places from stored summaries. |
 | Home overseas records | 부분 구현 | Overseas groups display on Home and open filtered memory view. International normalization is still fragile. |
+| Display First experiment | 미구현 | Preview can already analyze without creating albums, but there is no separate `발견한 장소 둘러보기` path or URI-based discovery detail yet. |
 | Sort history / recent place search | 완료 | `StoredAlbumSummarySearch` filters loaded summaries in memory. UI uses search icon toggle and opens existing detail screen. |
 | Search by place/country/address/date | 완료 | Implemented in `StoredAlbumSummarySearch`; unit tests cover fields and date separators. |
 | Search by user display name | 미구현 | `displayName` storage field exists in `MemoryPersonalizationStore`, but edit UI and search overlay are not implemented. |
@@ -125,7 +266,18 @@ Users should quickly find memories that PhotoPlace already discovered.
    - Large record count.
    - Fold layout.
    - Detail navigation.
-2. International address normalization design.
+   - Real user observed searching `일본` immediately; treat country/place search as a core behavior, not a secondary utility.
+   - Verify country search actually works for current, rebuilt, and older records. Some records may lack `countryName` metadata even though the UI suggests country search.
+   - Add Korean date query support later, for example `8월`, `2026년 8월`, `8월 2일`.
+   - Add localized/romanized alias search for known/common places, for example `삿포로` <-> `sapporo`.
+   - Do not keep fixing overseas history by adding city-by-city country hints such as `KarlovyVary -> 체코` or `Fatih -> 튀르키예`.
+   - Proper fix: store and normalize country identity from structured metadata where possible, preferably `countryCode` / normalized country name, then derive display text (`튀르키예`, not whichever localized spelling happened to be returned).
+2. Display First experiment design.
+   - Add `발견한 장소 둘러보기` after Preview.
+   - Keep `Gallery 앨범으로 정리` visible.
+   - Do not store discovery-only records in `AlbumSummaryHistoryStore`.
+   - Discovery detail must use original photo URIs, not Gallery album `relativePath`.
+3. International address normalization design.
    - Do not keep growing one-off aliases.
    - Separate stable key from display name.
    - Overseas ward/subLocality must not become final album name alone.
@@ -289,12 +441,14 @@ Cleanup should be safe, explicit, and separate from memory personalization.
 | No-location repeated analysis prevention | 부분 구현 | Cache exists; UX and safety need work. |
 | Sort history search | 완료 | Released as 1.2.7 draft. |
 | Large-library validation | 미구현 | Needs friend device follow-up. |
+| Display First experiment | 미구현 | Add Preview -> discovered places browsing without forcing Gallery album creation. |
 
 ## P1 - Next
 
 | Item | Status | First MVP Step |
 | --- | --- | --- |
 | Memory name change | 미구현 | Add `displayName` override and search integration. |
+| Display snapshot persistence | 미구현 | If the experiment works, add `DiscoverySnapshotStore` / `MemorySnapshotStore`. |
 | Representative cover change | 미구현 | Add `userCoverUri` override. |
 | Memo UX improvement | 부분 구현 | Formalize existing SharedPreferences memo into personalization model. |
 | CTA/Icon/Detail consistency | 부분 구현 | Continue hidden-screen audit. |

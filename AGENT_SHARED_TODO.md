@@ -25,7 +25,9 @@ Read these first:
 - `Photoplace_V2_Personal_Place_PRD.md`
   - Personal Place PRD draft. Encoding may look broken in some terminals, but the final Gemini handoff section was already understood by Gemini.
 - `Photoplace_V2_Epic_PRD_2026-08-09.md`
-  - V2 PRD reorganized by Epic/P0/P1/P2 with code-based implementation status after 1.2.7.
+  - V2 PRD reorganized by Epic/P0/P1/P2 with code-based implementation status after 1.2.7. Now includes the `Display First, Organize Optional` V2 UX principle.
+- `DISCOVERY_FIRST_HYPOTHESIS_REVIEW_2026-08-09.md`
+  - Discovery-first product hypothesis and architecture review. Treat as supporting rationale; the final PRD principle is `Display First, Organize Optional`.
 - `MEMORY_PERSONALIZATION_P1_DESIGN.md`
   - P1 Memory Personalization design for display name, memo, and user cover storage. Use this before coding personalization UI.
 
@@ -81,10 +83,28 @@ Recommended next feature order:
 
 1. Memory Personalization displayName MVP on top of the new store.
 2. Search displayName integration.
-3. No-location UX decision flow.
-4. International address normalization design.
-5. Result/detail UI consistency pass.
-6. Personal Place MVP design/implementation.
+3. Display First experiment design:
+  - Preview complete -> `발견한 장소 둘러보기`
+  - keep `Gallery 앨범으로 정리`
+  - use original photo URI-based detail, not `relativePath`
+4. No-location UX decision flow.
+5. International address normalization design.
+6. Result/detail UI consistency pass.
+7. Personal Place MVP design/implementation.
+
+Latest product observation:
+
+- In a real user test, the user immediately searched `일본` instead of first focusing on album creation.
+- Treat this as evidence that PhotoPlace can be perceived as a place-based memory search tool.
+- This strengthens the priority of visible/fast search, country/place search quality, displayName, and the Display First experiment.
+- Search TODO from user feedback:
+  - UI says country search is supported, but `일본` may not work for some records. Verify current/rebuilt/older history metadata.
+  - Add Korean date query support later: `8월`, `2026년 8월`, `8월 2일`.
+  - Add localized/romanized alias search where practical: `삿포로` and `sapporo` should find the same memory.
+  - Prefer a small alias/normalization layer over one-off string checks inside `MainActivity`.
+  - Overseas-history country bug should not be fixed by city-by-city patches (`KarlovyVary`, `Fatih`, etc.).
+  - Proper direction is structured country normalization: persist/derive `countryCode` or canonical country identity, then map to Korean display name consistently.
+  - Keep this as TODO for now; wait for more friend feedback before coding.
 
 ## Current WIP Note - Memory Personalization Base
 
