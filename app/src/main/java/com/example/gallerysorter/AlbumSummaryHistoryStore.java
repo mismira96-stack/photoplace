@@ -96,6 +96,7 @@ final class AlbumSummaryHistoryStore {
             album.put("startDateMillis", summary.dateRange.start == null ? JSONObject.NULL : Long.valueOf(summary.dateRange.start.getTime()));
             album.put("endDateMillis", summary.dateRange.end == null ? JSONObject.NULL : Long.valueOf(summary.dateRange.end.getTime()));
             album.put("thumbnailUri", summary.thumbnailUri);
+            album.put("countryCode", emptyToJsonNull(summary.countryCode));
             album.put("countryName", emptyToJsonNull(summary.countryName));
             album.put("adminArea", emptyToJsonNull(summary.adminArea));
             album.put("addressLine", emptyToJsonNull(summary.addressLine));

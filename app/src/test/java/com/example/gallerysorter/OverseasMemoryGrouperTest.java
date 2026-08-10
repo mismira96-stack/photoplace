@@ -80,11 +80,36 @@ public class OverseasMemoryGrouperTest {
         assertTrue(groups.isEmpty());
     }
 
+    @Test
+    public void countryCodeGroupsUnknownCityWithoutCityHint() {
+        List<MemoryGroup> groups = OverseasMemoryGrouper.buildOverseasGroups(Arrays.asList(
+                summaryWithCountryCode("KarlovyVary에서", "Pictures/KarlovyVary에서/", 2, "CZ", ""),
+                summaryWithCountryCode("Fatih에서", "Pictures/Fatih에서/", 1, "TR", "")
+        ));
+
+        assertEquals(2, groups.size());
+        assertEquals("체코", groups.get(0).countryName);
+        assertEquals("튀르키예", groups.get(1).countryName);
+    }
+
+    @Test
+    public void koreaCountryCodeIsExcluded() {
+        List<MemoryGroup> groups = OverseasMemoryGrouper.buildOverseasGroups(Arrays.asList(
+                summaryWithCountryCode("Songpa-gu에서", "Pictures/Songpa-gu에서/", 10, "KR", "South Korea")
+        ));
+
+        assertTrue(groups.isEmpty());
+    }
+
     private static StoredAlbumSummary summary(String albumName, String relativePath, int count) {
         return summaryWithCountry(albumName, relativePath, count, "");
     }
 
     private static StoredAlbumSummary summaryWithCountry(String albumName, String relativePath, int count, String country) {
+        return summaryWithCountryCode(albumName, relativePath, count, "", country);
+    }
+
+    private static StoredAlbumSummary summaryWithCountryCode(String albumName, String relativePath, int count, String countryCode, String country) {
         return new StoredAlbumSummary(
                 albumName,
                 relativePath,
@@ -94,6 +119,7 @@ public class OverseasMemoryGrouperTest {
                 "",
                 null,
                 0L,
+                countryCode,
                 country,
                 "",
                 "");

@@ -46,6 +46,18 @@ public class StoredAlbumSummarySearchTest {
     }
 
     @Test
+    public void searchesCountryCodeAliases() {
+        StoredAlbumSummary sapporo = summaryWithCountryCode("삿포로에서", "JP", "", "", "", "2026-08-02", "2026-08-06");
+        StoredAlbumSummary fatih = summaryWithCountryCode("Fatih에서", "TR", "", "", "", "2026-08-02", "2026-08-06");
+        List<StoredAlbumSummary> summaries = Arrays.asList(sapporo, fatih);
+
+        assertSame(sapporo, StoredAlbumSummarySearch.filter(summaries, "japan").get(0));
+        assertSame(sapporo, StoredAlbumSummarySearch.filter(summaries, "일본").get(0));
+        assertSame(fatih, StoredAlbumSummarySearch.filter(summaries, "turkey").get(0));
+        assertSame(fatih, StoredAlbumSummarySearch.filter(summaries, "튀르키예").get(0));
+    }
+
+    @Test
     public void preservesInputOrderAndObjects() {
         StoredAlbumSummary first = summary("일본에서", "일본", "", "", "2026-08-02", "2026-08-06");
         StoredAlbumSummary second = summary("오사카에서", "일본", "", "", "2024-05-01", "2024-05-02");
@@ -77,6 +89,23 @@ public class StoredAlbumSummarySearchTest {
                 "content://thumbnail",
                 null,
                 123L,
+                countryName,
+                adminArea,
+                addressLine);
+    }
+
+    private static StoredAlbumSummary summaryWithCountryCode(String albumName, String countryCode, String countryName, String adminArea,
+                                             String addressLine, String startDate, String endDate) {
+        return new StoredAlbumSummary(
+                albumName,
+                "Pictures/" + albumName + "/",
+                12,
+                startDate,
+                endDate,
+                "content://thumbnail",
+                null,
+                123L,
+                countryCode,
                 countryName,
                 adminArea,
                 addressLine);

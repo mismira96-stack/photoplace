@@ -2682,7 +2682,7 @@ public class MainActivity extends Activity {
     private PhotoItem buildPhotoItem(Uri uri, String str, String str2, LocationResult locationResult, List<AlbumFolder> list, boolean z) {
         String str3;
         if (LOCATION_NONE.equals(locationResult.folderKey)) {
-            return new PhotoItem(uri, str, str2, locationResult.takenAt, locationResult.folderKey, true, false, false, "", z, locationResult.countryName, locationResult.adminArea, locationResult.addressLine);
+            return new PhotoItem(uri, str, str2, locationResult.takenAt, locationResult.folderKey, true, false, false, "", z, locationResult.countryCode, locationResult.countryName, locationResult.adminArea, locationResult.addressLine);
         }
         AlbumFolder albumFolderFindMatchingAlbum = findMatchingAlbum(locationResult.folderKey, list);
         boolean z2 = albumFolderFindMatchingAlbum != null;
@@ -2692,7 +2692,7 @@ public class MainActivity extends Activity {
             str3 = Environment.DIRECTORY_PICTURES + "/" + locationResult.folderKey + "에서/";
         }
         String str4 = str3;
-        return new PhotoItem(uri, str, str2, locationResult.takenAt, locationResult.folderKey, false, z2, hasDisplayNameInPath(str, str4, z), str4, z, locationResult.countryName, locationResult.adminArea, locationResult.addressLine);
+        return new PhotoItem(uri, str, str2, locationResult.takenAt, locationResult.folderKey, false, z2, hasDisplayNameInPath(str, str4, z), str4, z, locationResult.countryCode, locationResult.countryName, locationResult.adminArea, locationResult.addressLine);
     }
 
     private long readOptionalLong(Cursor cursor, int i) {
@@ -2821,7 +2821,7 @@ public class MainActivity extends Activity {
             takenAt = addedAt;
         }
 
-        return new LocationResult(sanitizeTakenAt(takenAt), folderKey, locationLookup.countryName, locationLookup.adminArea, locationLookup.addressLine);
+        return new LocationResult(sanitizeTakenAt(takenAt), folderKey, locationLookup.countryCode, locationLookup.countryName, locationLookup.adminArea, locationLookup.addressLine);
     }
 
     private LocationResult cachedNoLocationResult(Uri uri, String name, long modifiedSeconds, long addedSeconds, long mediaTakenMillis, Double mediaLatitude, Double mediaLongitude, boolean video) {
@@ -3056,7 +3056,7 @@ public class MainActivity extends Activity {
                     if (strPreferredLocationName != null) {
                         String strNormalizeLocationKey = normalizeLocationKey(strPreferredLocationName);
                         if (!LOCATION_NONE.equals(strNormalizeLocationKey)) {
-                            LocationLookupResult lookup = new LocationLookupResult(strNormalizeLocationKey, address.getCountryName(), address.getAdminArea(), address.getAddressLine(0));
+                            LocationLookupResult lookup = new LocationLookupResult(strNormalizeLocationKey, address.getCountryCode(), address.getCountryName(), address.getAdminArea(), address.getAddressLine(0));
                             if (!isGenericSeoulLocationKey(strNormalizeLocationKey)) {
                                 return lookup;
                             }
@@ -3708,7 +3708,7 @@ public class MainActivity extends Activity {
         ArrayList arrayList = new ArrayList();
         for (PhotoItem photoItem : this.previewItems) {
             if (hashSet.contains(photoItem.uri.toString())) {
-                arrayList.add(new PhotoItem(photoItem.uri, photoItem.name, photoItem.mimeType, photoItem.takenAt, photoItem.locationKey, photoItem.noLocation, true, true, photoItem.targetRelativePath, photoItem.video, photoItem.countryName, photoItem.adminArea, photoItem.addressLine));
+                arrayList.add(new PhotoItem(photoItem.uri, photoItem.name, photoItem.mimeType, photoItem.takenAt, photoItem.locationKey, photoItem.noLocation, true, true, photoItem.targetRelativePath, photoItem.video, photoItem.countryCode, photoItem.countryName, photoItem.adminArea, photoItem.addressLine));
             } else {
                 arrayList.add(photoItem);
             }
@@ -3850,7 +3850,7 @@ public class MainActivity extends Activity {
                         if ((albumSummary2.countryName == null || albumSummary2.countryName.isEmpty()) && Looper.myLooper() != Looper.getMainLooper()) {
                             LocationLookupResult locationLookupResult = readExistingAlbumLocationMetadata(uriWithAppendedId, z2);
                             if (locationLookupResult != null && !LOCATION_NONE.equals(locationLookupResult.folderKey)) {
-                                albumSummary2.includeLocationMetadata(locationLookupResult.countryName, locationLookupResult.adminArea, locationLookupResult.addressLine);
+                                albumSummary2.includeLocationMetadata(locationLookupResult.countryCode, locationLookupResult.countryName, locationLookupResult.adminArea, locationLookupResult.addressLine);
                             }
                         }
                         if (albumSummary2.thumbnailUri == null || albumSummary2.thumbnailUri.isEmpty() || (z && albumMediaDateMillis >= albumSummary2.thumbnailDateMillis)) {
@@ -3946,7 +3946,7 @@ public class MainActivity extends Activity {
                     albumSummary = new AlbumSummary(strAlbumCandidateFolderName, photoItem.targetRelativePath, photoItem.uri.toString());
                     linkedHashMap.put(strAlbumCandidateFolderName, albumSummary);
                 }
-                albumSummary.includeLocationMetadata(photoItem.countryName, photoItem.adminArea, photoItem.addressLine);
+                albumSummary.includeLocationMetadata(photoItem.countryCode, photoItem.countryName, photoItem.adminArea, photoItem.addressLine);
                 albumSummary.itemCount++;
                 albumSummary.dateRange.include(photoItem.takenAt);
             }
@@ -4001,12 +4001,12 @@ public class MainActivity extends Activity {
 
     private StoredAlbumSummary storedAlbumSummaryFromAlbumSummary(AlbumSummary albumSummary, long j) {
         if (albumSummary == null) {
-            return new StoredAlbumSummary("", "", 0, null, null, null, null, 0L, "", "", "");
+            return new StoredAlbumSummary("", "", 0, null, null, null, null, 0L, "", "", "", "");
         }
         String str = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.KOREA).format(new Date(j));
         Date date = albumSummary.dateRange.start;
         Date date2 = albumSummary.dateRange.end;
-        return new StoredAlbumSummary(albumSummary.albumName, albumSummary.relativePath, albumSummary.itemCount, date == null ? null : new SimpleDateFormat("yyyy-MM-dd", Locale.KOREA).format(date), date2 == null ? null : new SimpleDateFormat("yyyy-MM-dd", Locale.KOREA).format(date2), albumSummary.thumbnailUri, str, j, albumSummary.countryName, albumSummary.adminArea, albumSummary.addressLine);
+        return new StoredAlbumSummary(albumSummary.albumName, albumSummary.relativePath, albumSummary.itemCount, date == null ? null : new SimpleDateFormat("yyyy-MM-dd", Locale.KOREA).format(date), date2 == null ? null : new SimpleDateFormat("yyyy-MM-dd", Locale.KOREA).format(date2), albumSummary.thumbnailUri, str, j, albumSummary.countryCode, albumSummary.countryName, albumSummary.adminArea, albumSummary.addressLine);
     }
 
     private List<StoredAlbumSummary> loadRecentAlbumSummaries() {
@@ -4094,10 +4094,41 @@ public class MainActivity extends Activity {
         for (StoredAlbumSummary summary : summaries) {
             AlbumSummary liveSummary = findMatchingAlbumSummary(existingSummaries, summary);
             if (liveSummary != null && liveSummary.itemCount > 0) {
-                live.add(storedAlbumSummaryFromAlbumSummary(liveSummary, summary.createdAtMillis > 0L ? summary.createdAtMillis : now));
+                live.add(mergeStoredAlbumMetadata(
+                        storedAlbumSummaryFromAlbumSummary(liveSummary, summary.createdAtMillis > 0L ? summary.createdAtMillis : now),
+                        summary));
             }
         }
         return live;
+    }
+
+    private StoredAlbumSummary mergeStoredAlbumMetadata(StoredAlbumSummary liveSummary, StoredAlbumSummary storedSummary) {
+        if (liveSummary == null || storedSummary == null) {
+            return liveSummary;
+        }
+        String countryCode = firstNonEmpty(liveSummary.countryCode, storedSummary.countryCode);
+        String countryName = firstNonEmpty(liveSummary.countryName, storedSummary.countryName);
+        String adminArea = firstNonEmpty(liveSummary.adminArea, storedSummary.adminArea);
+        String addressLine = firstNonEmpty(liveSummary.addressLine, storedSummary.addressLine);
+        if (Objects.equals(countryCode, liveSummary.countryCode)
+                && Objects.equals(countryName, liveSummary.countryName)
+                && Objects.equals(adminArea, liveSummary.adminArea)
+                && Objects.equals(addressLine, liveSummary.addressLine)) {
+            return liveSummary;
+        }
+        return new StoredAlbumSummary(
+                liveSummary.albumName,
+                liveSummary.relativePath,
+                liveSummary.itemCount,
+                liveSummary.startDate,
+                liveSummary.endDate,
+                liveSummary.thumbnailUri,
+                liveSummary.createdAt,
+                liveSummary.createdAtMillis,
+                countryCode,
+                countryName,
+                adminArea,
+                addressLine);
     }
 
     private AlbumSummary findMatchingAlbumSummary(Map<String, AlbumSummary> summaries, StoredAlbumSummary storedSummary) {
@@ -5619,7 +5650,7 @@ public class MainActivity extends Activity {
     }
 
     private StoredAlbumSummary storedAlbumSummaryFromMemoryItem(MemoryItem item) {
-        return new StoredAlbumSummary(item.albumName, item.relativePath, item.itemCount, item.startDate, item.endDate, item.thumbnailUri, null, 0L, item.countryName, item.adminArea, item.addressLine);
+        return new StoredAlbumSummary(item.albumName, item.relativePath, item.itemCount, item.startDate, item.endDate, item.thumbnailUri, null, 0L, item.countryCode, item.countryName, item.adminArea, item.addressLine);
     }
 
     private void showRecentPlaceDetailScreen(final StoredAlbumSummary storedAlbumSummary) {
@@ -6865,21 +6896,13 @@ public class MainActivity extends Activity {
 
     private int overseasMemoryHomeCardWidth(int groupCount) {
         int availableWidth = homeContentInnerWidthPx();
-        if (groupCount > 0 && groupCount <= 3) {
-            int gaps = Math.max(0, groupCount - 1) * dp(8);
-            return Math.max(dp(98), (availableWidth - gaps) / groupCount);
+        if (wideContentWidthPx() > 0) {
+            return Math.max(dp(104), (availableWidth - dp(32)) / 5);
         }
-        int wideContentWidth = wideContentWidthPx();
-        if (wideContentWidth > 0) {
-            return Math.max(dp(132), (availableWidth - dp(16)) / 3);
-        }
-        return dp(132);
+        return dp(112);
     }
 
     private int overseasMemoryHomePhotoHeight(int groupCount) {
-        if (groupCount == 1 && wideContentWidthPx() > 0) {
-            return dp(92);
-        }
         return wideContentWidthPx() > 0 ? dp(74) : dp(72);
     }
 

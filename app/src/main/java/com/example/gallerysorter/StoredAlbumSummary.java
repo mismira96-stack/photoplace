@@ -11,6 +11,7 @@ final class StoredAlbumSummary {
     final String relativePath;
     final String startDate;
     final String thumbnailUri;
+    final String countryCode;
     final String countryName;
     final String adminArea;
     final String addressLine;
@@ -19,6 +20,14 @@ final class StoredAlbumSummary {
                        String endDate, String thumbnailUri, String createdAt,
                        long createdAtMillis, String countryName, String adminArea,
                        String addressLine) {
+        this(albumName, relativePath, itemCount, startDate, endDate, thumbnailUri, createdAt,
+                createdAtMillis, "", countryName, adminArea, addressLine);
+    }
+
+    StoredAlbumSummary(String albumName, String relativePath, int itemCount, String startDate,
+                       String endDate, String thumbnailUri, String createdAt,
+                       long createdAtMillis, String countryCode, String countryName,
+                       String adminArea, String addressLine) {
         this.albumName = albumName == null ? "" : albumName;
         this.relativePath = relativePath == null ? "" : relativePath;
         this.itemCount = itemCount;
@@ -27,7 +36,8 @@ final class StoredAlbumSummary {
         this.thumbnailUri = thumbnailUri;
         this.createdAt = createdAt;
         this.createdAtMillis = createdAtMillis;
-        this.countryName = PhotoItemJson.clean(countryName);
+        this.countryCode = CountryIdentityNormalizer.countryCode(countryCode, countryName);
+        this.countryName = CountryIdentityNormalizer.displayName(this.countryCode, countryName);
         this.adminArea = PhotoItemJson.clean(adminArea);
         this.addressLine = PhotoItemJson.clean(addressLine);
     }
@@ -42,6 +52,7 @@ final class StoredAlbumSummary {
                 json.optString("thumbnailUri", null),
                 json.optString("createdAt", null),
                 json.optLong("createdAtMillis", 0L),
+                json.optString("countryCode", ""),
                 json.optString("countryName", ""),
                 json.optString("adminArea", ""),
                 json.optString("addressLine", ""));

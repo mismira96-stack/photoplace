@@ -97,14 +97,14 @@ final class OverseasMemoryGrouper {
             return Collections.emptyList();
         }
         for (StoredAlbumSummary summary : summaries) {
-            String country = overseasCountryName(summary);
-            if (country.isEmpty()) {
+            String countryCode = overseasCountryCode(summary);
+            if (countryCode.isEmpty()) {
                 continue;
             }
-            List<MemoryItem> items = grouped.get(country);
+            List<MemoryItem> items = grouped.get(countryCode);
             if (items == null) {
                 items = new ArrayList<>();
-                grouped.put(country, items);
+                grouped.put(countryCode, items);
             }
             items.add(new MemoryItem(
                     summary.albumName,
@@ -113,13 +113,15 @@ final class OverseasMemoryGrouper {
                     summary.startDate,
                     summary.endDate,
                     summary.thumbnailUri,
+                    CountryIdentityNormalizer.countryCode(summary.countryCode, summary.countryName),
                     summary.countryName,
                     summary.adminArea,
                     summary.addressLine));
         }
         ArrayList<MemoryGroup> groups = new ArrayList<>();
         for (Map.Entry<String, List<MemoryItem>> entry : grouped.entrySet()) {
-            groups.add(new MemoryGroup(entry.getKey(), entry.getKey(), entry.getValue()));
+            String countryName = CountryIdentityNormalizer.displayNameForCode(entry.getKey());
+            groups.add(new MemoryGroup(countryName, countryName, entry.getValue()));
         }
         Collections.sort(groups, new Comparator<MemoryGroup>() {
             @Override
@@ -134,40 +136,58 @@ final class OverseasMemoryGrouper {
     }
 
     private static String overseasCountryName(StoredAlbumSummary summary) {
+        String countryCode = overseasCountryCode(summary);
+        return countryCode.isEmpty() ? "" : CountryIdentityNormalizer.displayNameForCode(countryCode);
+    }
+
+    private static String overseasCountryCode(StoredAlbumSummary summary) {
         if (summary == null) {
             return "";
         }
+        String countryCode = CountryIdentityNormalizer.countryCode(summary.countryCode, summary.countryName);
+        if (!countryCode.isEmpty()) {
+            return CountryIdentityNormalizer.isKorea(countryCode, summary.countryName)
+                    ? ""
+                    : countryCode;
+        }
         String strongPlaceEvidence = join(summary.albumName, summary.relativePath);
-        String strongPlaceCountry = countryFromPlaceHint(normalize(strongPlaceEvidence));
-        if (!strongPlaceCountry.isEmpty()) {
-            return strongPlaceCountry;
+        String strongPlaceCountryCode = countryCodeFromPlaceHint(normalize(strongPlaceEvidence));
+        if (!strongPlaceCountryCode.isEmpty()) {
+            return strongPlaceCountryCode;
         }
         String country = cleanCountry(summary.countryName);
         if (!country.isEmpty()) {
-            return isKoreaText(country) ? "" : country;
+            String legacyCountryCode = CountryIdentityNormalizer.countryCode("", country);
+            return isKoreaText(country) ? "" : legacyCountryCode;
         }
         String evidence = join(summary.addressLine, summary.adminArea, summary.albumName, summary.relativePath);
         if (isKoreaText(evidence)) {
             return "";
         }
+        String evidenceCountryCode = CountryIdentityNormalizer.countryCodeFromText(join(summary.addressLine, summary.adminArea));
+        if (!evidenceCountryCode.isEmpty()) {
+            return CountryIdentityNormalizer.isKorea(evidenceCountryCode, "")
+                    ? ""
+                    : evidenceCountryCode;
+        }
         String normalized = normalize(evidence);
         for (String[] aliasGroup : NORMALIZED_COUNTRY_ALIASES) {
             for (int i = 1; i < aliasGroup.length; i++) {
                 if (containsCountryAlias(normalized, aliasGroup[i])) {
-                    return aliasGroup[0];
+                    return CountryIdentityNormalizer.countryCode("", aliasGroup[0]);
                 }
             }
         }
-        return countryFromPlaceHint(normalized);
+        return countryCodeFromPlaceHint(normalized);
     }
 
-    private static String countryFromPlaceHint(String normalizedEvidence) {
+    private static String countryCodeFromPlaceHint(String normalizedEvidence) {
         if (normalizedEvidence == null || normalizedEvidence.isEmpty()) {
             return "";
         }
         for (String[] hint : NORMALIZED_PLACE_COUNTRY_HINTS) {
             if (normalizedEvidence.contains(hint[0])) {
-                return hint[1];
+                return CountryIdentityNormalizer.countryCode("", hint[1]);
             }
         }
         return "";
@@ -191,11 +211,19 @@ final class OverseasMemoryGrouper {
             return "";
         }
         String trimmed = countryName.trim();
-        return trimmed.isEmpty() ? "" : displayCountry(trimmed);
+        if (trimmed.isEmpty()) {
+            return "";
+        }
+        String countryCode = CountryIdentityNormalizer.countryCode("", trimmed);
+        return countryCode.isEmpty() ? displayCountry(trimmed) : CountryIdentityNormalizer.displayNameForCode(countryCode);
     }
 
     private static String displayCountry(String value) {
         String normalized = normalize(value);
+        String countryCode = CountryIdentityNormalizer.countryCode("", value);
+        if (!countryCode.isEmpty()) {
+            return CountryIdentityNormalizer.displayNameForCode(countryCode);
+        }
         for (String[] aliasGroup : NORMALIZED_COUNTRY_ALIASES) {
             for (int i = 1; i < aliasGroup.length; i++) {
                 if (normalized.equals(aliasGroup[i])) {

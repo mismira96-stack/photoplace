@@ -22,6 +22,7 @@ final class PhotoItemJson {
         json.put("duplicateInTarget", item.duplicateInTarget);
         json.put("targetRelativePath", item.targetRelativePath);
         json.put("video", item.video);
+        json.put("countryCode", item.countryCode);
         json.put("countryName", item.countryName);
         json.put("adminArea", item.adminArea);
         json.put("addressLine", item.addressLine);
@@ -49,6 +50,7 @@ final class PhotoItemJson {
                 json.optBoolean("duplicateInTarget", false),
                 clean(json.optString("targetRelativePath", "")),
                 json.optBoolean("video", false),
+                clean(json.optString("countryCode", "")),
                 clean(json.optString("countryName", "")),
                 clean(json.optString("adminArea", "")),
                 clean(json.optString("addressLine", "")));

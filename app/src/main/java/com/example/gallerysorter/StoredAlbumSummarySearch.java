@@ -28,7 +28,9 @@ final class StoredAlbumSummarySearch {
 
     private static boolean matches(StoredAlbumSummary summary, String normalizedQuery) {
         return contains(summary.albumName, normalizedQuery)
+                || contains(summary.countryCode, normalizedQuery)
                 || contains(summary.countryName, normalizedQuery)
+                || CountryIdentityNormalizer.matchesSearchQuery(summary.countryCode, summary.countryName, normalizedQuery)
                 || contains(summary.adminArea, normalizedQuery)
                 || contains(summary.addressLine, normalizedQuery)
                 || containsDate(summary.startDate, normalizedQuery)

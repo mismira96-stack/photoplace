@@ -4,6 +4,7 @@ final class AlbumSummary {
     final String albumName;
     final String relativePath;
     String thumbnailUri;
+    String countryCode;
     String countryName;
     String adminArea;
     String addressLine;
@@ -18,8 +19,17 @@ final class AlbumSummary {
     }
 
     void includeLocationMetadata(String countryName, String adminArea, String addressLine) {
-        if ((this.countryName == null || this.countryName.isEmpty()) && countryName != null && !countryName.trim().isEmpty()) {
-            this.countryName = countryName.trim();
+        includeLocationMetadata("", countryName, adminArea, addressLine);
+    }
+
+    void includeLocationMetadata(String countryCode, String countryName, String adminArea, String addressLine) {
+        String normalizedCountryCode = CountryIdentityNormalizer.countryCode(countryCode, countryName);
+        if ((this.countryCode == null || this.countryCode.isEmpty()) && !normalizedCountryCode.isEmpty()) {
+            this.countryCode = normalizedCountryCode;
+        }
+        String displayCountry = CountryIdentityNormalizer.displayName(normalizedCountryCode, countryName);
+        if ((this.countryName == null || this.countryName.isEmpty()) && displayCountry != null && !displayCountry.trim().isEmpty()) {
+            this.countryName = displayCountry.trim();
         }
         if ((this.adminArea == null || this.adminArea.isEmpty()) && adminArea != null && !adminArea.trim().isEmpty()) {
             this.adminArea = adminArea.trim();

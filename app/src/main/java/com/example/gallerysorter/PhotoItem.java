@@ -15,6 +15,7 @@ final class PhotoItem {
     final String targetRelativePath;
     final Uri uri;
     final boolean video;
+    final String countryCode;
     final String countryName;
     final String adminArea;
     final String addressLine;
@@ -22,6 +23,14 @@ final class PhotoItem {
     PhotoItem(Uri uri, String name, String mimeType, Date takenAt, String locationKey,
               boolean noLocation, boolean targetExists, boolean duplicateInTarget,
               String targetRelativePath, boolean video, String countryName,
+              String adminArea, String addressLine) {
+        this(uri, name, mimeType, takenAt, locationKey, noLocation, targetExists,
+                duplicateInTarget, targetRelativePath, video, "", countryName, adminArea, addressLine);
+    }
+
+    PhotoItem(Uri uri, String name, String mimeType, Date takenAt, String locationKey,
+              boolean noLocation, boolean targetExists, boolean duplicateInTarget,
+              String targetRelativePath, boolean video, String countryCode, String countryName,
               String adminArea, String addressLine) {
         this.uri = uri;
         this.name = name;
@@ -33,7 +42,8 @@ final class PhotoItem {
         this.duplicateInTarget = duplicateInTarget;
         this.targetRelativePath = targetRelativePath;
         this.video = video;
-        this.countryName = countryName == null ? "" : countryName;
+        this.countryCode = CountryIdentityNormalizer.countryCode(countryCode, countryName);
+        this.countryName = CountryIdentityNormalizer.displayName(this.countryCode, countryName);
         this.adminArea = adminArea == null ? "" : adminArea;
         this.addressLine = addressLine == null ? "" : addressLine;
     }
