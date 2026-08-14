@@ -5,6 +5,10 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * MVP mapper for Memory browsing. It groups already analyzed media by locationKey and deliberately
+ * does not perform GPS clustering or Personal Place candidate generation.
+ */
 final class DiscoverySnapshotMapper {
     static final String DEFAULT_ANALYSIS_POLICY_VERSION = "discovery-mapper-v1";
     static final String DEFAULT_COUNTRY_IDENTITY_POLICY_VERSION = "country-identity-v1";

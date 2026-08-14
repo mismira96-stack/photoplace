@@ -175,6 +175,98 @@ public class DiscoverySnapshotMapperTest {
         assertEquals(DiscoverySnapshotMapper.DEFAULT_COUNTRY_IDENTITY_POLICY_VERSION, snapshot.countryIdentityPolicyVersion);
     }
 
+    @Test
+    public void fromPhotoItemsHandlesNullListAndNullItems() {
+        DiscoverySnapshot empty = DiscoverySnapshotMapper.fromPhotoItems(
+                null,
+                14L,
+                1786000000000L,
+                "null-list");
+
+        assertEquals(0, empty.sourceItemCount);
+        assertEquals(0, empty.groupCount());
+
+        DiscoverySnapshot onlyNullItems = DiscoverySnapshotMapper.fromPhotoItems(
+                Arrays.asList(null, null),
+                15L,
+                1786000000000L,
+                "null-items");
+
+        assertEquals(2, onlyNullItems.sourceItemCount);
+        assertEquals(0, onlyNullItems.groupCount());
+    }
+
+    @Test
+    public void unknownTakenAtUsesSentinelTime() {
+        DiscoverySnapshotMapper.SourceItem item = item(
+                "content://media/external/images/media/501",
+                "IMG_0501.jpg",
+                "image/jpeg",
+                DiscoveryPhotoRef.UNKNOWN_TIME,
+                "성남",
+                false,
+                false,
+                "KR",
+                "대한민국",
+                "경기도",
+                "경기도 성남시");
+
+        DiscoverySnapshot snapshot = DiscoverySnapshotMapper.fromSourceItems(
+                Arrays.asList(item),
+                1,
+                16L,
+                1786000000000L,
+                "unknown-time",
+                DiscoverySnapshotMapper.DEFAULT_ANALYSIS_POLICY_VERSION,
+                DiscoverySnapshotMapper.DEFAULT_COUNTRY_IDENTITY_POLICY_VERSION);
+
+        DiscoveryMemoryGroup group = snapshot.groups.get(0);
+        assertEquals(DiscoveryPhotoRef.UNKNOWN_TIME, group.photoRefs.get(0).takenAtMillis);
+        assertEquals(0L, group.startDateMillis);
+        assertEquals(0L, group.endDateMillis);
+    }
+
+    @Test
+    public void trimsLocationKeyBeforeGrouping() {
+        DiscoverySnapshotMapper.SourceItem spaced = item(
+                "content://media/external/images/media/601",
+                "IMG_0601.jpg",
+                "image/jpeg",
+                1785600000000L,
+                " 송파구 ",
+                false,
+                false,
+                "KR",
+                "대한민국",
+                "서울특별시",
+                "서울특별시 송파구");
+        DiscoverySnapshotMapper.SourceItem clean = item(
+                "content://media/external/images/media/602",
+                "IMG_0602.jpg",
+                "image/jpeg",
+                1785686400000L,
+                "송파구",
+                false,
+                false,
+                "KR",
+                "대한민국",
+                "서울특별시",
+                "서울특별시 송파구");
+
+        DiscoverySnapshot snapshot = DiscoverySnapshotMapper.fromSourceItems(
+                Arrays.asList(spaced, clean),
+                2,
+                17L,
+                1786000000000L,
+                "trim-key",
+                DiscoverySnapshotMapper.DEFAULT_ANALYSIS_POLICY_VERSION,
+                DiscoverySnapshotMapper.DEFAULT_COUNTRY_IDENTITY_POLICY_VERSION);
+
+        assertEquals(1, snapshot.groupCount());
+        assertEquals("송파구", snapshot.groups.get(0).placeKey);
+        assertEquals(2, snapshot.groups.get(0).itemCount);
+    }
+
     private static DiscoverySnapshotMapper.SourceItem item(String uri,
                                                            String name,
                                                            String mimeType,
