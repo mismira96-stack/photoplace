@@ -48,6 +48,10 @@
 
 - 구현 방안: 우선은 파일 기반 JSON 또는 Room table(버전 관리 컬럼 포함)로 저장. Append-only snapshot semantics 추천.
 
+### Snapshot Store 복구·거부 정책
+
+DiscoverySnapshotStore의 동작 원칙은 보수적 복구입니다. 읽기 시 메인 파일(`discovery_snapshot.json`)이 파싱 불가(corrupt)하면 우선 백업(`.bak`)을 시도해 복원하고, 실패한 메인 파일은 `.corrupt`로 보관합니다. 쓰기 전에는 메인 파일 상태를 검사해 메인이 손상되어 있고 백업이 없을 경우에는 덮어쓰기를 거부하여 기존 손상 데이터를 보존합니다. 이 정책은 UI에 아직 연결되기 전의 기반 저장소에 적합하며 "깨진 파일을 조용히 덮어쓰기"하는 위험을 차단합니다. 다만 장기적으로는 저장 실패·복구 이벤트를 진단 로그나 내부 상태로 기록하고, Mapper/Repository가 붙는 시점에 사용자에게 복구 안내 또는 자동 재시도(관리자 정책)를 제공하는 방안을 도입하는 것이 권장됩니다.
+
 ## 매핑 규칙: `DiscoverySnapshotMapper`
 - 입력: `PhotoItem` 또는 `List<sourceUri>` + `snapshot metadata`
 - 출력: `DiscoveryPhotoRef` (per-photo) + `DiscoveryMemoryGroup` (cluster)
@@ -56,6 +60,20 @@
   - groupId에 `snapshotVersion` + `mapperPolicyVersion` 포함 → 재현 가능성 보장
   - Mapper는 기존 `placeKey`/`locationKey`를 변경하지 않음. 오직 discovery-layer에서의 provisional grouping만 생성
 - no-location 처리: `DiscoveryPhotoRef.noLocation=true`로 표시하고 snapshot-level `noLocationSkipSet`에 추가 가능
+
+### 2026-08-14 Mapper MVP 경계
+
+현재 코드 기준 `PhotoItem`에는 위도/경도 원본 좌표가 보존되어 있지 않다. 따라서 첫 `DiscoverySnapshotMapper` 구현은 GPS clustering을 수행하지 않고, 이미 분석된 `PhotoItem.locationKey`를 기준으로 discovery memory group을 만든다.
+
+MVP 동작:
+
+- `PhotoItem` -> Android 의존 없는 `SourceItem` -> `DiscoveryPhotoRef`
+- `locationKey` 기준으로 `DiscoveryMemoryGroup` 생성
+- `noLocation` 또는 `위치없음` 항목은 discovery memory group에서 제외
+- `sourceUri`, 날짜, 국가/주소 metadata, 사진/동영상 구분을 보존
+- `targetRelativePath`는 discovery-only memory에 섞지 않음
+
+GPS 기반 반복 장소 후보 생성은 별도 `PlaceCandidate`/candidate generator 단계에서 다룬다.
 
 ## MemoryRepository 설계 (읽기 합침)
 - 역할: `AlbumSummaryHistoryStore`(organized albums)과 `DiscoverySnapshotStore`(discovery groups)를 조합해 UI에 제공

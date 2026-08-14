@@ -105,7 +105,9 @@ Validation:
 - It stores the existing `DiscoverySnapshotJson` schema in `discovery_snapshot.json`.
 - It uses temp/write + backup recovery and refuses to overwrite a corrupt snapshot when no valid backup exists.
 - `MainActivity` remains untouched.
-- `DiscoverySnapshotMapper`, `MemoryRepository`, and discovery-only detail are still not implemented.
+- Added `DiscoverySnapshotMapper` as a pure conversion layer from analyzed `PhotoItem` data to `DiscoverySnapshot` groups.
+- Mapper MVP uses existing `locationKey` grouping only; it does not perform GPS clustering because raw lat/lng is not preserved in `PhotoItem`.
+- `MemoryRepository` and discovery-only detail are still not implemented.
 
 ## Current Release/WIP Note - 2026-08-09
 
