@@ -1,6 +1,6 @@
 # PhotoPlace Agent Shared TODO
 
-Updated: 2026-08-10
+Updated: 2026-08-14
 
 This file is the shared handoff note for Codex and Gemini CLI. Keep it short, current, and safe to act on.
 
@@ -34,6 +34,8 @@ Read these first:
   - P1 Memory Personalization design for display name, memo, and user cover storage. Use this before coding personalization UI.
 - `DISPLAY_FIRST_ORGANIZE_OPTIONAL_DESIGN_2026-08-10.md`
   - Final V2 direction for showing location-based memories inside PhotoPlace before optional Gallery album creation.
+- `MEMORY_BROWSING_FIRST_DESIGN.md`
+  - Gemini design for the Memory browsing first implementation path. Includes sequence diagram and example JSON.
 - `PERSONAL_PLACE_PRD_REVIEW_2026-08-10.md`
   - Gemini review of the Personal Place PRD. Use it as the data-contract checklist before implementation.
 - `COMMIT_9E51A2C_REVIEW.md`
@@ -67,6 +69,7 @@ Reference docs:
   - `위치 없음 0개` no longer shows an empty no-location preview/focus screen.
 - Current WIP after 1.2.8 adds the first Display First / Organize Optional model skeleton. Check `git status` before editing and do not discard local changes.
 - Keep avoiding the earlier broad Geocoder candidate scoring experiment. It caused POI overclassification.
+- Weekend WIP starts from Memory browsing first. Do not jump to Personal Place UI before discovery-only memory browsing works.
 
 ## Current WIP Note - Display First Model Boundary
 
@@ -95,6 +98,14 @@ Important boundary:
 Validation:
 
 - `testDebugUnitTest` passes after adding JVM-only `testImplementation "org.json:json:20240303"` for JSON unit tests.
+
+2026-08-14 update:
+
+- Added `DiscoverySnapshotStore` as the first Memory browsing persistence step.
+- It stores the existing `DiscoverySnapshotJson` schema in `discovery_snapshot.json`.
+- It uses temp/write + backup recovery and refuses to overwrite a corrupt snapshot when no valid backup exists.
+- `MainActivity` remains untouched.
+- `DiscoverySnapshotMapper`, `MemoryRepository`, and discovery-only detail are still not implemented.
 
 ## Current Release/WIP Note - 2026-08-09
 
