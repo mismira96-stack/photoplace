@@ -1,6 +1,6 @@
 # PhotoPlace Agent Shared TODO
 
-Updated: 2026-08-14
+Updated: 2026-08-15
 
 This file is the shared handoff note for Codex and Gemini CLI. Keep it short, current, and safe to act on.
 
@@ -59,6 +59,7 @@ Reference docs:
 - Branch: `codex/photoplace-v2-bg-wip`
 - Latest Play release/draft baseline: `versionCode 29` / `versionName 1.2.8` / `targetSdk 36`
 - Latest pushed release checkpoint: `7c6275e Bump version for overseas country identity fix`
+- Latest pushed V2 architecture checkpoint: `4e060b3 Add discovery mapper edge case tests`
 - Release AAB: `photoplace-1.2.8-code29-overseas-country-identity-api36.aab`
 - Release APK: `photoplace-1.2.8-code29-overseas-country-identity-api36.apk`
 - Play Console status: 1.2.8 production draft uploaded by API; user manually sent for review.
@@ -70,6 +71,9 @@ Reference docs:
 - Current WIP after 1.2.8 adds the first Display First / Organize Optional model skeleton. Check `git status` before editing and do not discard local changes.
 - Keep avoiding the earlier broad Geocoder candidate scoring experiment. It caused POI overclassification.
 - Weekend WIP starts from Memory browsing first. Do not jump to Personal Place UI before discovery-only memory browsing works.
+- Overseas country grouping/search is stabilized after the country identity patch. The friend device case was rechecked and resolved.
+- `일본` / `Japan` / `JP` search is supported through `CountryIdentityNormalizer` and `StoredAlbumSummarySearch`.
+- Keep overseas work as observation backlog only. Reopen only if a new real sample/dump fails country grouping/search. Do not add city-by-city country patches.
 
 ## Current WIP Note - Display First Model Boundary
 
@@ -108,6 +112,48 @@ Validation:
 - Added `DiscoverySnapshotMapper` as a pure conversion layer from analyzed `PhotoItem` data to `DiscoverySnapshot` groups.
 - Mapper MVP uses existing `locationKey` grouping only; it does not perform GPS clustering because raw lat/lng is not preserved in `PhotoItem`.
 - `MemoryRepository` and discovery-only detail are still not implemented.
+- Added mapper edge-case tests for null input, unknown time, and trimmed location keys.
+- Test/validation checkpoint:
+  - `.\gradlew.bat testDebugUnitTest`
+  - `.\gradlew.bat assembleDebug`
+  - `MainActivity` unchanged.
+
+## Immediate Next Session Checklist
+
+Start from:
+
+- Branch: `codex/photoplace-v2-bg-wip`
+- Commit: `4e060b3 Add discovery mapper edge case tests`
+
+Before coding:
+
+1. Check `git status`.
+2. Read this file, `WORKLOG_2026-08-14.md`, `MEMORY_BROWSING_FIRST_DESIGN.md`, and `Photoplace_V2_Epic_PRD_2026-08-09.md`.
+3. Keep replies/reviews in Korean when prompting Gemini.
+
+Next code patch:
+
+1. Add a read-only `MemoryRepository` / adapter in separate classes.
+2. Convert `DiscoveryMemoryGroup` to `MemoryRecord`.
+3. Prepare merge semantics for future organized albums + discovery-only memories.
+4. Do not write discovery-only rows to `AlbumSummaryHistoryStore`.
+5. Do not use empty `relativePath` as a fake organized album.
+6. Do not wire UI or add more logic to `MainActivity` yet.
+
+Focused tests for the next patch:
+
+- discovery-only `MemoryRecord` uses `MemorySourceType.DISCOVERED_ONLY`.
+- source photo refs are preserved.
+- country/admin/address metadata is preserved.
+- discovery-only records do not require `StoredAlbumSummary`.
+- organized-album merge behavior is deterministic when added.
+
+Older release follow-ups are separate backlog, not the next coding default:
+
+- Overseas country identity follow-up only for new real repros. The known friend case is resolved.
+- 5,300-folder anomaly if a dump can confirm the source data shape.
+- Notification phase reliability for folders that switch from analysis to album creation.
+- Home latency monitoring on large libraries.
 
 ## Current Release/WIP Note - 2026-08-09
 
@@ -145,7 +191,7 @@ Recommended next feature order:
   - Keep saving a place separate from moving files.
   - Must pass `Candidate Quality Validation` before any recommendation UI or Gallery action is built.
 4. Country/date/place search expansion:
-  - `일본`, `Japan`, `JP`
+  - `일본`, `Japan`, `JP` is implemented for country identity search; keep regression tests when touching search.
   - `8월`, `2026년 8월`
   - `삿포로` / `sapporo`
 5. Memory Personalization displayName MVP and search integration.
@@ -163,7 +209,7 @@ Latest product observation:
   - The app should recommend a candidate and ask the user to name/confirm it; it must not automatically create or move Gallery albums.
   - The first risk to validate is whether repeated GPS clusters are actually meaningful to users. Treat radius/count/date thresholds as experiment parameters until validated.
 - Search TODO from user feedback:
-  - UI says country search is supported, but `일본` may not work for some records. Verify current/rebuilt/older history metadata.
+  - Country search now works for normalized country identity records (`일본`, `Japan`, `JP`). Recheck only for old/corrupt history or friend sample failures.
   - Add Korean date query support later: `8월`, `2026년 8월`, `8월 2일`.
   - Add localized/romanized alias search where practical: `삿포로` and `sapporo` should find the same memory.
   - Prefer a small alias/normalization layer over one-off string checks inside `MainActivity`.
@@ -307,40 +353,6 @@ Next work should avoid widening this stabilization batch:
   - result screen renderer/model
   - original cleanup state/store
   - memory/home sections
-
-## Immediate Next Session Checklist
-
-1. Confirm Play Console status for 1.2.6:
-  - draft submitted manually or review pending
-  - no extra foreground-service declaration issue
-2. Smoke-test the Play/installed 1.2.6 build:
-  - Japan folder still does not show `中央区`.
-  - Original cleanup prompt does not show the already-sorted count.
-  - `위치 없음 0개` has no empty preview.
-  - Existing test folder notification is still normal.
-3. On friend's device:
-  - install latest build or confirm Play update.
-  - run only "rebuild discovered places" first; no need to fully sort again if folders already exist.
-  - check overseas history country list.
-  - check sort history count vs actual generated album count.
-  - collect sample photos/logs if mismatch remains.
-4. If overseas history still fails:
-  - inspect `album_summary_history.json` / restored summary metadata path.
-  - verify `StoredAlbumSummary.countryName`, `addressLine`, `adminArea`, `albumName`, and `representativeUri`.
-5. If 5,300-folder count reproduces:
-  - do not patch blindly.
-  - first determine whether count means generated albums, history rows, photo groups, or raw media rows.
-6. Next feature candidates, in recommended order:
-  - DiscoverySnapshotStore
-  - DiscoverySnapshotMapper
-  - no-location skip via snapshot/cache
-  - repeated-place / Personal Place candidate logic
-  - MemoryRepository / discovery-only detail
-  - country/date/place search expansion
-  - international address normalizer design
-  - moving/in-flight badges
-  - all-photos result detail
-  - resume-from-stop sorting
 
 ## Latest Late-Night Device Findings - 2026-08-06
 
