@@ -128,6 +128,7 @@ Validation:
 - It merges records only when the exact `memoryKey` matches; it does not guess by title/country/city.
 - Added `MemoryBrowserState` / `MemoryBrowserItem` / `MemoryBrowserDetail` as the UI-facing adapter layer.
 - Discovery-only detail stays `sourceUri` based and excludes stale refs.
+- Added edge tests for empty `sourceUri` and all-stale/missing source refs.
 - `MainActivity` remains untouched.
 - Gemini review prompts are in `WORKLOG_2026-08-15.md`.
 - `MemoryRepository` UI wiring and discovery-only detail screen are still not implemented.
@@ -150,9 +151,10 @@ Next code patch after reviewing `MemoryRepository` and `MemoryBrowserState`:
 1. Address Gemini review findings if any.
 2. Wire the least possible UI entry point for memory browsing.
 3. Add discovery-only detail by `memoryKey` and `sourceUri`.
-4. Keep `MainActivity` changes thin and avoid moving repository logic into it.
-5. Do not write discovery-only rows to `AlbumSummaryHistoryStore`.
-6. Do not use empty `relativePath` as a fake organized album.
+4. Add user-safe handling for missing/deleted/permission-denied source photos in the UI path.
+5. Keep `MainActivity` changes thin and avoid moving repository logic into it.
+6. Do not write discovery-only rows to `AlbumSummaryHistoryStore`.
+7. Do not use empty `relativePath` as a fake organized album.
 
 Focused checks for the next UI-facing patch:
 

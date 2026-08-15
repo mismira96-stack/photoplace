@@ -8,8 +8,10 @@ import static org.junit.Assert.assertTrue;
 
 import org.junit.Test;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.List;
 
 public class MemoryBrowserStateTest {
     @Test
@@ -97,6 +99,45 @@ public class MemoryBrowserStateTest {
     }
 
     @Test
+    public void detailIgnoresEmptySourceUris() {
+        DiscoveryMemoryGroup group = discoveryGroupWithRefs(
+                "discovery:삿포로",
+                "삿포로",
+                Arrays.asList(
+                        photoRef("", false),
+                        photoRef("content://media/external/images/media/201", false)));
+        MemoryRepository repository = new MemoryRepository(snapshot(group), null);
+        MemoryBrowserState state = MemoryBrowserState.from(repository);
+
+        MemoryBrowserDetail detail = state.detail("discovery:삿포로", repository);
+
+        assertNotNull(detail);
+        assertEquals(1, detail.sourceUris.size());
+        assertEquals("content://media/external/images/media/201", detail.sourceUris.get(0));
+        assertTrue(detail.canOpenPhotos);
+        assertTrue(detail.canOrganize);
+    }
+
+    @Test
+    public void detailDisablesPhotoActionsWhenEverySourceUriIsStaleOrMissing() {
+        DiscoveryMemoryGroup group = discoveryGroupWithRefs(
+                "discovery:삿포로",
+                "삿포로",
+                Arrays.asList(
+                        photoRef("content://media/external/images/media/301", true),
+                        photoRef("", false)));
+        MemoryRepository repository = new MemoryRepository(snapshot(group), null);
+        MemoryBrowserState state = MemoryBrowserState.from(repository);
+
+        MemoryBrowserDetail detail = state.detail("discovery:삿포로", repository);
+
+        assertNotNull(detail);
+        assertTrue(detail.sourceUris.isEmpty());
+        assertFalse(detail.canOpenPhotos);
+        assertFalse(detail.canOrganize);
+    }
+
+    @Test
     public void missingRepositoryOrKeyReturnsEmptyStateOrNullDetail() {
         MemoryBrowserState empty = MemoryBrowserState.from(null);
 
@@ -142,6 +183,21 @@ public class MemoryBrowserStateTest {
                                                        String placeName,
                                                        int itemCount,
                                                        int staleCount) {
+        return discoveryGroupWithRefs(memoryKey, placeName, photoRefs(itemCount, staleCount));
+    }
+
+    private static DiscoveryMemoryGroup discoveryGroupWithRefs(String memoryKey,
+                                                               String placeName,
+                                                               List<DiscoveryPhotoRef> refs) {
+        int itemCount = refs == null ? 0 : refs.size();
+        int staleCount = 0;
+        if (refs != null) {
+            for (DiscoveryPhotoRef ref : refs) {
+                if (ref != null && ref.stale) {
+                    staleCount++;
+                }
+            }
+        }
         return new DiscoveryMemoryGroup(
                 memoryKey,
                 placeName,
@@ -156,12 +212,19 @@ public class MemoryBrowserStateTest {
                 1785600000000L,
                 1785945600000L,
                 "content://media/external/images/media/101",
-                Arrays.asList(
-                        photoRef("content://media/external/images/media/101", false),
-                        photoRef("content://media/external/images/media/102", false),
-                        photoRef("content://media/external/images/media/103", true)),
+                refs,
                 staleCount,
                 1L);
+    }
+
+    private static List<DiscoveryPhotoRef> photoRefs(int itemCount, int staleCount) {
+        ArrayList<DiscoveryPhotoRef> refs = new ArrayList<>();
+        for (int i = 0; i < itemCount; i++) {
+            refs.add(photoRef(
+                    "content://media/external/images/media/" + (101 + i),
+                    i >= itemCount - staleCount));
+        }
+        return refs;
     }
 
     private static DiscoveryPhotoRef photoRef(String uri, boolean stale) {
