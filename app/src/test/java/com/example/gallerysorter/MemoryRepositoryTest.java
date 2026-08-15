@@ -247,6 +247,80 @@ public class MemoryRepositoryTest {
     }
 
     @Test
+    public void sameCountryAndPlaceDoesNotMergeWhenAdminAndDatesDiffer() {
+        StoredAlbumSummary summary = organizedAlbum(
+                "중앙구에서",
+                "Pictures/중앙구에서/",
+                10,
+                "2022-01-01",
+                "2022-01-02",
+                "KR",
+                "대한민국",
+                "부산광역시",
+                "부산광역시 중앙구");
+        DiscoveryMemoryGroup group = discoveryGroup(
+                "discovery:중앙구",
+                "중앙구",
+                "중앙구",
+                5,
+                5,
+                0,
+                1785600000000L,
+                1785686400000L,
+                0,
+                "KR",
+                "대한민국",
+                "대전광역시",
+                "대전광역시 중앙구");
+        MemoryRepository repository = new MemoryRepository(
+                snapshot(group),
+                Collections.singletonList(summary));
+
+        List<MemoryRecord> allRecords = repository.memories();
+        List<MemoryRecord> discoveryRecords = repository.discoveryMemories();
+
+        assertEquals(2, allRecords.size());
+        assertEquals(1, discoveryRecords.size());
+        assertEquals(MemorySourceType.DISCOVERED_ONLY, discoveryRecords.get(0).sourceType);
+    }
+
+    @Test
+    public void sameCountryAndPlaceCanMergeWhenDatesOverlapEvenIfAdminDiffers() {
+        StoredAlbumSummary summary = organizedAlbum(
+                "중앙구에서",
+                "Pictures/중앙구에서/",
+                10,
+                "2026-08-01",
+                "2026-08-03",
+                "KR",
+                "대한민국",
+                "부산광역시",
+                "부산광역시 중앙구");
+        DiscoveryMemoryGroup group = discoveryGroup(
+                "discovery:중앙구",
+                "중앙구",
+                "중앙구",
+                5,
+                5,
+                0,
+                1785600000000L,
+                1785772800000L,
+                0,
+                "KR",
+                "대한민국",
+                "대전광역시",
+                "대전광역시 중앙구");
+        MemoryRepository repository = new MemoryRepository(
+                snapshot(group),
+                Collections.singletonList(summary));
+
+        List<MemoryRecord> records = repository.discoveryMemories();
+
+        assertEquals(1, records.size());
+        assertEquals(MemorySourceType.MIXED, records.get(0).sourceType);
+    }
+
+    @Test
     public void samePlaceNameDifferentCountryDoesNotMerge() {
         StoredAlbumSummary summary = organizedAlbum(
                 "중앙구에서",

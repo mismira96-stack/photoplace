@@ -26,15 +26,12 @@ final class MemoryRepository {
 
     List<MemoryRecord> memories() {
         LinkedHashMap<String, MemoryRecord> records = new LinkedHashMap<>();
-        LinkedHashMap<String, MemoryRecord> organizedByPlaceKey = new LinkedHashMap<>();
+        LinkedHashMap<String, List<MemoryRecord>> organizedByPlaceKey = new LinkedHashMap<>();
         for (StoredAlbumSummary summary : organizedAlbums) {
             MemoryRecord record = fromOrganizedAlbum(summary);
             if (record != null) {
                 records.put(record.memoryKey, record);
-                String placeIdentityKey = placeIdentityKey(record);
-                if (!placeIdentityKey.isEmpty() && !organizedByPlaceKey.containsKey(placeIdentityKey)) {
-                    organizedByPlaceKey.put(placeIdentityKey, record);
-                }
+                addByPlaceIdentity(organizedByPlaceKey, record);
             }
         }
         if (discoverySnapshot != null) {
@@ -45,7 +42,7 @@ final class MemoryRepository {
                 }
                 MemoryRecord existing = records.get(discoveryRecord.memoryKey);
                 if (existing == null) {
-                    existing = organizedByPlaceKey.get(placeIdentityKey(discoveryRecord));
+                    existing = findCompatibleOrganizedRecord(organizedByPlaceKey, discoveryRecord);
                 }
                 if (existing == null) {
                     records.put(discoveryRecord.memoryKey, discoveryRecord);
@@ -59,15 +56,12 @@ final class MemoryRepository {
 
     List<MemoryRecord> discoveryMemories() {
         LinkedHashMap<String, MemoryRecord> organizedByKey = new LinkedHashMap<>();
-        LinkedHashMap<String, MemoryRecord> organizedByPlaceKey = new LinkedHashMap<>();
+        LinkedHashMap<String, List<MemoryRecord>> organizedByPlaceKey = new LinkedHashMap<>();
         for (StoredAlbumSummary summary : organizedAlbums) {
             MemoryRecord record = fromOrganizedAlbum(summary);
             if (record != null) {
                 organizedByKey.put(record.memoryKey, record);
-                String placeIdentityKey = placeIdentityKey(record);
-                if (!placeIdentityKey.isEmpty() && !organizedByPlaceKey.containsKey(placeIdentityKey)) {
-                    organizedByPlaceKey.put(placeIdentityKey, record);
-                }
+                addByPlaceIdentity(organizedByPlaceKey, record);
             }
         }
         if (discoverySnapshot == null || discoverySnapshot.groups.isEmpty()) {
@@ -81,7 +75,7 @@ final class MemoryRepository {
             }
             MemoryRecord existing = organizedByKey.get(discoveryRecord.memoryKey);
             if (existing == null) {
-                existing = organizedByPlaceKey.get(placeIdentityKey(discoveryRecord));
+                existing = findCompatibleOrganizedRecord(organizedByPlaceKey, discoveryRecord);
             }
             records.add(existing == null ? discoveryRecord : merge(existing, discoveryRecord));
         }
@@ -259,6 +253,70 @@ final class MemoryRepository {
             return "";
         }
         return countryCode + "|" + placeName;
+    }
+
+    private static void addByPlaceIdentity(LinkedHashMap<String, List<MemoryRecord>> recordsByPlace,
+                                           MemoryRecord record) {
+        String key = placeIdentityKey(record);
+        if (key.isEmpty()) {
+            return;
+        }
+        List<MemoryRecord> records = recordsByPlace.get(key);
+        if (records == null) {
+            records = new ArrayList<>();
+            recordsByPlace.put(key, records);
+        }
+        records.add(record);
+    }
+
+    private static MemoryRecord findCompatibleOrganizedRecord(LinkedHashMap<String, List<MemoryRecord>> organizedByPlaceKey,
+                                                              MemoryRecord discoveryRecord) {
+        List<MemoryRecord> candidates = organizedByPlaceKey.get(placeIdentityKey(discoveryRecord));
+        if (candidates == null || candidates.isEmpty()) {
+            return null;
+        }
+        for (MemoryRecord candidate : candidates) {
+            if (isCompatibleFallbackMerge(candidate, discoveryRecord)) {
+                return candidate;
+            }
+        }
+        return null;
+    }
+
+    private static boolean isCompatibleFallbackMerge(MemoryRecord organizedRecord, MemoryRecord discoveryRecord) {
+        return hasSameAdminArea(organizedRecord, discoveryRecord)
+                || dateRangesOverlap(organizedRecord, discoveryRecord);
+    }
+
+    private static boolean hasSameAdminArea(MemoryRecord first, MemoryRecord second) {
+        String firstAdmin = clean(first == null ? "" : first.adminArea);
+        String secondAdmin = clean(second == null ? "" : second.adminArea);
+        return !firstAdmin.isEmpty() && firstAdmin.equals(secondAdmin);
+    }
+
+    private static boolean dateRangesOverlap(MemoryRecord first, MemoryRecord second) {
+        long firstStart = normalizedStart(first == null ? 0L : first.startDateMillis, first == null ? 0L : first.endDateMillis);
+        long firstEnd = normalizedEnd(first == null ? 0L : first.startDateMillis, first == null ? 0L : first.endDateMillis);
+        long secondStart = normalizedStart(second == null ? 0L : second.startDateMillis, second == null ? 0L : second.endDateMillis);
+        long secondEnd = normalizedEnd(second == null ? 0L : second.startDateMillis, second == null ? 0L : second.endDateMillis);
+        if (firstStart <= 0L || firstEnd <= 0L || secondStart <= 0L || secondEnd <= 0L) {
+            return false;
+        }
+        return firstStart <= secondEnd && secondStart <= firstEnd;
+    }
+
+    private static long normalizedStart(long startMillis, long endMillis) {
+        if (startMillis > 0L) {
+            return startMillis;
+        }
+        return Math.max(0L, endMillis);
+    }
+
+    private static long normalizedEnd(long startMillis, long endMillis) {
+        if (endMillis > 0L) {
+            return endMillis;
+        }
+        return Math.max(0L, startMillis);
     }
 
     private static String canonicalPlaceName(String albumName) {

@@ -8683,9 +8683,9 @@ public class MainActivity extends Activity {
             TextView title = new TextView(this);
             String place = section.placeText == null ? "" : section.placeText.trim();
             title.setText(section.dateText + (place.isEmpty() ? "" : "   " + place));
-            title.setTextSize(17.0f);
+            title.setTextSize(15.5f);
             title.setTypeface(Typeface.DEFAULT_BOLD);
-            title.setTextColor(-4203522);
+            title.setTextColor(-11837581);
             title.setPadding(dp(2), dp(8), dp(2), dp(8));
             parent.addView(title, matchWidth());
 
