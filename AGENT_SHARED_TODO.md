@@ -126,8 +126,10 @@ Validation:
 - It converts discovery-only groups and organized albums into `MemoryRecord`.
 - It does not write discovery-only records into `AlbumSummaryHistoryStore`.
 - It merges records only when the exact `memoryKey` matches; it does not guess by title/country/city.
+- Added `MemoryBrowserState` / `MemoryBrowserItem` / `MemoryBrowserDetail` as the UI-facing adapter layer.
+- Discovery-only detail stays `sourceUri` based and excludes stale refs.
 - `MainActivity` remains untouched.
-- Gemini review prompt is in `WORKLOG_2026-08-15.md`.
+- Gemini review prompts are in `WORKLOG_2026-08-15.md`.
 - `MemoryRepository` UI wiring and discovery-only detail screen are still not implemented.
 
 ## Immediate Next Session Checklist
@@ -143,21 +145,21 @@ Before coding:
 2. Read this file, `WORKLOG_2026-08-14.md`, `MEMORY_BROWSING_FIRST_DESIGN.md`, and `Photoplace_V2_Epic_PRD_2026-08-09.md`.
 3. Keep replies/reviews in Korean when prompting Gemini.
 
-Next code patch after reviewing `MemoryRepository`:
+Next code patch after reviewing `MemoryRepository` and `MemoryBrowserState`:
 
 1. Address Gemini review findings if any.
-2. Add a small UI-facing controller/adapter for memory list state.
-3. Wire the least possible UI entry point.
+2. Wire the least possible UI entry point for memory browsing.
+3. Add discovery-only detail by `memoryKey` and `sourceUri`.
 4. Keep `MainActivity` changes thin and avoid moving repository logic into it.
 5. Do not write discovery-only rows to `AlbumSummaryHistoryStore`.
 6. Do not use empty `relativePath` as a fake organized album.
 
-Focused tests for the next UI-facing patch:
+Focused checks for the next UI-facing patch:
 
-- memory list state from discovery-only records.
-- empty state when no snapshot/history exists.
-- detail handoff by `memoryKey` returns source refs for discovery-only records.
+- discovery-only memories appear before Gallery album creation.
 - organized album actions remain Gallery-based.
+- detail handoff by `memoryKey` opens source refs for discovery-only records.
+- empty state works when no snapshot/history exists.
 - `MainActivity` contains only wiring, not repository logic.
 
 Older release follow-ups are separate backlog, not the next coding default:
