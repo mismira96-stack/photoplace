@@ -78,6 +78,32 @@ public class DiscoverySnapshotJsonTest {
     }
 
     @Test
+    public void unsupportedSchemaReadsAsEmptySnapshot() throws Exception {
+        JSONObject root = new JSONObject()
+                .put("schemaVersion", DiscoverySnapshot.CURRENT_SCHEMA_VERSION + 1)
+                .put("groups", new JSONArray().put(new JSONObject()
+                        .put("memoryKey", "memory:future")
+                        .put("placeKey", "future")
+                        .put("itemCount", 1)));
+
+        DiscoverySnapshot restored = DiscoverySnapshotJson.fromJson(root);
+
+        assertEquals(DiscoverySnapshot.CURRENT_SCHEMA_VERSION, restored.schemaVersion);
+        assertEquals(0, restored.groupCount());
+    }
+
+    @Test
+    public void invalidGroupsTypeReadsAsEmptySnapshot() throws Exception {
+        JSONObject root = new JSONObject()
+                .put("schemaVersion", DiscoverySnapshot.CURRENT_SCHEMA_VERSION)
+                .put("groups", "not-an-array");
+
+        DiscoverySnapshot restored = DiscoverySnapshotJson.fromJson(root);
+
+        assertEquals(0, restored.groupCount());
+    }
+
+    @Test
     public void fromJsonRecalculatesCountsWhenPhotoRefsExist() throws Exception {
         JSONObject photo = new JSONObject()
                 .put("sourceUri", "content://media/external/images/media/1")

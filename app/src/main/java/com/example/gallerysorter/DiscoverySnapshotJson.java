@@ -40,7 +40,7 @@ final class DiscoverySnapshotJson {
     }
 
     static DiscoverySnapshot fromJson(JSONObject root) {
-        if (root == null) {
+        if (!isReadableRoot(root)) {
             return empty();
         }
         JSONArray groupArray = root.optJSONArray("groups");
@@ -65,6 +65,18 @@ final class DiscoverySnapshotJson {
                 groups,
                 root.optString("analysisPolicyVersion", ""),
                 root.optString("countryIdentityPolicyVersion", ""));
+    }
+
+    static boolean isReadableRoot(JSONObject root) {
+        if (root == null) {
+            return false;
+        }
+        if (root.has("schemaVersion")
+                && root.optInt("schemaVersion", -1) != DiscoverySnapshot.CURRENT_SCHEMA_VERSION) {
+            return false;
+        }
+        Object groups = root.opt("groups");
+        return groups == null || groups == JSONObject.NULL || groups instanceof JSONArray;
     }
 
     private static JSONObject groupToJson(DiscoveryMemoryGroup group) throws JSONException {

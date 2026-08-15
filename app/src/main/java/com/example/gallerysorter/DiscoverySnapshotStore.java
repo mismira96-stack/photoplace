@@ -90,7 +90,8 @@ final class DiscoverySnapshotStore {
                 builder.append(line);
             }
             if (builder.length() > 0) {
-                return new JSONObject(builder.toString());
+                JSONObject root = new JSONObject(builder.toString());
+                return DiscoverySnapshotJson.isReadableRoot(root) ? root : null;
             }
         } catch (Exception unused) {
         }

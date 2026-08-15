@@ -144,6 +144,19 @@ Validation:
 - Device install/smoke test is pending because no ADB device was connected during this checkpoint.
 - Gemini review prompt for this patch is in `WORKLOG_2026-08-15.md`.
 
+2026-08-15 Gemini blocker follow-up:
+
+- Hardened `DiscoverySnapshotJson` schema reading.
+  - Missing schema is still compatible.
+  - Future/unsupported schema is treated as unreadable.
+  - Non-array `groups` is treated as unreadable.
+  - `DiscoverySnapshotStore` now routes those semantic corrupt cases through backup recovery / write refusal.
+- Added `OrganizePlaceService` as a side-effect-free plan builder.
+  - It filters stale or empty source refs from a discovery memory.
+  - It computes a target relative path but does not write `SortInputStore` or start WorkManager yet.
+- Added tests for schema hardening and organize-plan filtering.
+- Device smoke checklist is documented in `WORKLOG_2026-08-15.md`.
+
 ## Immediate Next Session Checklist
 
 Start from:
@@ -163,7 +176,7 @@ Next code patch after reviewing the MVP UI wiring:
 2. Device smoke test the Preview -> `앱에서 보기` -> Memory Browser -> detail flow.
 3. Decide whether the temporary `MainActivity` Memory Browser UI should be extracted into a renderer/controller before more UI work.
 4. Improve user-safe handling for missing/deleted/permission-denied source photos if phone testing exposes rough edges.
-5. Design true per-memory album creation from a discovery-only detail before implementing it.
+5. Design the Android-aware adapter that converts `OrganizePlaceService.Plan` into `PhotoItem` / `SortInputStore` for true per-memory album creation.
 6. Do not write discovery-only rows to `AlbumSummaryHistoryStore`.
 7. Do not use empty `relativePath` as a fake organized album.
 

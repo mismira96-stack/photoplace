@@ -59,6 +59,26 @@ public class DiscoverySnapshotStoreTest {
     }
 
     @Test
+    public void readRestoresBackupWhenMainFileHasUnsupportedSchema() throws Exception {
+        File dir = temporaryFolder.newFolder("semantic-backup");
+        DiscoverySnapshot snapshot = sampleSnapshot(8L);
+        writeText(new File(dir, "discovery_snapshot.json"),
+                new JSONObject()
+                        .put("schemaVersion", DiscoverySnapshot.CURRENT_SCHEMA_VERSION + 1)
+                        .put("groups", Collections.emptyList())
+                        .toString(2));
+        writeText(new File(dir, "discovery_snapshot.json.bak"), DiscoverySnapshotJson.toJson(snapshot).toString(2));
+        DiscoverySnapshotStore store = new DiscoverySnapshotStore(dir);
+
+        DiscoverySnapshot restored = store.read();
+
+        assertEquals(8L, restored.snapshotVersion);
+        assertEquals(1, restored.groupCount());
+        assertFalse(new File(dir, "discovery_snapshot.json.bak").exists());
+        assertTrue(new File(dir, "discovery_snapshot.json.corrupt").exists());
+    }
+
+    @Test
     public void saveDoesNotOverwriteCorruptFileWithoutBackup() throws Exception {
         File dir = temporaryFolder.newFolder("corrupt");
         File target = new File(dir, "discovery_snapshot.json");
@@ -68,6 +88,22 @@ public class DiscoverySnapshotStoreTest {
         assertFalse(store.save(sampleSnapshot(9L)));
 
         assertEquals("{broken", readText(target));
+    }
+
+    @Test
+    public void saveDoesNotOverwriteUnsupportedSchemaWithoutBackup() throws Exception {
+        File dir = temporaryFolder.newFolder("semantic-corrupt");
+        File target = new File(dir, "discovery_snapshot.json");
+        String unsupported = new JSONObject()
+                .put("schemaVersion", DiscoverySnapshot.CURRENT_SCHEMA_VERSION + 1)
+                .put("groups", Collections.emptyList())
+                .toString(2);
+        writeText(target, unsupported);
+        DiscoverySnapshotStore store = new DiscoverySnapshotStore(dir);
+
+        assertFalse(store.save(sampleSnapshot(9L)));
+
+        assertEquals(unsupported, readText(target));
     }
 
     @Test
