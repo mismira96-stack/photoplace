@@ -94,6 +94,8 @@ public class MemoryBrowserStateTest {
         assertEquals(2, detail.sourceUris.size());
         assertEquals("content://media/external/images/media/101", detail.sourceUris.get(0));
         assertEquals("content://media/external/images/media/102", detail.sourceUris.get(1));
+        assertEquals(1, detail.photoSections.size());
+        assertEquals(2, detail.photoSections.get(0).photos.size());
         assertTrue(detail.canOpenPhotos);
         assertTrue(detail.canOrganize);
     }
@@ -114,6 +116,8 @@ public class MemoryBrowserStateTest {
         assertNotNull(detail);
         assertEquals(1, detail.sourceUris.size());
         assertEquals("content://media/external/images/media/201", detail.sourceUris.get(0));
+        assertEquals(1, detail.photoSections.size());
+        assertEquals("content://media/external/images/media/201", detail.photoSections.get(0).photos.get(0).sourceUri);
         assertTrue(detail.canOpenPhotos);
         assertTrue(detail.canOrganize);
     }
@@ -133,6 +137,7 @@ public class MemoryBrowserStateTest {
 
         assertNotNull(detail);
         assertTrue(detail.sourceUris.isEmpty());
+        assertTrue(detail.photoSections.isEmpty());
         assertFalse(detail.canOpenPhotos);
         assertFalse(detail.canOrganize);
     }

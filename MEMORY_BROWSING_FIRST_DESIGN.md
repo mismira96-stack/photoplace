@@ -102,6 +102,21 @@ GPS 기반 반복 장소 후보 생성은 별도 `PlaceCandidate`/candidate gene
 - 결정: snapshot 레벨에 `noLocationSkipSet`을 포함
 - 이유: UI에서 "위치 정보 없음으로 건너뜀" 카운트/설정 표시 가능, 후보 생성 때 일관된 기준 제공
 
+### No-location cache v2 안전 원칙
+
+`noLocationSkipSet`은 메모리 후보/앨범 후보에서 제외하기 위한 discovery metadata이지, 다음 분석에서 해당 파일을 preview inventory에서 완전히 제거한다는 뜻이 아니다.
+
+안전한 동작:
+
+- MediaStore source inventory는 계속 확인한다.
+- signature가 완전히 같은 no-location 파일만 비싼 `readLocation()` 경로를 생략한다.
+- cache hit이어도 `PhotoItem(noLocation=true)`은 생성하여 `위치 없음 N개` 카운트가 유지되게 한다.
+- Memory Browser group과 organizer 후보에서는 계속 제외한다.
+- MediaStore latitude/longitude가 있으면 cache를 사용하지 않고 재분석한다.
+- cache signature에는 source URI, mediaStoreId, displayName, date_modified, date_added, datetaken, media kind, size/duration, policyVersion을 포함한다.
+
+이전 `NoLocationCache` v1은 새 사진/정리 대상이 0개로 잘못 보이는 회귀 위험 때문에 비활성 상태로 유지한다. v2는 별도 테스트와 리뷰 후 활성화한다.
+
 ## MainActivity에 넣지 말고 분리할 클래스
 - UI: `DiscoveryActivity` (또는 `DiscoveryFragment`) + `DiscoveryViewModel`
 - Coordinator: `DiscoveryCoordinator` 또는 `DiscoveryController` — `MemoryRepository`와 UI 사이 중재

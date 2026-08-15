@@ -217,6 +217,7 @@ final class MemoryBrowserDetail {
     final MemoryBrowserItem item;
     final MemoryRecord record;
     final List<String> sourceUris;
+    final List<MemoryPhotoSection> photoSections;
     final boolean canOpenPhotos;
     final boolean canOpenGalleryAlbum;
     final boolean canOrganize;
@@ -224,12 +225,14 @@ final class MemoryBrowserDetail {
     private MemoryBrowserDetail(MemoryBrowserItem item,
                                 MemoryRecord record,
                                 List<String> sourceUris,
+                                List<MemoryPhotoSection> photoSections,
                                 boolean canOpenPhotos,
                                 boolean canOpenGalleryAlbum,
                                 boolean canOrganize) {
         this.item = item;
         this.record = record;
         this.sourceUris = immutableCopy(sourceUris);
+        this.photoSections = immutableSections(photoSections);
         this.canOpenPhotos = canOpenPhotos;
         this.canOpenGalleryAlbum = canOpenGalleryAlbum;
         this.canOrganize = canOrganize;
@@ -241,24 +244,26 @@ final class MemoryBrowserDetail {
         if (item == null || record == null) {
             return null;
         }
-        ArrayList<String> sourceUris = new ArrayList<>();
-        if (refs != null) {
-            for (DiscoveryPhotoRef ref : refs) {
-                if (ref != null && !clean(ref.sourceUri).isEmpty() && !ref.stale) {
-                    sourceUris.add(ref.sourceUri);
-                }
-            }
-        }
+        List<MemoryPhotoSection> sections = MemoryPhotoSection.fromDiscoveryRefs(refs);
+        List<String> sourceUris = MemoryPhotoSection.sourceUris(sections);
         return new MemoryBrowserDetail(
                 item,
                 record,
                 sourceUris,
+                sections,
                 record.canOpenPhotos && !sourceUris.isEmpty(),
                 record.canOpenGalleryAlbum,
                 record.canOrganize && !sourceUris.isEmpty());
     }
 
     private static List<String> immutableCopy(List<String> values) {
+        if (values == null || values.isEmpty()) {
+            return Collections.emptyList();
+        }
+        return Collections.unmodifiableList(new ArrayList<>(values));
+    }
+
+    private static List<MemoryPhotoSection> immutableSections(List<MemoryPhotoSection> values) {
         if (values == null || values.isEmpty()) {
             return Collections.emptyList();
         }

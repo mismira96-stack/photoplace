@@ -144,6 +144,20 @@ Validation:
 - Device install/smoke test is pending because no ADB device was connected during this checkpoint.
 - Gemini review prompt for this patch is in `WORKLOG_2026-08-15.md`.
 
+2026-08-15 device stabilization / detail model update:
+
+- Added a Home entry to reopen saved Memory Browser data without rerunning analysis.
+- Memory Browser now merges discovery and live organized albums by conservative place identity when exact `memoryKey` differs.
+- Memory Browser uses live album filtering so deleted/moved Gallery albums do not keep showing stale Gallery actions.
+- Organized album opening now delegates to Samsung Gallery album opening instead of opening only the first media item.
+- Source-folder dialog has a reentry/loading guard to avoid stacked dialogs.
+- Memory detail has a date-section model (`MemoryPhotoSection`) and renders date headers in the in-app photo grid.
+- The visible photo cap remains for safety; do not remove it until the detail grid becomes lazy/paged.
+- Thumbnail taps now pass image/video MIME types instead of `*/*` to reduce chooser prompts.
+- Validation:
+  - `.\gradlew.bat testDebugUnitTest`
+  - `.\gradlew.bat assembleDebug`
+
 2026-08-15 Gemini blocker follow-up:
 
 - Hardened `DiscoverySnapshotJson` schema reading.
@@ -179,6 +193,7 @@ Next code patch after reviewing the MVP UI wiring:
 5. Design the Android-aware adapter that converts `OrganizePlaceService.Plan` into `PhotoItem` / `SortInputStore` for true per-memory album creation.
 6. Do not write discovery-only rows to `AlbumSummaryHistoryStore`.
 7. Do not use empty `relativePath` as a fake organized album.
+8. Keep no-location repeated-analysis prevention as a separate cache/snapshot patch; do not re-enable the old `NoLocationCache` without the v2 safety tests below.
 
 Focused checks for the next UI-facing patch:
 
@@ -344,12 +359,29 @@ Next work should avoid widening this stabilization batch:
 3. No-location repeated-analysis prevention (snapshot/cache first):
   - Problem: users with thousands of no-GPS photos repeatedly re-scan the same files.
   - With Display First snapshots, solve this primarily by remembering analyzed no-location file identities.
+  - Current code has `NoLocationCache`, but it is intentionally disabled through `isNoLocationCacheEnabled() == false` after the earlier dangerous "new items show as 0" regression.
+  - Correct v2 behavior is not to remove files from the preview inventory. It should only skip the expensive `readLocation()` path when an unchanged file was already confirmed as no-location.
+  - Cache hit must still create a `PhotoItem` with `noLocation=true`, so `위치 없음 N개` remains visible to the user.
+  - Cache hit must still be excluded from Memory Browser groups and album organization candidates.
   - Store enough signature data to skip unchanged no-location items:
-    - mediaStoreId or sourceUri
+    - mediaStoreId and sourceUri when available
     - displayName
-    - taken/modified time where available
+    - date_modified, date_added, datetaken
+    - size and duration when available
+    - video/image flag
     - size/path signal if available
     - no-location analysis result timestamp/policy version
+  - If MediaStore already exposes latitude/longitude, never trust the no-location cache; re-run location analysis.
+  - If signature differs in any meaningful field, treat as cache miss and re-run location analysis.
+  - Prefer a file-backed JSON store with temp/write + backup recovery, schema version, policy version, trim/TTL, and tests. SharedPreferences v1 is not enough for the final version.
+  - Required tests before enabling:
+    - new file is not hidden by cache
+    - same URI with changed modified/size invalidates cache
+    - copied/moved media with different URI/mediaStoreId misses cache
+    - MediaStore GPS added after a no-location cache entry forces reanalysis
+    - cache hit keeps no-location preview count
+    - corrupt cache restores from backup or safely resets
+    - policy version change invalidates old entries
   - Preview copy should be transparent, for example:
     - `위치 정보 없는 항목 2,034개는 이전에 확인되어 이번 분석에서 제외했어요.`
     - Action: `다시 확인하기`

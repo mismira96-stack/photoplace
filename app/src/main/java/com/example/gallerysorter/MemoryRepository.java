@@ -26,10 +26,15 @@ final class MemoryRepository {
 
     List<MemoryRecord> memories() {
         LinkedHashMap<String, MemoryRecord> records = new LinkedHashMap<>();
+        LinkedHashMap<String, MemoryRecord> organizedByPlaceKey = new LinkedHashMap<>();
         for (StoredAlbumSummary summary : organizedAlbums) {
             MemoryRecord record = fromOrganizedAlbum(summary);
             if (record != null) {
                 records.put(record.memoryKey, record);
+                String placeIdentityKey = placeIdentityKey(record);
+                if (!placeIdentityKey.isEmpty() && !organizedByPlaceKey.containsKey(placeIdentityKey)) {
+                    organizedByPlaceKey.put(placeIdentityKey, record);
+                }
             }
         }
         if (discoverySnapshot != null) {
@@ -39,8 +44,14 @@ final class MemoryRepository {
                     continue;
                 }
                 MemoryRecord existing = records.get(discoveryRecord.memoryKey);
-                records.put(discoveryRecord.memoryKey,
-                        existing == null ? discoveryRecord : merge(existing, discoveryRecord));
+                if (existing == null) {
+                    existing = organizedByPlaceKey.get(placeIdentityKey(discoveryRecord));
+                }
+                if (existing == null) {
+                    records.put(discoveryRecord.memoryKey, discoveryRecord);
+                } else {
+                    records.put(existing.memoryKey, merge(existing, discoveryRecord));
+                }
             }
         }
         return Collections.unmodifiableList(new ArrayList<>(records.values()));
@@ -205,6 +216,18 @@ final class MemoryRepository {
             return countryCode + "|" + canonicalName;
         }
         return canonicalName;
+    }
+
+    private static String placeIdentityKey(MemoryRecord record) {
+        if (record == null) {
+            return "";
+        }
+        String countryCode = clean(record.countryCode);
+        String placeName = firstNonEmpty(record.canonicalPlaceName, canonicalPlaceName(record.title));
+        if (countryCode.isEmpty() || placeName.isEmpty()) {
+            return "";
+        }
+        return countryCode + "|" + placeName;
     }
 
     private static String canonicalPlaceName(String albumName) {

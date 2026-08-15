@@ -157,6 +157,7 @@ public class MainActivity extends Activity {
     private LinearLayout resultSummaryCard;
     private TextView resultSummaryTitle;
     private TextView sourceFoldersText;
+    private Dialog sourceFolderDialog = null;
     private TextView statBlockedLabel;
     private TextView statBlockedText;
     private TextView statReadyLabel;
@@ -192,6 +193,7 @@ public class MainActivity extends Activity {
     private boolean overseasMemoryScreenMode = false;
     private boolean memoryBrowserScreenMode = false;
     private boolean memoryBrowserDetailMode = false;
+    private boolean sourceFolderDialogLoading = false;
     private StoredAlbumSummary activePlaceDetailSummary = null;
     private MemoryGroup activeOverseasMemoryGroup = null;
     private String activeMemoryKey = "";
@@ -865,10 +867,32 @@ public class MainActivity extends Activity {
                 container.removeAllViews();
                 List<StoredAlbumSummary> homeAlbumSummaries = MainActivity.this.loadRecentAlbumSummariesForUi();
                 homeAlbumSummaries = MainActivity.this.filterLiveStoredAlbumSummaries(homeAlbumSummaries);
+                MainActivity.this.addHomeMemoryBrowserEntry(container, homeAlbumSummaries);
                 MainActivity.this.addOverseasMemoriesSection(container, homeAlbumSummaries);
                 MainActivity.this.addRecentPlacesSection(container, homeAlbumSummaries);
             }
         });
+    }
+
+    private void addHomeMemoryBrowserEntry(LinearLayout container, List<StoredAlbumSummary> homeAlbumSummaries) {
+        MemoryBrowserState state;
+        try {
+            state = discoverySnapshotController().loadBrowserState(homeAlbumSummaries);
+        } catch (Exception unused) {
+            return;
+        }
+        if (state == null || state.isEmpty()) {
+            return;
+        }
+        Button button = new Button(this);
+        button.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                MainActivity.this.showMemoryBrowserScreen();
+            }
+        });
+        styleActionButton(button, actionText("발견한 장소 둘러보기", "앨범을 만들지 않아도 앱 안에서 먼저 보기"), "grid", -1050881, -4203522, -14326805);
+        container.addView(button, matchWidthWithBottom(dp(14)));
     }
 
     /* renamed from: lambda$buildUi$0$com-example-gallerysorter-MainActivity, reason: not valid java name */
@@ -2457,7 +2481,10 @@ public class MainActivity extends Activity {
     private void showSourceFolderDialog() {
         if (this.isWorking) {
             showToast("작업 중에는 폴더를 바꿀 수 없어요.");
+        } else if (this.sourceFolderDialogLoading || isDialogShowing(this.sourceFolderDialog)) {
+            showToast("분석할 폴더를 불러오는 중이에요.");
         } else {
+            this.sourceFolderDialogLoading = true;
             this.logText.setText("사진/동영상 폴더를 불러오는 중입니다.");
             this.worker.execute(new Runnable() { // from class: com.example.gallerysorter.MainActivity$$ExternalSyntheticLambda27
                 @Override // java.lang.Runnable
@@ -2466,6 +2493,10 @@ public class MainActivity extends Activity {
                 }
             });
         }
+    }
+
+    private boolean isDialogShowing(Dialog dialog) {
+        return dialog != null && dialog.isShowing();
     }
 
     /* renamed from: lambda$showSourceFolderDialog$30$com-example-gallerysorter-MainActivity, reason: not valid java name */
@@ -2494,6 +2525,10 @@ public class MainActivity extends Activity {
     /* JADX WARN: Type inference failed for: r9v27, types: [android.view.View, android.widget.LinearLayout] */
     /* renamed from: showSourceFolderDialog, reason: merged with bridge method [inline-methods] */
     public void m62xc23fcb4b(final List<SourceFolder> list) {
+        this.sourceFolderDialogLoading = false;
+        if (isDialogShowing(this.sourceFolderDialog)) {
+            return;
+        }
         if (list.isEmpty()) {
             showToast("선택할 사진/동영상 폴더를 찾지 못했어요.");
             this.logText.setText("사진/동영상 폴더를 찾지 못했습니다.");
@@ -2506,6 +2541,15 @@ public class MainActivity extends Activity {
             zArr[i2] = selectedSourcePaths.contains(list.get(i2).relativePath);
         }
         final Dialog dialog = new Dialog(this);
+        this.sourceFolderDialog = dialog;
+        dialog.setOnDismissListener(new DialogInterface.OnDismissListener() {
+            @Override
+            public void onDismiss(DialogInterface dialogInterface) {
+                if (MainActivity.this.sourceFolderDialog == dialog) {
+                    MainActivity.this.sourceFolderDialog = null;
+                }
+            }
+        });
         LinearLayout linearLayout = new LinearLayout(this);
         final boolean enabled = true;
         linearLayout.setOrientation(LinearLayout.VERTICAL);
@@ -8312,11 +8356,15 @@ public class MainActivity extends Activity {
     }
 
     private MemoryBrowserState loadMemoryBrowserState() {
-        return discoverySnapshotController().loadBrowserState(loadRecentAlbumSummaries());
+        return discoverySnapshotController().loadBrowserState(loadLiveMemoryAlbumSummaries());
     }
 
     private MemoryRepository loadMemoryRepository() {
-        return discoverySnapshotController().repository(loadRecentAlbumSummaries());
+        return discoverySnapshotController().repository(loadLiveMemoryAlbumSummaries());
+    }
+
+    private List<StoredAlbumSummary> loadLiveMemoryAlbumSummaries() {
+        return filterLiveStoredAlbumSummaries(loadRecentAlbumSummariesForUi());
     }
 
     private void showMemoryBrowserScreen() {
@@ -8511,7 +8559,7 @@ public class MainActivity extends Activity {
             LinearLayout grid = new LinearLayout(this);
             grid.setOrientation(1);
             root.addView(grid, matchWidthWithBottom(dp(12)));
-            addMemorySourceGrid(grid, detail.sourceUris, MAX_RESULT_DETAIL_THUMBNAILS);
+            addMemoryPhotoSections(grid, detail.photoSections, MAX_RESULT_DETAIL_THUMBNAILS);
             if (detail.sourceUris.size() > MAX_RESULT_DETAIL_THUMBNAILS) {
                 TextView more = bodyText("먼저 " + MAX_RESULT_DETAIL_THUMBNAILS + "개만 보여줍니다. 나머지는 다음 업데이트에서 더 자연스럽게 볼 수 있게 할게요.");
                 more.setGravity(17);
@@ -8623,7 +8671,67 @@ public class MainActivity extends Activity {
         }
     }
 
+    private void addMemoryPhotoSections(LinearLayout parent, List<MemoryPhotoSection> sections, int limit) {
+        if (sections == null || sections.isEmpty()) {
+            return;
+        }
+        int remaining = Math.max(0, limit);
+        for (MemoryPhotoSection section : sections) {
+            if (section == null || section.photos.isEmpty() || remaining <= 0) {
+                continue;
+            }
+            TextView title = new TextView(this);
+            String place = section.placeText == null ? "" : section.placeText.trim();
+            title.setText(section.dateText + (place.isEmpty() ? "" : "   " + place));
+            title.setTextSize(17.0f);
+            title.setTypeface(Typeface.DEFAULT_BOLD);
+            title.setTextColor(-4203522);
+            title.setPadding(dp(2), dp(8), dp(2), dp(8));
+            parent.addView(title, matchWidth());
+
+            int count = Math.min(section.photos.size(), remaining);
+            addMemoryPhotoGrid(parent, section.photos, count);
+            remaining -= count;
+        }
+    }
+
+    private void addMemoryPhotoGrid(LinearLayout parent, List<MemoryPhotoItem> photos, int count) {
+        int index = 0;
+        int max = Math.min(photos == null ? 0 : photos.size(), Math.max(0, count));
+        while (index < max) {
+            LinearLayout row = new LinearLayout(this);
+            row.setOrientation(0);
+            parent.addView(row, matchWidthWithBottom(dp(8)));
+            for (int column = 0; column < 3; column++) {
+                if (index < max) {
+                    MemoryPhotoItem photo = photos.get(index);
+                    View card = memorySourceCard(photo.sourceUri, mediaOpenMime(photo));
+                    LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(0, dp(112), 1.0f);
+                    params.setMargins(column == 0 ? 0 : dp(4), 0, column == 2 ? 0 : dp(4), 0);
+                    row.addView(card, params);
+                    index++;
+                } else {
+                    row.addView(new View(this), new LinearLayout.LayoutParams(0, 1, 1.0f));
+                }
+            }
+        }
+    }
+
+    private String mediaOpenMime(MemoryPhotoItem photo) {
+        if (photo == null) {
+            return "*/*";
+        }
+        if (photo.mimeType != null && !photo.mimeType.trim().isEmpty()) {
+            return photo.mimeType;
+        }
+        return photo.mediaKind == MediaKind.VIDEO ? "video/*" : "image/*";
+    }
+
     private View memorySourceCard(final String uriValue) {
+        return memorySourceCard(uriValue, "*/*");
+    }
+
+    private View memorySourceCard(final String uriValue, final String mimeType) {
         FrameLayout frame = new FrameLayout(this);
         frame.setClickable(true);
         frame.setFocusable(true);
@@ -8644,7 +8752,7 @@ public class MainActivity extends Activity {
             @Override
             public void onClick(View view) {
                 try {
-                    MainActivity.this.openMediaUri(Uri.parse(uriValue), "*/*");
+                    MainActivity.this.openMediaUri(Uri.parse(uriValue), mimeType);
                 } catch (Exception unused) {
                     MainActivity.this.showToast("사진을 열 수 없어요.");
                 }
@@ -8819,18 +8927,7 @@ public class MainActivity extends Activity {
     }
 
     private void openAlbumInGallery(StoredAlbumSummary storedAlbumSummary) {
-        if (storedAlbumSummary == null || storedAlbumSummary.relativePath == null || storedAlbumSummary.relativePath.trim().isEmpty()) {
-            openGallery();
-            return;
-        }
-        MediaOpenTarget mediaOpenTargetFindFirstMediaInAlbum = findFirstMediaInAlbum(storedAlbumSummary.relativePath);
-        if (mediaOpenTargetFindFirstMediaInAlbum != null) {
-            openMediaUri(mediaOpenTargetFindFirstMediaInAlbum.uri, mediaOpenTargetFindFirstMediaInAlbum.mimeType);
-        } else if (storedAlbumSummary.thumbnailUri != null && !storedAlbumSummary.thumbnailUri.trim().isEmpty()) {
-            openMediaUri(Uri.parse(storedAlbumSummary.thumbnailUri), "image/*");
-        } else {
-            openGallery();
-        }
+        openAlbumInSamsungGallery(storedAlbumSummary);
     }
 
     private void openAlbumInSamsungGallery(StoredAlbumSummary storedAlbumSummary) {

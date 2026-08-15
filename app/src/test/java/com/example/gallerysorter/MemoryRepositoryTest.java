@@ -128,6 +128,84 @@ public class MemoryRepositoryTest {
     }
 
     @Test
+    public void sameCountryAndPlaceMergesDiscoveryIntoExistingOrganizedAlbum() {
+        StoredAlbumSummary summary = organizedAlbum(
+                "송파구에서",
+                "Pictures/송파구에서/",
+                304,
+                "2017-10-05",
+                "2026-08-15",
+                "KR",
+                "대한민국",
+                "서울특별시",
+                "서울특별시 송파구");
+        DiscoveryMemoryGroup group = discoveryGroup(
+                "discovery:송파구",
+                "송파구",
+                "송파구",
+                293,
+                293,
+                0,
+                1507161600000L,
+                1786752000000L,
+                0,
+                "KR",
+                "대한민국",
+                "서울특별시",
+                "서울특별시 송파구");
+        MemoryRepository repository = new MemoryRepository(
+                snapshot(group),
+                Collections.singletonList(summary));
+
+        List<MemoryRecord> records = repository.memories();
+
+        assertEquals(1, records.size());
+        MemoryRecord record = records.get(0);
+        assertEquals("path:Pictures/송파구에서/", record.memoryKey);
+        assertEquals(MemorySourceType.MIXED, record.sourceType);
+        assertSame(group, record.discoveryGroup);
+        assertNotNull(record.organizedAlbum);
+        assertTrue(record.canOpenPhotos);
+        assertTrue(record.canOpenGalleryAlbum);
+        assertFalse(record.canOrganize);
+        assertTrue(record.canAddNewItems);
+        assertEquals(293, repository.discoveryPhotoRefs(record.memoryKey).size());
+    }
+
+    @Test
+    public void samePlaceNameDifferentCountryDoesNotMerge() {
+        StoredAlbumSummary summary = organizedAlbum(
+                "중앙구에서",
+                "Pictures/중앙구에서/",
+                10,
+                "2026-08-01",
+                "2026-08-02",
+                "KR",
+                "대한민국",
+                "부산광역시",
+                "부산광역시 중앙구");
+        DiscoveryMemoryGroup group = discoveryGroup(
+                "discovery:중앙구",
+                "중앙구",
+                "중앙구",
+                5,
+                5,
+                0,
+                1785600000000L,
+                1785686400000L,
+                0,
+                "JP",
+                "Japan",
+                "Hokkaido",
+                "Sapporo, Hokkaido, Japan");
+        MemoryRepository repository = new MemoryRepository(
+                snapshot(group),
+                Collections.singletonList(summary));
+
+        assertEquals(2, repository.memories().size());
+    }
+
+    @Test
     public void returnsNullAndEmptyRefsForMissingMemory() {
         MemoryRepository repository = new MemoryRepository(null, null);
 
@@ -164,6 +242,38 @@ public class MemoryRepositoryTest {
                 "Japan",
                 "Hokkaido",
                 "Sapporo, Hokkaido, Japan",
+                itemCount,
+                photoCount,
+                videoCount,
+                startDateMillis,
+                endDateMillis,
+                "content://media/external/images/media/101",
+                photoRefs(itemCount, videoCount),
+                staleCount,
+                3L);
+    }
+
+    private static DiscoveryMemoryGroup discoveryGroup(String memoryKey,
+                                                       String placeKey,
+                                                       String placeName,
+                                                       int itemCount,
+                                                       int photoCount,
+                                                       int videoCount,
+                                                       long startDateMillis,
+                                                       long endDateMillis,
+                                                       int staleCount,
+                                                       String countryCode,
+                                                       String countryName,
+                                                       String adminArea,
+                                                       String addressLine) {
+        return new DiscoveryMemoryGroup(
+                memoryKey,
+                placeKey,
+                placeName,
+                countryCode,
+                countryName,
+                adminArea,
+                addressLine,
                 itemCount,
                 photoCount,
                 videoCount,
@@ -212,6 +322,27 @@ public class MemoryRepositoryTest {
                                                      int itemCount,
                                                      String startDate,
                                                      String endDate) {
+        return organizedAlbum(
+                albumName,
+                relativePath,
+                itemCount,
+                startDate,
+                endDate,
+                "JP",
+                "Japan",
+                "Hokkaido",
+                "Sapporo, Hokkaido, Japan");
+    }
+
+    private static StoredAlbumSummary organizedAlbum(String albumName,
+                                                     String relativePath,
+                                                     int itemCount,
+                                                     String startDate,
+                                                     String endDate,
+                                                     String countryCode,
+                                                     String countryName,
+                                                     String adminArea,
+                                                     String addressLine) {
         return new StoredAlbumSummary(
                 albumName,
                 relativePath,
@@ -221,9 +352,9 @@ public class MemoryRepositoryTest {
                 "content://thumbnail",
                 "2026-08-15 10:00:00",
                 1786000000000L,
-                "JP",
-                "Japan",
-                "Hokkaido",
-                "Sapporo, Hokkaido, Japan");
+                countryCode,
+                countryName,
+                adminArea,
+                addressLine);
     }
 }
