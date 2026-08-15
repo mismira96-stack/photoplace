@@ -43,7 +43,7 @@ final class DiscoverySnapshotController {
     }
 
     MemoryBrowserState loadBrowserState(List<StoredAlbumSummary> organizedAlbums) {
-        return MemoryBrowserState.from(repository(organizedAlbums));
+        return MemoryBrowserState.fromRecords(repository(organizedAlbums).discoveryMemories());
     }
 
     MemoryRepository repository(List<StoredAlbumSummary> organizedAlbums) {

@@ -35,7 +35,7 @@ public class DiscoverySnapshotControllerTest {
     }
 
     @Test
-    public void loadBrowserStateCombinesSavedDiscoveryWithOrganizedAlbums() throws Exception {
+    public void loadBrowserStateShowsOnlyDiscoveryBackedMemories() throws Exception {
         DiscoverySnapshotStore store = new DiscoverySnapshotStore(temporaryFolder.newFolder("browser"));
         DiscoverySnapshotController controller = new DiscoverySnapshotController(store, fixedClock(1786000000000L));
         controller.saveSourceItems(
@@ -46,7 +46,8 @@ public class DiscoverySnapshotControllerTest {
         MemoryBrowserState state = controller.loadBrowserState(Arrays.asList(organizedAlbum()));
 
         assertFalse(state.isEmpty());
-        assertEquals(2, state.items.size());
+        assertEquals(1, state.items.size());
+        assertEquals("삿포로", state.items.get(0).title);
     }
 
     private static DiscoverySnapshotController.Clock fixedClock(final long nowMillis) {

@@ -173,6 +173,80 @@ public class MemoryRepositoryTest {
     }
 
     @Test
+    public void discoveryMemoriesExcludeOrganizedOnlyAlbums() {
+        DiscoveryMemoryGroup discoveryGroup = discoveryGroup(
+                "discovery:삿포로",
+                "삿포로",
+                "삿포로",
+                3,
+                3,
+                0,
+                1785600000000L,
+                1785945600000L,
+                0,
+                "JP",
+                "Japan",
+                "Hokkaido",
+                "Sapporo, Hokkaido, Japan");
+        StoredAlbumSummary organizedOnly = organizedAlbum(
+                "오타루에서",
+                "Pictures/오타루에서/",
+                5,
+                "2026-08-03",
+                "2026-08-03",
+                "JP",
+                "Japan",
+                "Hokkaido",
+                "Otaru, Hokkaido, Japan");
+        MemoryRepository repository = new MemoryRepository(
+                snapshot(discoveryGroup),
+                Collections.singletonList(organizedOnly));
+
+        List<MemoryRecord> records = repository.discoveryMemories();
+
+        assertEquals(1, records.size());
+        assertEquals("삿포로", records.get(0).title);
+        assertEquals(MemorySourceType.DISCOVERED_ONLY, records.get(0).sourceType);
+    }
+
+    @Test
+    public void discoveryMemoriesMergeMatchingOrganizedAlbum() {
+        StoredAlbumSummary summary = organizedAlbum(
+                "송파구에서",
+                "Pictures/송파구에서/",
+                304,
+                "2017-10-05",
+                "2026-08-15",
+                "KR",
+                "대한민국",
+                "서울특별시",
+                "서울특별시 송파구");
+        DiscoveryMemoryGroup group = discoveryGroup(
+                "discovery:송파구",
+                "송파구",
+                "송파구",
+                293,
+                293,
+                0,
+                1507161600000L,
+                1786752000000L,
+                0,
+                "KR",
+                "대한민국",
+                "서울특별시",
+                "서울특별시 송파구");
+        MemoryRepository repository = new MemoryRepository(
+                snapshot(group),
+                Collections.singletonList(summary));
+
+        List<MemoryRecord> records = repository.discoveryMemories();
+
+        assertEquals(1, records.size());
+        assertEquals(MemorySourceType.MIXED, records.get(0).sourceType);
+        assertEquals("path:Pictures/송파구에서/", records.get(0).memoryKey);
+    }
+
+    @Test
     public void samePlaceNameDifferentCountryDoesNotMerge() {
         StoredAlbumSummary summary = organizedAlbum(
                 "중앙구에서",

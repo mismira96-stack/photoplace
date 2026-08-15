@@ -57,6 +57,37 @@ final class MemoryRepository {
         return Collections.unmodifiableList(new ArrayList<>(records.values()));
     }
 
+    List<MemoryRecord> discoveryMemories() {
+        LinkedHashMap<String, MemoryRecord> organizedByKey = new LinkedHashMap<>();
+        LinkedHashMap<String, MemoryRecord> organizedByPlaceKey = new LinkedHashMap<>();
+        for (StoredAlbumSummary summary : organizedAlbums) {
+            MemoryRecord record = fromOrganizedAlbum(summary);
+            if (record != null) {
+                organizedByKey.put(record.memoryKey, record);
+                String placeIdentityKey = placeIdentityKey(record);
+                if (!placeIdentityKey.isEmpty() && !organizedByPlaceKey.containsKey(placeIdentityKey)) {
+                    organizedByPlaceKey.put(placeIdentityKey, record);
+                }
+            }
+        }
+        if (discoverySnapshot == null || discoverySnapshot.groups.isEmpty()) {
+            return Collections.emptyList();
+        }
+        ArrayList<MemoryRecord> records = new ArrayList<>();
+        for (DiscoveryMemoryGroup group : discoverySnapshot.groups) {
+            MemoryRecord discoveryRecord = fromDiscoveryGroup(group);
+            if (discoveryRecord == null) {
+                continue;
+            }
+            MemoryRecord existing = organizedByKey.get(discoveryRecord.memoryKey);
+            if (existing == null) {
+                existing = organizedByPlaceKey.get(placeIdentityKey(discoveryRecord));
+            }
+            records.add(existing == null ? discoveryRecord : merge(existing, discoveryRecord));
+        }
+        return Collections.unmodifiableList(records);
+    }
+
     MemoryRecord memory(String memoryKey) {
         String key = clean(memoryKey);
         if (key.isEmpty()) {
