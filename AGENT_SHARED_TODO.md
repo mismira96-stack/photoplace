@@ -22,6 +22,8 @@ Read these first:
   - Post-1.2.6 polish record: completion badge clearing, result-screen action cleanup, and next V2 priorities.
 - `WORKLOG_2026-08-10.md`
   - 1.2.8 overseas country identity release record and Display First / Organize Optional architecture checkpoint.
+- `WORKLOG_2026-08-15.md`
+  - MemoryRepository checkpoint for Memory browsing first. Includes Gemini review prompt in Korean.
 - `WORKLOG_2026-07-26.md`
   - Date-based work record for the WorkManager/background-sort stabilization day.
 - `Photoplace_V2_Personal_Place_PRD.md`
@@ -59,7 +61,7 @@ Reference docs:
 - Branch: `codex/photoplace-v2-bg-wip`
 - Latest Play release/draft baseline: `versionCode 29` / `versionName 1.2.8` / `targetSdk 36`
 - Latest pushed release checkpoint: `7c6275e Bump version for overseas country identity fix`
-- Latest pushed V2 architecture checkpoint: `4e060b3 Add discovery mapper edge case tests`
+- Latest pushed V2 architecture checkpoint: MemoryRepository checkpoint. Check the latest git log and `WORKLOG_2026-08-15.md`.
 - Release AAB: `photoplace-1.2.8-code29-overseas-country-identity-api36.aab`
 - Release APK: `photoplace-1.2.8-code29-overseas-country-identity-api36.apk`
 - Play Console status: 1.2.8 production draft uploaded by API; user manually sent for review.
@@ -118,12 +120,22 @@ Validation:
   - `.\gradlew.bat assembleDebug`
   - `MainActivity` unchanged.
 
+2026-08-15 update:
+
+- Added `MemoryRepository` as the first read-only facade for Memory browsing first.
+- It converts discovery-only groups and organized albums into `MemoryRecord`.
+- It does not write discovery-only records into `AlbumSummaryHistoryStore`.
+- It merges records only when the exact `memoryKey` matches; it does not guess by title/country/city.
+- `MainActivity` remains untouched.
+- Gemini review prompt is in `WORKLOG_2026-08-15.md`.
+- `MemoryRepository` UI wiring and discovery-only detail screen are still not implemented.
+
 ## Immediate Next Session Checklist
 
 Start from:
 
 - Branch: `codex/photoplace-v2-bg-wip`
-- Commit: `4e060b3 Add discovery mapper edge case tests`
+- Commit: latest `MemoryRepository` checkpoint in git log.
 
 Before coding:
 
@@ -131,22 +143,22 @@ Before coding:
 2. Read this file, `WORKLOG_2026-08-14.md`, `MEMORY_BROWSING_FIRST_DESIGN.md`, and `Photoplace_V2_Epic_PRD_2026-08-09.md`.
 3. Keep replies/reviews in Korean when prompting Gemini.
 
-Next code patch:
+Next code patch after reviewing `MemoryRepository`:
 
-1. Add a read-only `MemoryRepository` / adapter in separate classes.
-2. Convert `DiscoveryMemoryGroup` to `MemoryRecord`.
-3. Prepare merge semantics for future organized albums + discovery-only memories.
-4. Do not write discovery-only rows to `AlbumSummaryHistoryStore`.
-5. Do not use empty `relativePath` as a fake organized album.
-6. Do not wire UI or add more logic to `MainActivity` yet.
+1. Address Gemini review findings if any.
+2. Add a small UI-facing controller/adapter for memory list state.
+3. Wire the least possible UI entry point.
+4. Keep `MainActivity` changes thin and avoid moving repository logic into it.
+5. Do not write discovery-only rows to `AlbumSummaryHistoryStore`.
+6. Do not use empty `relativePath` as a fake organized album.
 
-Focused tests for the next patch:
+Focused tests for the next UI-facing patch:
 
-- discovery-only `MemoryRecord` uses `MemorySourceType.DISCOVERED_ONLY`.
-- source photo refs are preserved.
-- country/admin/address metadata is preserved.
-- discovery-only records do not require `StoredAlbumSummary`.
-- organized-album merge behavior is deterministic when added.
+- memory list state from discovery-only records.
+- empty state when no snapshot/history exists.
+- detail handoff by `memoryKey` returns source refs for discovery-only records.
+- organized album actions remain Gallery-based.
+- `MainActivity` contains only wiring, not repository logic.
 
 Older release follow-ups are separate backlog, not the next coding default:
 
