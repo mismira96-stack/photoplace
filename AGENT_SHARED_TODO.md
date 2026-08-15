@@ -77,9 +77,9 @@ Reference docs:
 - `일본` / `Japan` / `JP` search is supported through `CountryIdentityNormalizer` and `StoredAlbumSummarySearch`.
 - Keep overseas work as observation backlog only. Reopen only if a new real sample/dump fails country grouping/search. Do not add city-by-city country patches.
 
-## Current WIP Note - Display First Model Boundary
+## Current WIP Note - Display First / Memory Browsing MVP
 
-Current local WIP intentionally does not change visible UI behavior.
+Current local WIP now includes the first visible Memory Browsing MVP wiring.
 
 Added as the first architecture checkpoint for V2:
 
@@ -97,9 +97,10 @@ Important boundary:
 
 - Do not store discovery-only memories in `AlbumSummaryHistoryStore`.
 - Do not represent discovery-only memories as `StoredAlbumSummary` with an empty `relativePath`.
-- Do not add new Display First logic to `MainActivity` directly.
-- Next implementation should add `DiscoverySnapshotStore`, `DiscoverySnapshotMapper`, and later `MemoryRepository` as separate classes.
-- The current skeleton is not wired to Preview, Home, Search, Detail, or SortWorker yet.
+- Keep new Display First domain/data logic outside `MainActivity`.
+- Some temporary UI rendering is currently wired in `MainActivity` for MVP validation; split this into a renderer/controller before the next large UI patch.
+- Discovery-only memories are wired to Preview and a minimal in-app Memory Browser.
+- Home entry, Search integration, and per-memory Gallery album creation are not implemented yet.
 
 Validation:
 
@@ -118,9 +119,8 @@ Validation:
 - Test/validation checkpoint:
   - `.\gradlew.bat testDebugUnitTest`
   - `.\gradlew.bat assembleDebug`
-  - `MainActivity` unchanged.
 
-2026-08-15 update:
+2026-08-15 pre-UI repository update:
 
 - Added `MemoryRepository` as the first read-only facade for Memory browsing first.
 - It converts discovery-only groups and organized albums into `MemoryRecord`.
@@ -129,16 +129,27 @@ Validation:
 - Added `MemoryBrowserState` / `MemoryBrowserItem` / `MemoryBrowserDetail` as the UI-facing adapter layer.
 - Discovery-only detail stays `sourceUri` based and excludes stale refs.
 - Added edge tests for empty `sourceUri` and all-stale/missing source refs.
-- `MainActivity` remains untouched.
 - Gemini review prompts are in `WORKLOG_2026-08-15.md`.
-- `MemoryRepository` UI wiring and discovery-only detail screen are still not implemented.
+
+2026-08-15 MVP UI wiring update:
+
+- Added `DiscoverySnapshotController` as the thin bridge from Preview analysis results to `DiscoverySnapshotStore` / `MemoryRepository`.
+- Preview analysis completion saves a discovery snapshot.
+- Preview completion dialog now offers `앱에서 보기` to open the Memory Browser before Gallery album creation.
+- Result screen shows `발견한 장소 둘러보기` when discovery or organized memory data exists.
+- Memory Browser list/detail can show discovery-only source URI thumbnails in-app.
+- Discovery-only UI is labeled as `앨범 만들기 전`; organized albums remain `정리된 앨범`.
+- Discovery-only detail still does not write to `AlbumSummaryHistoryStore` and does not fake `StoredAlbumSummary`.
+- `이 장소를 앨범으로 정리` is still a bridge back to the existing result screen, not true per-memory organization.
+- Device install/smoke test is pending because no ADB device was connected during this checkpoint.
+- Gemini review prompt for this patch is in `WORKLOG_2026-08-15.md`.
 
 ## Immediate Next Session Checklist
 
 Start from:
 
 - Branch: `codex/photoplace-v2-bg-wip`
-- Commit: latest `MemoryRepository` checkpoint in git log.
+- Commit: latest Memory Browsing MVP checkpoint in git log.
 
 Before coding:
 
@@ -146,13 +157,13 @@ Before coding:
 2. Read this file, `WORKLOG_2026-08-14.md`, `MEMORY_BROWSING_FIRST_DESIGN.md`, and `Photoplace_V2_Epic_PRD_2026-08-09.md`.
 3. Keep replies/reviews in Korean when prompting Gemini.
 
-Next code patch after reviewing `MemoryRepository` and `MemoryBrowserState`:
+Next code patch after reviewing the MVP UI wiring:
 
 1. Address Gemini review findings if any.
-2. Wire the least possible UI entry point for memory browsing.
-3. Add discovery-only detail by `memoryKey` and `sourceUri`.
-4. Add user-safe handling for missing/deleted/permission-denied source photos in the UI path.
-5. Keep `MainActivity` changes thin and avoid moving repository logic into it.
+2. Device smoke test the Preview -> `앱에서 보기` -> Memory Browser -> detail flow.
+3. Decide whether the temporary `MainActivity` Memory Browser UI should be extracted into a renderer/controller before more UI work.
+4. Improve user-safe handling for missing/deleted/permission-denied source photos if phone testing exposes rough edges.
+5. Design true per-memory album creation from a discovery-only detail before implementing it.
 6. Do not write discovery-only rows to `AlbumSummaryHistoryStore`.
 7. Do not use empty `relativePath` as a fake organized album.
 
