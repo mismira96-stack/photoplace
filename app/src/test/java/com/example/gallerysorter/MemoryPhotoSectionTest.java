@@ -51,6 +51,14 @@ public class MemoryPhotoSectionTest {
     }
 
     @Test
+    public void includesYearForOlderSections() {
+        List<MemoryPhotoSection> sections = MemoryPhotoSection.fromDiscoveryRefs(Arrays.asList(
+                ref("content://photo/old", at(2025, Calendar.AUGUST, 13), "수원")));
+
+        assertEquals("2025년 8월 13일", sections.get(0).dateText);
+    }
+
+    @Test
     public void emptyOrInvalidRefsReturnEmptySections() {
         assertTrue(MemoryPhotoSection.fromDiscoveryRefs(null).isEmpty());
         assertTrue(MemoryPhotoSection.fromDiscoveryRefs(Arrays.asList(

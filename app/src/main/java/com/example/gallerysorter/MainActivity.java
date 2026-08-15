@@ -8676,23 +8676,55 @@ public class MainActivity extends Activity {
             return;
         }
         int remaining = Math.max(0, limit);
+        boolean firstSection = true;
         for (MemoryPhotoSection section : sections) {
             if (section == null || section.photos.isEmpty() || remaining <= 0) {
                 continue;
             }
-            TextView title = new TextView(this);
-            String place = section.placeText == null ? "" : section.placeText.trim();
-            title.setText(section.dateText + (place.isEmpty() ? "" : "   " + place));
-            title.setTextSize(15.5f);
-            title.setTypeface(Typeface.DEFAULT_BOLD);
-            title.setTextColor(-11837581);
-            title.setPadding(dp(2), dp(8), dp(2), dp(8));
-            parent.addView(title, matchWidth());
+            addMemoryPhotoSectionHeader(parent, section, firstSection);
 
             int count = Math.min(section.photos.size(), remaining);
             addMemoryPhotoGrid(parent, section.photos, count);
             remaining -= count;
+            firstSection = false;
         }
+    }
+
+    private void addMemoryPhotoSectionHeader(LinearLayout parent, MemoryPhotoSection section, boolean firstSection) {
+        LinearLayout header = new LinearLayout(this);
+        header.setOrientation(0);
+        header.setGravity(16);
+        header.setPadding(dp(10), dp(8), dp(12), dp(8));
+        GradientDrawable bg = new GradientDrawable();
+        bg.setColor(Color.rgb(242, 246, 250));
+        bg.setCornerRadius(dp(12));
+        bg.setStroke(dp(1), Color.rgb(226, 232, 240));
+        header.setBackground(bg);
+
+        LinearLayout.LayoutParams headerParams = new LinearLayout.LayoutParams(-1, -2);
+        headerParams.setMargins(0, firstSection ? 0 : dp(16), 0, dp(10));
+        parent.addView(header, headerParams);
+
+        View accent = new View(this);
+        GradientDrawable accentBg = new GradientDrawable();
+        accentBg.setColor(Color.rgb(255, 95, 95));
+        accentBg.setCornerRadius(dp(2));
+        accent.setBackground(accentBg);
+        LinearLayout.LayoutParams accentParams = new LinearLayout.LayoutParams(dp(4), dp(28));
+        accentParams.setMargins(0, 0, dp(10), 0);
+        header.addView(accent, accentParams);
+
+        LinearLayout text = new LinearLayout(this);
+        text.setOrientation(1);
+        header.addView(text, weightedParams(1));
+
+        TextView date = new TextView(this);
+        date.setText(section.dateText);
+        date.setTextSize(16.0f);
+        date.setTypeface(Typeface.DEFAULT_BOLD);
+        date.setTextColor(Color.rgb(38, 50, 65));
+        text.addView(date, matchWidth());
+
     }
 
     private void addMemoryPhotoGrid(LinearLayout parent, List<MemoryPhotoItem> photos, int count) {

@@ -2,6 +2,7 @@ package com.example.gallerysorter;
 
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.Date;
@@ -10,6 +11,8 @@ import java.util.List;
 import java.util.Locale;
 
 final class MemoryPhotoSection {
+    private static final int CURRENT_YEAR = Calendar.getInstance(Locale.KOREA).get(Calendar.YEAR);
+
     final String dateKey;
     final String dateText;
     final String placeText;
@@ -96,7 +99,11 @@ final class MemoryPhotoSection {
         if (millis <= 0L) {
             return "날짜 없음";
         }
-        return new SimpleDateFormat("M월 d일", Locale.KOREA).format(new Date(millis));
+        Date date = new Date(millis);
+        Calendar calendar = Calendar.getInstance(Locale.KOREA);
+        calendar.setTime(date);
+        String pattern = calendar.get(Calendar.YEAR) == CURRENT_YEAR ? "M월 d일" : "yyyy년 M월 d일";
+        return new SimpleDateFormat(pattern, Locale.KOREA).format(date);
     }
 
     private static String placeText(DiscoveryPhotoRef ref) {
