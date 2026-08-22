@@ -1,5 +1,32 @@
 # 앨범정리 TODO
 
+## 2026-08-22 Display First 후속
+
+- [x] 분석 완료 dialog의 primary action을 `발견한 장소 보기`로 변경.
+- [x] `앨범 만들기`는 secondary action으로 유지.
+- [x] 분석 직후 홈의 중복 대형 앨범 만들기 CTA는 숨김.
+- [ ] Memory detail을 수백/수천 장까지 안전하게 볼 수 있는 lazy date grid로 전환.
+- [ ] 앱 내부 사진 viewer 또는 같은 장소 사진 간 자연스러운 좌우 탐색 제공.
+- [ ] 발견 장소 검색 추가. 1차 검색 대상은 장소명, 국가명/국가 alias, 도시명, 연도/월.
+- [ ] Memory Browser를 메인 tab으로 승격할지는 lazy grid/viewer와 검색 검증 후 결정.
+
+### 제품 결정
+
+- 반복 장소 추천은 당장 구현하지 않는다. 장소별 날짜 탐색과 검색만으로 충분한지 먼저 확인한다.
+- 추천 데이터는 향후 `최근 다시 찾은 장소`, `여러 번 방문한 장소`, `1년 전 오늘` 같은 재발견 섹션 후보로 유지한다.
+- PhotoPlace Memory 구조와 Gallery 앨범 구조는 동일할 필요가 없다.
+- 해외 Gallery 정리 단위는 국가/여행 세션/도시 중 어느 것이 좋은지 별도 POC한다. 현 단계에서 국가당 1앨범으로 고정하지 않는다.
+
+## 2026-08-16 긴급 추가 (요청: 발견 장소 다시보기 CTA 관련)
+
+- 문제: 분석을 다시 돌리면 `발견한 장소 둘러보기` 대신 장소별 앨범 생성/정리 CTA가 다시 노출되는 현상 보고됨.
+- 목표: 기본 흐름은 "발견한 장소 둘러보기(Discovery-backed preview)" → 사용자가 원할 때 `jump`로 앨범 생성/정리로 이동하도록 유지.
+- 조치 항목:
+  - [x] 재분석(re-run) 완료 후 discovery preview 진입을 primary로 제공하고 홈의 앨범 생성 CTA를 숨김.
+  - [x] preview 완료 dialog에서 앨범 생성은 secondary 선택으로 유지.
+  - 이 동작은 `MemoryRepository`/`DiscoverySnapshotController` 경계에서 보장되도록 단위 테스트 추가.
+  - 스모크 테스트 항목에 "재분석 후 discovery-only preview 유지" 검증 케이스 추가.
+
 ## 2026-07-25 아침 실기기 체크리스트
 
 - 설치된 APK:

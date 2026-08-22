@@ -1327,7 +1327,7 @@ public class MainActivity extends Activity {
         this.summaryText.setText(compactResultSummary(countCopyableItems(list), i2, i));
         renderPreviewResults(list);
         setWorking(false, null);
-        this.copyButton.setVisibility(hasCopyableItems(list) ? 0 : 8);
+        this.copyButton.setVisibility(8);
         this.copyButton.setEnabled(hasCopyableItems(list));
         this.deleteOriginalsButton.setEnabled(false);
         showPreviewCompleteDialog(countCopyableItems(list), i2, i, i3);
@@ -1436,7 +1436,7 @@ public class MainActivity extends Activity {
             addDialogAlbumPreview(linearLayout);
         }
         Button button = new Button(this);
-        button.setText(i > 0 ? "장소별 앨범 만들기" : "확인");
+        button.setText(i > 0 ? "발견한 장소 보기" : "확인");
         styleDialogPrimaryButton(button);
         button.setOnClickListener(new View.OnClickListener() { // from class: com.example.gallerysorter.MainActivity$$ExternalSyntheticLambda57
             @Override // android.view.View.OnClickListener
@@ -1449,12 +1449,12 @@ public class MainActivity extends Activity {
         linearLayout3.setOrientation(0);
         linearLayout.addView(linearLayout3, matchWidth());
         Button button2 = new Button(this);
-        button2.setText("앱에서 보기");
+        button2.setText(i > 0 ? "앨범 만들기" : "앱에서 보기");
         styleDialogSecondaryButton(button2);
         button2.setOnClickListener(new View.OnClickListener() { // from class: com.example.gallerysorter.MainActivity$$ExternalSyntheticLambda58
             @Override // android.view.View.OnClickListener
             public final void onClick(View view) {
-                MainActivity.this.m52x467b60b3(dialog, view);
+                MainActivity.this.m52x467b60b3(dialog, i, view);
             }
         });
         linearLayout3.addView(button2, dialogButtonParams(true));
@@ -1488,14 +1488,18 @@ public class MainActivity extends Activity {
     /* synthetic */ void m51xef5d6fd4(Dialog dialog, int i, View view) {
         dialog.dismiss();
         if (i > 0) {
-            startCopyFromPreviewContext();
+            showMemoryBrowserScreen();
         }
     }
 
     /* renamed from: lambda$showPreviewCompleteDialog$14$com-example-gallerysorter-MainActivity, reason: not valid java name */
-    /* synthetic */ void m52x467b60b3(Dialog dialog, View view) {
+    /* synthetic */ void m52x467b60b3(Dialog dialog, int i, View view) {
         dialog.dismiss();
-        showMemoryBrowserScreen();
+        if (i > 0) {
+            startCopyFromPreviewContext();
+        } else {
+            showMemoryBrowserScreen();
+        }
     }
 
     /* renamed from: lambda$showPreviewCompleteDialog$15$com-example-gallerysorter-MainActivity, reason: not valid java name */
