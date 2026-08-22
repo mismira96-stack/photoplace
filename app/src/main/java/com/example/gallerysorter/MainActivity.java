@@ -8437,7 +8437,10 @@ public class MainActivity extends Activity {
             empty.addView(body, matchWidth());
             root.addView(empty, matchWidthWithBottom(dp(14)));
         } else {
-            root.addView(renderer.render(state.items, renderer.availableGridWidth(memoryBrowserWindowWidth)), matchWidthWithBottom(dp(14)));
+            root.addView(renderer.render(
+                    state.items,
+                    renderer.availableGridWidth(memoryBrowserWindowWidth),
+                    renderer.columnCount(memoryBrowserWindowWidth)), matchWidthWithBottom(dp(14)));
         }
 
         Button resultButton = new Button(this);
