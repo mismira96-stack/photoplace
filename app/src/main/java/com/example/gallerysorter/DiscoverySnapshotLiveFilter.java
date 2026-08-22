@@ -164,7 +164,7 @@ final class DiscoverySnapshotLiveFilter {
             }
             try (Cursor cursor = resolver.query(
                     collection,
-                    new String[]{MediaStore.MediaColumns._ID},
+                    new String[]{MediaStore.MediaColumns._ID, MediaStore.MediaColumns.RELATIVE_PATH},
                     selection.toString(),
                     args,
                     null)) {
@@ -172,10 +172,26 @@ final class DiscoverySnapshotLiveFilter {
                     throw new IllegalStateException("MediaStore query returned null");
                 }
                 while (cursor.moveToNext()) {
-                    liveIds.add(cursor.getLong(0));
+                    String relativePath = cursor.isNull(1) ? "" : cursor.getString(1);
+                    if (!isOrganizedLocationPath(relativePath)) {
+                        liveIds.add(cursor.getLong(0));
+                    }
                 }
             }
         }
         return liveIds;
+    }
+
+    static boolean isOrganizedLocationPath(String relativePath) {
+        if (relativePath == null) {
+            return false;
+        }
+        String value = relativePath.trim().replace('\\', '/');
+        while (value.endsWith("/")) {
+            value = value.substring(0, value.length() - 1);
+        }
+        int slash = value.lastIndexOf('/');
+        String folderName = slash >= 0 ? value.substring(slash + 1) : value;
+        return value.startsWith("Pictures/") && folderName.endsWith("에서");
     }
 }

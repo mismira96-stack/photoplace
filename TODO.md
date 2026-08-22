@@ -13,13 +13,22 @@
 - [ ] 발견 탭 검색을 실제 장소 수가 많은 사용자 데이터로 탐색성 검증.
 - [x] Gallery에서 삭제·휴지통 이동된 DiscoverySnapshot 항목을 발견 카드/상세에서 live 제외.
 - [ ] 수천~수만 개 snapshot에서 MediaStore live-filter 진입 성능 측정.
-- [ ] 발견 탭의 전역 CTA를 `발견한 장소 모두 위치 앨범으로 만들기` flow로 연결.
+- [x] 발견 탭의 전역 CTA를 `발견한 장소를 위치 앨범으로 만들기` flow로 연결.
   - 장소별 선택 UI는 MVP에서 제외하고 현재 DiscoverySnapshot에 있는 정리 가능 항목 전체를 대상으로 한다.
   - 실행 전 장소 수, 대상 수, 사진 복사/동영상 이동, 위치 없음 제외를 확인하는 dialog 제공.
   - 기존 duplicate/이미 정리됨 검사를 그대로 적용해 같은 항목을 다시 만들지 않는다.
   - 완료 후 `AlbumSummaryHistoryStore`에는 실제 성공 결과만 기록하고 `위치 앨범`에서 확인.
   - 앱 재시작 후 previewItems가 없을 때는 조용히 실행하지 않고 재분석 안내 또는 snapshot adapter를 사용한다.
   - 상세의 임시 `이 장소를 앨범으로 정리` 버튼은 제거한다.
+- [x] 위치 앨범으로 이동된 동영상이 동일 MediaStore ID 때문에 발견 탭에 남는 문제 수정.
+- [x] 발견 탭에서도 백그라운드 분석/정리 진행 배너 표시.
+- [x] 기존 위치 앨범에 동일 파일이 있는 `duplicateInTarget` 항목은 발견 snapshot에서 제외. 기존 앨범에 없는 새 항목은 발견에 유지.
+- [x] 분석 완료 후 홈 `자세히 보기`가 legacy 정리 결과가 아니라 발견으로 이동하도록 lifecycle 분리.
+- [x] 분석 완료 dialog의 legacy 앨범/결과 CTA와 organizer 통계를 제거하고 발견 완료 UI로 단순화.
+- [x] 홈의 legacy `새 장소 / 위치 없음 / 정리 완료` 요약 바 제거.
+- [x] crash/업데이트 후 로컬 위치 분석 progress가 가짜 진행 상태로 복원되지 않도록 수정.
+- [ ] 발견/위치 앨범이 공유하는 Memory detail과 날짜별 메모 stable key 설계.
+- [ ] 앨범 생성 후 발견 UI에서는 숨기되 snapshot/personalization 원본을 보존하는 lifecycle 회귀 테스트 추가.
 - [ ] 발견 상세의 날짜 그룹 단위 앱 내부 사진/동영상 스와이프 viewer 추가.
 
 ### 제품 결정

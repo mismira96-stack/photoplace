@@ -92,7 +92,7 @@ final class DiscoverySnapshotMapper {
     }
 
     private static DiscoveryPhotoRef photoRefFrom(SourceItem item, long snapshotVersion) {
-        if (item == null || item.noLocation) {
+        if (item == null || item.noLocation || item.duplicateInTarget) {
             return null;
         }
         String sourceUri = clean(item.sourceUri);
@@ -144,6 +144,7 @@ final class DiscoverySnapshotMapper {
         final long takenAtMillis;
         final String locationKey;
         final boolean noLocation;
+        final boolean duplicateInTarget;
         final boolean video;
         final String countryCode;
         final String countryName;
@@ -161,12 +162,29 @@ final class DiscoverySnapshotMapper {
                    String countryName,
                    String adminArea,
                    String addressLine) {
+            this(sourceUri, name, mimeType, takenAtMillis, locationKey, noLocation, false, video,
+                    countryCode, countryName, adminArea, addressLine);
+        }
+
+        SourceItem(String sourceUri,
+                   String name,
+                   String mimeType,
+                   long takenAtMillis,
+                   String locationKey,
+                   boolean noLocation,
+                   boolean duplicateInTarget,
+                   boolean video,
+                   String countryCode,
+                   String countryName,
+                   String adminArea,
+                   String addressLine) {
             this.sourceUri = clean(sourceUri);
             this.name = clean(name);
             this.mimeType = clean(mimeType);
             this.takenAtMillis = Math.max(0L, takenAtMillis);
             this.locationKey = clean(locationKey);
             this.noLocation = noLocation;
+            this.duplicateInTarget = duplicateInTarget;
             this.video = video;
             this.countryCode = clean(countryCode);
             this.countryName = clean(countryName);
@@ -182,6 +200,7 @@ final class DiscoverySnapshotMapper {
                     item.takenAt == null ? DiscoveryPhotoRef.UNKNOWN_TIME : item.takenAt.getTime(),
                     item.locationKey,
                     item.noLocation,
+                    item.duplicateInTarget,
                     item.video,
                     item.countryCode,
                     item.countryName,

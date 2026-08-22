@@ -1,6 +1,8 @@
 package com.example.gallerysorter;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
 import org.junit.Test;
 
@@ -9,6 +11,14 @@ import java.util.Collections;
 import java.util.HashSet;
 
 public class DiscoverySnapshotLiveFilterTest {
+    @Test
+    public void organizedLocationAlbumPathsAreExcludedFromDiscovery() {
+        assertTrue(DiscoverySnapshotLiveFilter.isOrganizedLocationPath("Pictures/성남에서/"));
+        assertTrue(DiscoverySnapshotLiveFilter.isOrganizedLocationPath("Pictures\\수원에서\\"));
+        assertFalse(DiscoverySnapshotLiveFilter.isOrganizedLocationPath("DCIM/Camera/"));
+        assertFalse(DiscoverySnapshotLiveFilter.isOrganizedLocationPath("Pictures/여행/"));
+    }
+
     @Test
     public void removesDeletedRefsAndRecalculatesGroupMetadata() {
         DiscoveryPhotoRef deleted = ref(1L, MediaKind.PHOTO, 100L);

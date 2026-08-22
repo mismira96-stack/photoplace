@@ -49,7 +49,8 @@ final class OrganizePlaceService {
         if (value.isEmpty()) {
             return "";
         }
-        return PICTURES_PREFIX + (value.endsWith("에서") ? value : value + "에서") + "/";
+        String folderName = PlaceNamePolicy.safeFolderName(value.endsWith("에서") ? value : value + "에서");
+        return PICTURES_PREFIX + folderName + "/";
     }
 
     private static String firstNonEmpty(String first, String second, String third) {

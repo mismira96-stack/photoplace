@@ -58,6 +58,18 @@ public class SortForegroundService extends Service {
         return null;
     }
 
+    @Override
+    public void onDestroy() {
+        stopForeground(true);
+        super.onDestroy();
+    }
+
+    @Override
+    public void onTimeout(int startId, int fgsType) {
+        stopForeground(true);
+        stopSelf(startId);
+    }
+
     static void start(Context context, String label) {
         Intent intent = new Intent(context, SortForegroundService.class);
         intent.setAction(ACTION_START);
@@ -77,8 +89,7 @@ public class SortForegroundService extends Service {
 
     static void stop(Context context) {
         Intent intent = new Intent(context, SortForegroundService.class);
-        intent.setAction(ACTION_STOP);
-        context.startService(intent);
+        context.stopService(intent);
     }
 
     static void complete(Context context, String title, String text) {

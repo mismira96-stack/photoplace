@@ -267,6 +267,78 @@ public class DiscoverySnapshotMapperTest {
         assertEquals(2, snapshot.groups.get(0).itemCount);
     }
 
+    @Test
+    public void excludesExistingDuplicatesButKeepsNewItemsForExistingAlbums() {
+        DiscoverySnapshotMapper.SourceItem duplicate = item(
+                "content://media/external/images/media/701",
+                "IMG_0701.jpg",
+                "image/jpeg",
+                1785600000000L,
+                "성남",
+                false,
+                true,
+                false,
+                "KR",
+                "대한민국",
+                "경기도",
+                "경기도 성남시");
+        DiscoverySnapshotMapper.SourceItem newItemForExistingAlbum = item(
+                "content://media/external/images/media/702",
+                "IMG_0702.jpg",
+                "image/jpeg",
+                1785600000000L,
+                "성남",
+                false,
+                false,
+                false,
+                "KR",
+                "대한민국",
+                "경기도",
+                "경기도 성남시");
+
+        DiscoverySnapshot snapshot = DiscoverySnapshotMapper.fromSourceItems(
+                Arrays.asList(duplicate, newItemForExistingAlbum),
+                2,
+                18L,
+                1786000000000L,
+                "existing-album-boundary",
+                DiscoverySnapshotMapper.DEFAULT_ANALYSIS_POLICY_VERSION,
+                DiscoverySnapshotMapper.DEFAULT_COUNTRY_IDENTITY_POLICY_VERSION);
+
+        assertEquals(2, snapshot.sourceItemCount);
+        assertEquals(1, snapshot.groupCount());
+        assertEquals(1, snapshot.groups.get(0).itemCount);
+        assertEquals("content://media/external/images/media/702",
+                snapshot.groups.get(0).photoRefs.get(0).sourceUri);
+    }
+
+    private static DiscoverySnapshotMapper.SourceItem item(String uri,
+                                                           String name,
+                                                           String mimeType,
+                                                           long takenAtMillis,
+                                                           String locationKey,
+                                                           boolean noLocation,
+                                                           boolean duplicateInTarget,
+                                                           boolean video,
+                                                           String countryCode,
+                                                           String countryName,
+                                                           String adminArea,
+                                                           String addressLine) {
+        return new DiscoverySnapshotMapper.SourceItem(
+                uri,
+                name,
+                mimeType,
+                takenAtMillis,
+                locationKey,
+                noLocation,
+                duplicateInTarget,
+                video,
+                countryCode,
+                countryName,
+                adminArea,
+                addressLine);
+    }
+
     private static DiscoverySnapshotMapper.SourceItem item(String uri,
                                                            String name,
                                                            String mimeType,
