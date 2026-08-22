@@ -102,7 +102,7 @@ final class MemoryBrowserGridRenderer {
 
         LinearLayout caption = new LinearLayout(context);
         caption.setOrientation(LinearLayout.VERTICAL);
-        caption.setPadding(dp(11), dp(9), dp(10), dp(10));
+        caption.setPadding(dp(12), dp(8), dp(10), dp(10));
         card.addView(caption, new LinearLayout.LayoutParams(-1, -2));
 
         TextView title = text(item.title, 15.0f, Color.rgb(31, 35, 48), true);
@@ -113,7 +113,7 @@ final class MemoryBrowserGridRenderer {
         count.setPadding(0, dp(4), 0, 0);
         caption.addView(count, new LinearLayout.LayoutParams(-1, -2));
 
-        TextView date = text(item.dateText, 11.5f, Color.rgb(104, 113, 132), false);
+        TextView date = text(item.cardDateText, 11.5f, Color.rgb(104, 113, 132), false);
         singleLine(date);
         date.setPadding(0, dp(2), 0, 0);
         caption.addView(date, new LinearLayout.LayoutParams(-1, -2));
@@ -140,7 +140,7 @@ final class MemoryBrowserGridRenderer {
     private GradientDrawable cardBackground() {
         GradientDrawable background = new GradientDrawable();
         background.setColor(Color.WHITE);
-        background.setCornerRadius(dp(8));
+        background.setCornerRadius(dp(24));
         background.setStroke(dp(1), Color.rgb(231, 233, 239));
         return background;
     }

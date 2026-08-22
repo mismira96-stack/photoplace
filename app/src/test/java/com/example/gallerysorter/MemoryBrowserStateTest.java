@@ -30,6 +30,7 @@ public class MemoryBrowserStateTest {
         assertEquals("앨범 만들기 전", item.subtitle);
         assertEquals("2개", item.countText);
         assertEquals("2026.08.02 ~ 2026.08.06", item.dateText);
+        assertEquals("2026.8", item.cardDateText);
         assertEquals("content://media/external/images/media/101", item.coverUri);
         assertEquals(MemorySourceType.DISCOVERED_ONLY, item.sourceType);
         assertTrue(item.discoveryOnly);

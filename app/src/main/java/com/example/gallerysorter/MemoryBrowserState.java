@@ -95,6 +95,7 @@ final class MemoryBrowserItem {
     final String subtitle;
     final String countText;
     final String dateText;
+    final String cardDateText;
     final String coverUri;
     final MemorySourceType sourceType;
     final boolean discoveryOnly;
@@ -110,6 +111,7 @@ final class MemoryBrowserItem {
                               String subtitle,
                               String countText,
                               String dateText,
+                              String cardDateText,
                               String coverUri,
                               MemorySourceType sourceType,
                               boolean discoveryOnly,
@@ -124,6 +126,7 @@ final class MemoryBrowserItem {
         this.subtitle = clean(subtitle);
         this.countText = clean(countText);
         this.dateText = clean(dateText);
+        this.cardDateText = clean(cardDateText);
         this.coverUri = clean(coverUri);
         this.sourceType = sourceType == null ? MemorySourceType.DISCOVERED_ONLY : sourceType;
         this.discoveryOnly = discoveryOnly;
@@ -149,6 +152,7 @@ final class MemoryBrowserItem {
                 subtitle(record),
                 countText(record.itemCount),
                 dateText(record.startDateMillis, record.endDateMillis),
+                monthRangeText(record.startDateMillis, record.endDateMillis),
                 record.coverUri,
                 record.sourceType,
                 record.sourceType == MemorySourceType.DISCOVERED_ONLY,
@@ -190,6 +194,17 @@ final class MemoryBrowserItem {
 
     private static String formatDate(long millis) {
         return new SimpleDateFormat("yyyy.MM.dd", Locale.KOREA).format(new Date(millis));
+    }
+
+    private static String monthRangeText(long startMillis, long endMillis) {
+        if (startMillis <= 0L && endMillis <= 0L) {
+            return "";
+        }
+        long start = startMillis > 0L ? startMillis : endMillis;
+        long end = endMillis > 0L ? endMillis : startMillis;
+        String startText = new SimpleDateFormat("yyyy.M", Locale.KOREA).format(new Date(start));
+        String endText = new SimpleDateFormat("yyyy.M", Locale.KOREA).format(new Date(end));
+        return startText.equals(endText) ? startText : startText + "~" + endText;
     }
 
     private static String firstNonEmpty(String first, String second, String third, String fourth) {

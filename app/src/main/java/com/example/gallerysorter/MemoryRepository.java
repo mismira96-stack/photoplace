@@ -55,15 +55,6 @@ final class MemoryRepository {
     }
 
     List<MemoryRecord> discoveryMemories() {
-        LinkedHashMap<String, MemoryRecord> organizedByKey = new LinkedHashMap<>();
-        LinkedHashMap<String, List<MemoryRecord>> organizedByPlaceKey = new LinkedHashMap<>();
-        for (StoredAlbumSummary summary : organizedAlbums) {
-            MemoryRecord record = fromOrganizedAlbum(summary);
-            if (record != null) {
-                organizedByKey.put(record.memoryKey, record);
-                addByPlaceIdentity(organizedByPlaceKey, record);
-            }
-        }
         if (discoverySnapshot == null || discoverySnapshot.groups.isEmpty()) {
             return Collections.emptyList();
         }
@@ -73,11 +64,7 @@ final class MemoryRepository {
             if (discoveryRecord == null) {
                 continue;
             }
-            MemoryRecord existing = organizedByKey.get(discoveryRecord.memoryKey);
-            if (existing == null) {
-                existing = findCompatibleOrganizedRecord(organizedByPlaceKey, discoveryRecord);
-            }
-            records.add(existing == null ? discoveryRecord : merge(existing, discoveryRecord));
+            records.add(discoveryRecord);
         }
         return Collections.unmodifiableList(records);
     }
@@ -86,6 +73,11 @@ final class MemoryRepository {
         String key = clean(memoryKey);
         if (key.isEmpty()) {
             return null;
+        }
+        for (MemoryRecord record : discoveryMemories()) {
+            if (key.equals(record.memoryKey)) {
+                return record;
+            }
         }
         for (MemoryRecord record : memories()) {
             if (key.equals(record.memoryKey)) {

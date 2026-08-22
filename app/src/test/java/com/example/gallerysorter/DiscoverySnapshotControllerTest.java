@@ -2,6 +2,7 @@ package com.example.gallerysorter;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
 import org.junit.Rule;
@@ -50,6 +51,26 @@ public class DiscoverySnapshotControllerTest {
         assertEquals("삿포로", state.items.get(0).title);
     }
 
+    @Test
+    public void loadBrowserDetailUsesDiscoveryKeyWhenAlbumAlsoExists() throws Exception {
+        DiscoverySnapshotStore store = new DiscoverySnapshotStore(temporaryFolder.newFolder("detail"));
+        DiscoverySnapshotController controller = new DiscoverySnapshotController(store, fixedClock(1786000000000L));
+        controller.saveSourceItems(
+                Arrays.asList(sourceItem("content://media/external/images/media/101", "삿포로")),
+                1,
+                "selected-folders");
+
+        MemoryBrowserDetail detail = controller.loadBrowserDetail(
+                "discovery:삿포로",
+                Arrays.asList(matchingOrganizedAlbum()));
+
+        assertNotNull(detail);
+        assertEquals("discovery:삿포로", detail.item.memoryKey);
+        assertEquals("1개", detail.item.countText);
+        assertFalse(detail.canOpenGalleryAlbum);
+        assertEquals(1, detail.sourceUris.size());
+    }
+
     private static DiscoverySnapshotController.Clock fixedClock(final long nowMillis) {
         return new DiscoverySnapshotController.Clock() {
             @Override
@@ -88,5 +109,21 @@ public class DiscoverySnapshotControllerTest {
                 "Japan",
                 "Hokkaido",
                 "Otaru, Hokkaido, Japan");
+    }
+
+    private static StoredAlbumSummary matchingOrganizedAlbum() {
+        return new StoredAlbumSummary(
+                "삿포로에서",
+                "Pictures/삿포로에서/",
+                300,
+                "2026-08-01",
+                "2026-08-10",
+                "content://thumbnail",
+                "2026-08-15 10:00:00",
+                1786000000000L,
+                "JP",
+                "Japan",
+                "Hokkaido",
+                "Sapporo, Hokkaido, Japan");
     }
 }

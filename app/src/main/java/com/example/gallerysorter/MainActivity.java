@@ -380,7 +380,7 @@ public class MainActivity extends Activity {
             showRecentPlacesScreen();
             return;
         }
-        if (this.currentTopLevelTab == 2) {
+        if (this.currentTopLevelTab == 3) {
             showSettingsScreen();
             return;
         }
@@ -406,7 +406,7 @@ public class MainActivity extends Activity {
             return;
         }
         if (this.memoryBrowserScreenMode) {
-            showResultScreen();
+            returnToPreviousTopLevelTab();
             return;
         }
         if (this.recentPlaceDetailMode) {
@@ -597,7 +597,7 @@ public class MainActivity extends Activity {
         linearLayout3.setGravity(16);
         linearLayout2.addView(linearLayout3, matchWidth());
         TextView textView = new TextView(this);
-        textView.setText("앨범 정리");
+        textView.setText("PhotoPlace");
         textView.setTextSize(23.0f);
         textView.setTextColor(-14735049);
         textView.setTypeface(Typeface.DEFAULT_BOLD);
@@ -622,7 +622,7 @@ public class MainActivity extends Activity {
         });
         linearLayout3.addView(textView2);
         TextView textView3 = new TextView(this);
-        textView3.setText("위치별 앨범 정리 & 발견한 장소 기록");
+        textView3.setText("사진 속 장소를 발견하고, 원할 때 앨범으로 정리해요");
         textView3.setTextSize(15.0f);
         textView3.setTextColor(-6511697);
         textView3.setIncludeFontPadding(false);
@@ -3891,7 +3891,7 @@ public class MainActivity extends Activity {
             showRecentPlacesScreen();
             return;
         }
-        if (this.currentTopLevelTab == 2) {
+        if (this.currentTopLevelTab == 3) {
             showSettingsScreen();
             return;
         }
@@ -5310,14 +5310,14 @@ public class MainActivity extends Activity {
         linearLayout2.setGravity(16);
         linearLayout.addView(linearLayout2, weightedParams(1));
         TextView textView = new TextView(this);
-        textView.setText("앨범 정리 시작");
+        textView.setText("사진 속 장소 찾기");
         textView.setTextSize(18.0f);
         textView.setTypeface(Typeface.DEFAULT_BOLD);
         textView.setTextColor(-1);
         textView.setIncludeFontPadding(false);
         linearLayout2.addView(textView);
         TextView textView2 = new TextView(this);
-        textView2.setText("사진과 동영상을\n위치별 앨범으로 정리해요");
+        textView2.setText("앨범을 만들지 않고\n위치별로 먼저 둘러봐요");
         textView2.setTextSize(12.0f);
         textView2.setTextColor(-419430401);
         textView2.setLineSpacing(dp(2), 1.0f);
@@ -5503,8 +5503,8 @@ public class MainActivity extends Activity {
             linearLayout2.setPadding(dp(16), dp(18), dp(16), dp(18));
             linearLayout.addView(linearLayout2, matchWidth());
             applyCardBackground(linearLayout2);
-            linearLayout2.addView(sectionTitle("아직 저장된 장소가 없어요"), matchWidthWithBottom(dp(6)));
-            linearLayout2.addView(bodyText("앨범 정리를 실행하면 새로 발견한 장소가 여기에 쌓여요."), matchWidthWithBottom(dp(12)));
+            linearLayout2.addView(sectionTitle("아직 만든 위치 앨범이 없어요"), matchWidthWithBottom(dp(6)));
+            linearLayout2.addView(bodyText("발견한 장소를 위치 앨범으로 만들면 여기에 모여요."), matchWidthWithBottom(dp(12)));
         } else {
             final List<StoredAlbumSummary> searchableSummaries = listLoadRecentAlbumSummaries;
             final LinearLayout resultsContainer = new LinearLayout(this);
@@ -5534,7 +5534,7 @@ public class MainActivity extends Activity {
             linearLayout.addView(resultsContainer, matchWidth());
             renderRecentPlacesSearchResults(resultsContainer, searchableSummaries, this.recentPlacesSearchQuery);
         }
-        setContentViewWithBottomTabs(scrollView, 1);
+        setContentViewWithBottomTabs(scrollView, 2);
         if (this.recentPlacesScrollY > 0) {
             scrollView.post(new Runnable() { // from class: com.example.gallerysorter.MainActivity$$ExternalSyntheticLambda37
                 @Override // java.lang.Runnable
@@ -5556,7 +5556,7 @@ public class MainActivity extends Activity {
         header.setGravity(16);
         parent.addView(header, matchWidthWithBottom(dp(18)));
         TextView title = new TextView(this);
-        title.setText(this.recentPlacesSearchVisible ? "최근 발견한 장소 검색" : "최근 발견한 장소");
+        title.setText(this.recentPlacesSearchVisible ? "위치 앨범 검색" : "위치 앨범");
         title.setTextSize(24.0f);
         title.setTypeface(Typeface.DEFAULT_BOLD);
         title.setTextColor(-15656921);
@@ -5654,7 +5654,7 @@ public class MainActivity extends Activity {
         parent.addView(card, matchWidth());
         applyCardBackground(card);
         card.addView(sectionTitle(searching ? "검색 결과가 없어요" : "아직 저장된 장소가 없어요"), matchWidthWithBottom(dp(6)));
-        card.addView(bodyText(searching ? "다른 장소명, 국가명, 날짜로 다시 찾아보세요." : "앨범 정리를 실행하면 새로 발견한 장소가 여기에 쌓여요."), matchWidth());
+        card.addView(bodyText(searching ? "다른 장소명, 국가명, 날짜로 다시 찾아보세요." : "발견한 장소를 위치 앨범으로 만들면 여기에 모여요."), matchWidth());
     }
 
     private void returnToRecentPlacesScreen() {
@@ -7577,7 +7577,7 @@ public class MainActivity extends Activity {
         textView4.setTextColor(-7035976);
         textView4.setGravity(17);
         linearLayout2.addView(textView4, squareParams(dp(30)));
-        setContentViewWithBottomTabs(scrollView, 2);
+        setContentViewWithBottomTabs(scrollView, 3);
     }
 
     /* renamed from: lambda$showSettingsScreen$62$com-example-gallerysorter-MainActivity, reason: not valid java name */
@@ -7730,45 +7730,20 @@ public class MainActivity extends Activity {
     }
 
     private void addBottomTabs(LinearLayout linearLayout, int i) {
-        LinearLayout linearLayout2 = new LinearLayout(this);
-        linearLayout2.setOrientation(0);
-        linearLayout2.setGravity(17);
-        linearLayout2.setPadding(dp(12), dp(8), dp(12), dp(8));
-        linearLayout.addView(linearLayout2, matchWidthWithBottom(dp(4)));
-        applyCardBackground(linearLayout2);
-        addBottomTab(linearLayout2, "home", "홈", i == 0, new View.OnClickListener() { // from class: com.example.gallerysorter.MainActivity$$ExternalSyntheticLambda71
-            @Override // android.view.View.OnClickListener
-            public final void onClick(View view) {
-                MainActivity.this.m2lambda$addBottomTabs$65$comexamplegallerysorterMainActivity(view);
+        BottomNavigationRenderer renderer = new BottomNavigationRenderer(
+                this,
+                new BottomNavigationRenderer.IconFactory() {
+                    @Override
+                    public Drawable create(String iconName, int color, int sizePx) {
+                        return new IconBubbleDrawable(iconName, color, 0, sizePx);
+                    }
+                });
+        linearLayout.addView(renderer.render(i, new BottomNavigationRenderer.Listener() {
+            @Override
+            public void onTabSelected(int index) {
+                MainActivity.this.navigateToTopLevelTab(index);
             }
-        });
-        addBottomTab(linearLayout2, "grid", "정리 기록", i == 1, new View.OnClickListener() { // from class: com.example.gallerysorter.MainActivity$$ExternalSyntheticLambda72
-            @Override // android.view.View.OnClickListener
-            public final void onClick(View view) {
-                MainActivity.this.m3lambda$addBottomTabs$66$comexamplegallerysorterMainActivity(view);
-            }
-        });
-        addBottomTab(linearLayout2, "settings", "설정", i == 2, new View.OnClickListener() { // from class: com.example.gallerysorter.MainActivity$$ExternalSyntheticLambda1
-            @Override // android.view.View.OnClickListener
-            public final void onClick(View view) {
-                MainActivity.this.m4lambda$addBottomTabs$67$comexamplegallerysorterMainActivity(view);
-            }
-        });
-    }
-
-    /* renamed from: lambda$addBottomTabs$65$com-example-gallerysorter-MainActivity, reason: not valid java name */
-    /* synthetic */ void m2lambda$addBottomTabs$65$comexamplegallerysorterMainActivity(View view) {
-        navigateToTopLevelTab(0);
-    }
-
-    /* renamed from: lambda$addBottomTabs$66$com-example-gallerysorter-MainActivity, reason: not valid java name */
-    /* synthetic */ void m3lambda$addBottomTabs$66$comexamplegallerysorterMainActivity(View view) {
-        navigateToTopLevelTab(1);
-    }
-
-    /* renamed from: lambda$addBottomTabs$67$com-example-gallerysorter-MainActivity, reason: not valid java name */
-    /* synthetic */ void m4lambda$addBottomTabs$67$comexamplegallerysorterMainActivity(View view) {
-        navigateToTopLevelTab(2);
+        }), matchWidthWithBottom(dp(4)));
     }
 
     private void navigateToTopLevelTab(int target) {
@@ -7780,7 +7755,7 @@ public class MainActivity extends Activity {
             showTopLevelTab(0);
             return;
         }
-        if (this.currentTopLevelTab >= 0 && this.currentTopLevelTab <= 2) {
+        if (this.currentTopLevelTab >= 0 && this.currentTopLevelTab <= 3) {
             this.topLevelBackStack.add(Integer.valueOf(this.currentTopLevelTab));
             if (this.topLevelBackStack.size() > 8) {
                 this.topLevelBackStack.remove(0);
@@ -7791,8 +7766,10 @@ public class MainActivity extends Activity {
 
     private void showTopLevelTab(int target) {
         if (target == 1) {
-            showRecentPlacesScreen();
+            showMemoryBrowserScreen();
         } else if (target == 2) {
+            showRecentPlacesScreen();
+        } else if (target == 3) {
             showSettingsScreen();
         } else {
             returnToMainScreen();
@@ -7800,7 +7777,7 @@ public class MainActivity extends Activity {
     }
 
     private void setContentViewWithBottomTabs(ScrollView scrollView, int i) {
-        if (i >= 0 && i <= 2) {
+        if (i >= 0 && i <= 3) {
             this.currentTopLevelTab = i;
         }
         LinearLayout linearLayout = new LinearLayout(this);
@@ -7835,32 +7812,6 @@ public class MainActivity extends Activity {
         });
         setContentView(linearLayout);
         this.lastRenderedWindowWidthPx = currentWindowWidthPx();
-    }
-
-    private void addBottomTab(LinearLayout linearLayout, String str, String str2, boolean z, View.OnClickListener onClickListener) {
-        LinearLayout linearLayout2 = new LinearLayout(this);
-        linearLayout2.setOrientation(0);
-        linearLayout2.setGravity(17);
-        linearLayout2.setPadding(dp(12), dp(9), dp(12), dp(9));
-        linearLayout2.setClickable(true);
-        linearLayout2.setFocusable(true);
-        linearLayout2.setOnClickListener(onClickListener);
-        linearLayout.addView(linearLayout2, new LinearLayout.LayoutParams(0, -2, 1.0f));
-        if (z) {
-            GradientDrawable gradientDrawable = new GradientDrawable();
-            gradientDrawable.setColor(-922113);
-            gradientDrawable.setCornerRadius(dp(REQUEST_WRITE_VIDEOS));
-            linearLayout2.setBackground(gradientDrawable);
-        }
-        TextView textView = new TextView(this);
-        textView.setText(str2);
-        textView.setTextSize(13.0f);
-        textView.setTypeface(Typeface.DEFAULT_BOLD);
-        textView.setGravity(17);
-        textView.setTextColor(z ? -9609738 : -10193781);
-        textView.setCompoundDrawablePadding(dp(6));
-        textView.setCompoundDrawables(new IconBubbleDrawable(str, z ? -9609738 : -10193781, 0, dp(18)), null, null, null);
-        linearLayout2.addView(textView);
     }
 
     private void addNavItem(LinearLayout linearLayout, String str, String str2, int i) {
@@ -8408,12 +8359,7 @@ public class MainActivity extends Activity {
                 });
         int memoryBrowserWindowWidth = currentWindowWidthPx();
         scrollView.addView(root, renderer.contentLayoutParams(memoryBrowserWindowWidth));
-        addMemoryHeader(root, "발견한 장소", new Runnable() {
-            @Override
-            public void run() {
-                MainActivity.this.showResultScreen();
-            }
-        });
+        addMemoryHeader(root, "발견", null);
 
         TextView description = bodyText("앨범을 만들기 전에 PhotoPlace 안에서 먼저 둘러볼 수 있어요.");
         description.setPadding(dp(4), 0, dp(4), dp(12));
@@ -8434,7 +8380,16 @@ public class MainActivity extends Activity {
             empty.addView(title, matchWidthWithBottom(dp(6)));
             TextView body = bodyText("사진 확인을 먼저 실행하면 위치별 기억을 여기서 볼 수 있어요.");
             body.setGravity(17);
-            empty.addView(body, matchWidth());
+            empty.addView(body, matchWidthWithBottom(dp(12)));
+            Button home = new Button(this);
+            home.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View view) {
+                    MainActivity.this.navigateToTopLevelTab(0);
+                }
+            });
+            styleActionButton(home, "홈에서 사진 속 장소 찾기", "photoLibrary", -1050881, -4203522, -14326805);
+            empty.addView(home, matchWidth());
             root.addView(empty, matchWidthWithBottom(dp(14)));
         } else {
             root.addView(renderer.render(
@@ -8443,26 +8398,15 @@ public class MainActivity extends Activity {
                     renderer.columnCount(memoryBrowserWindowWidth)), matchWidthWithBottom(dp(14)));
         }
 
-        Button resultButton = new Button(this);
-        resultButton.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                MainActivity.this.showResultScreen();
-            }
-        });
-        styleActionButton(resultButton, "결과 화면으로 돌아가기", "grid", -1050881, -4203522, -14326805);
-        root.addView(resultButton, matchWidth());
-        setContentViewWithBottomTabs(scrollView, -1);
+        setContentViewWithBottomTabs(scrollView, 1);
     }
 
     private void showMemoryBrowserDetailScreen(String memoryKey) {
-        MemoryRepository repository;
-        MemoryBrowserState state;
         MemoryBrowserDetail detail;
         try {
-            repository = loadMemoryRepository();
-            state = MemoryBrowserState.from(repository);
-            detail = state.detail(memoryKey, repository);
+            detail = discoverySnapshotController().loadBrowserDetail(
+                    memoryKey,
+                    loadLiveMemoryAlbumSummaries());
         } catch (Exception unused) {
             showToast("장소를 불러오지 못했어요.");
             return;
@@ -8499,7 +8443,7 @@ public class MainActivity extends Activity {
         root.addView(summary, matchWidthWithBottom(dp(14)));
 
         TextView label = new TextView(this);
-        label.setText(detail.item.subtitle);
+        label.setText("발견한 장소");
         label.setTextSize(13.0f);
         label.setTextColor(detail.item.discoveryOnly ? -14326805 : -6511697);
         summary.addView(label, matchWidthWithBottom(dp(4)));
@@ -8511,7 +8455,7 @@ public class MainActivity extends Activity {
         count.setTextColor(-14735049);
         summary.addView(count, matchWidthWithBottom(dp(6)));
 
-        TextView hint = bodyText(detail.item.discoveryOnly ? "아직 갤러리 앨범을 만들지 않은 앱 안의 보기입니다." : "이미 갤러리에 만들어진 앨범입니다.");
+        TextView hint = bodyText("앨범 생성 여부와 관계없이 PhotoPlace 안에서 위치와 날짜별로 볼 수 있어요.");
         summary.addView(hint, matchWidth());
 
         if (!detail.sourceUris.isEmpty()) {
@@ -8532,30 +8476,6 @@ public class MainActivity extends Activity {
             root.addView(empty, matchWidthWithBottom(dp(12)));
         }
 
-        if (detail.canOpenGalleryAlbum && detail.record.organizedAlbum != null) {
-            Button gallery = new Button(this);
-            gallery.setOnClickListener(new View.OnClickListener() {
-                @Override
-                public void onClick(View view) {
-                    MainActivity.this.openAlbumInGallery(storedAlbumSummaryFromMemoryRecord(detail.record));
-                }
-            });
-            styleActionButton(gallery, "갤러리 앨범 열기", "gallery", -1050881, -4203522, -14326805);
-            root.addView(gallery, matchWidthWithBottom(dp(10)));
-        }
-        if (detail.item.discoveryOnly && hasCopyableItems(this.previewItems)) {
-            Button organize = new Button(this);
-            organize.setOnClickListener(new View.OnClickListener() {
-                @Override
-                public void onClick(View view) {
-                    MainActivity.this.showResultScreen();
-                    MainActivity.this.showToast("결과 화면에서 새 항목만 정리를 누르면 갤러리 앨범을 만들 수 있어요.");
-                }
-            });
-            styleActionButton(organize, "이 장소를 앨범으로 정리", "folder", -3542826, -10236022, -15368131);
-            root.addView(organize, matchWidthWithBottom(dp(10)));
-        }
-
         Button back = new Button(this);
         back.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -8573,20 +8493,20 @@ public class MainActivity extends Activity {
         header.setOrientation(0);
         header.setGravity(16);
         root.addView(header, matchWidthWithBottom(dp(18)));
-        TextView back = new TextView(this);
-        back.setText("‹");
-        back.setTextSize(36.0f);
-        back.setGravity(17);
-        back.setTextColor(-15656921);
-        back.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                if (backAction != null) {
+        if (backAction != null) {
+            TextView back = new TextView(this);
+            back.setText("‹");
+            back.setTextSize(36.0f);
+            back.setGravity(17);
+            back.setTextColor(-15656921);
+            back.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View view) {
                     backAction.run();
                 }
-            }
-        });
-        header.addView(back, squareParams(dp(44)));
+            });
+            header.addView(back, squareParams(dp(44)));
+        }
         TextView title = new TextView(this);
         title.setText(titleText);
         title.setTextSize(22.0f);
@@ -8697,7 +8617,7 @@ public class MainActivity extends Activity {
             for (int column = 0; column < 3; column++) {
                 if (index < max) {
                     MemoryPhotoItem photo = photos.get(index);
-                    View card = memorySourceCard(photo.sourceUri, mediaOpenMime(photo));
+                    View card = memoryPhotoThumbnailRenderer().render(photo, dp(180));
                     LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(0, dp(112), 1.0f);
                     params.setMargins(column == 0 ? 0 : dp(4), 0, column == 2 ? 0 : dp(4), 0);
                     row.addView(card, params);
@@ -8717,6 +8637,31 @@ public class MainActivity extends Activity {
             return photo.mimeType;
         }
         return photo.mediaKind == MediaKind.VIDEO ? "video/*" : "image/*";
+    }
+
+    private MemoryPhotoThumbnailRenderer memoryPhotoThumbnailRenderer() {
+        return new MemoryPhotoThumbnailRenderer(
+                this,
+                new MemoryPhotoThumbnailRenderer.Listener() {
+                    @Override
+                    public void onOpen(MemoryPhotoItem item) {
+                        try {
+                            MainActivity.this.openMediaUri(Uri.parse(item.sourceUri), mediaOpenMime(item));
+                        } catch (Exception unused) {
+                            MainActivity.this.showToast("사진을 열 수 없어요.");
+                        }
+                    }
+                },
+                new MemoryPhotoThumbnailRenderer.ThumbnailLoader() {
+                    @Override
+                    public void load(ImageView target, String uriValue, int sizePx) {
+                        try {
+                            MainActivity.this.loadThumbnailInto(target, Uri.parse(uriValue), sizePx);
+                        } catch (Exception unused) {
+                            target.setImageDrawable(MainActivity.this.thumbnailPlaceholder());
+                        }
+                    }
+                });
     }
 
     private View memorySourceCard(final String uriValue) {

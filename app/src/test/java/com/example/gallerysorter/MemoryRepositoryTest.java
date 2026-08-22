@@ -210,7 +210,7 @@ public class MemoryRepositoryTest {
     }
 
     @Test
-    public void discoveryMemoriesMergeMatchingOrganizedAlbum() {
+    public void discoveryMemoriesKeepSnapshotCountWhenOrganizedAlbumMatches() {
         StoredAlbumSummary summary = organizedAlbum(
                 "송파구에서",
                 "Pictures/송파구에서/",
@@ -242,8 +242,10 @@ public class MemoryRepositoryTest {
         List<MemoryRecord> records = repository.discoveryMemories();
 
         assertEquals(1, records.size());
-        assertEquals(MemorySourceType.MIXED, records.get(0).sourceType);
-        assertEquals("path:Pictures/송파구에서/", records.get(0).memoryKey);
+        assertEquals(MemorySourceType.DISCOVERED_ONLY, records.get(0).sourceType);
+        assertEquals("discovery:송파구", records.get(0).memoryKey);
+        assertEquals(293, records.get(0).itemCount);
+        assertNull(records.get(0).organizedAlbum);
     }
 
     @Test
@@ -285,7 +287,7 @@ public class MemoryRepositoryTest {
     }
 
     @Test
-    public void sameCountryAndPlaceCanMergeWhenDatesOverlapEvenIfAdminDiffers() {
+    public void discoveryMemoriesDoNotMergeEvenWhenDatesOverlap() {
         StoredAlbumSummary summary = organizedAlbum(
                 "중앙구에서",
                 "Pictures/중앙구에서/",
@@ -317,7 +319,8 @@ public class MemoryRepositoryTest {
         List<MemoryRecord> records = repository.discoveryMemories();
 
         assertEquals(1, records.size());
-        assertEquals(MemorySourceType.MIXED, records.get(0).sourceType);
+        assertEquals(MemorySourceType.DISCOVERED_ONLY, records.get(0).sourceType);
+        assertEquals(5, records.get(0).itemCount);
     }
 
     @Test
