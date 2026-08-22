@@ -7,14 +7,22 @@ import java.util.List;
 final class DiscoverySnapshotController {
     private final DiscoverySnapshotStore store;
     private final Clock clock;
+    private final DiscoverySnapshotLiveFilter liveFilter;
 
     DiscoverySnapshotController(Context context) {
-        this(new DiscoverySnapshotStore(context), new SystemClock());
+        this(new DiscoverySnapshotStore(context), new SystemClock(), new DiscoverySnapshotLiveFilter(context.getContentResolver()));
     }
 
     DiscoverySnapshotController(DiscoverySnapshotStore store, Clock clock) {
+        this(store, clock, null);
+    }
+
+    DiscoverySnapshotController(DiscoverySnapshotStore store,
+                                Clock clock,
+                                DiscoverySnapshotLiveFilter liveFilter) {
         this.store = store;
         this.clock = clock == null ? new SystemClock() : clock;
+        this.liveFilter = liveFilter;
     }
 
     boolean savePreviewItems(List<PhotoItem> items, String sourceSignature) {
@@ -43,7 +51,13 @@ final class DiscoverySnapshotController {
     }
 
     MemoryBrowserState loadBrowserState(List<StoredAlbumSummary> organizedAlbums) {
-        return MemoryBrowserState.fromRecords(repository(organizedAlbums).discoveryMemories());
+        return loadBrowserState(organizedAlbums, "");
+    }
+
+    MemoryBrowserState loadBrowserState(List<StoredAlbumSummary> organizedAlbums, String query) {
+        return MemoryBrowserState.fromRecords(MemoryBrowserSearch.filter(
+                repository(organizedAlbums).discoveryMemories(),
+                query));
     }
 
     MemoryBrowserDetail loadBrowserDetail(String memoryKey,
@@ -54,7 +68,11 @@ final class DiscoverySnapshotController {
     }
 
     MemoryRepository repository(List<StoredAlbumSummary> organizedAlbums) {
-        return new MemoryRepository(store.read(), organizedAlbums);
+        DiscoverySnapshot snapshot = store.read();
+        if (liveFilter != null) {
+            snapshot = liveFilter.filter(snapshot);
+        }
+        return new MemoryRepository(snapshot, organizedAlbums);
     }
 
     interface Clock {

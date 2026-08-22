@@ -77,6 +77,35 @@ final class MemoryBrowserGridRenderer {
         return grid;
     }
 
+    View renderResults(List<MemoryBrowserItem> items,
+                       int availableWidthPx,
+                       int columns,
+                       boolean searching) {
+        LinearLayout container = new LinearLayout(context);
+        container.setOrientation(LinearLayout.VERTICAL);
+        if (items == null || items.isEmpty()) {
+            if (searching) {
+                LinearLayout empty = new LinearLayout(context);
+                empty.setOrientation(LinearLayout.VERTICAL);
+                empty.setPadding(dp(16), dp(18), dp(16), dp(18));
+                empty.setBackground(cardBackground());
+                empty.addView(text("검색 결과가 없어요", 16.0f, Color.rgb(31, 35, 48), true));
+                TextView hint = text("다른 장소명, 국가명, 도시명, 날짜로 다시 찾아보세요.", 13.0f, Color.rgb(104, 113, 132), false);
+                hint.setPadding(0, dp(5), 0, 0);
+                empty.addView(hint);
+                container.addView(empty, new LinearLayout.LayoutParams(-1, -2));
+            }
+            return container;
+        }
+        if (searching) {
+            TextView count = text("검색 결과 " + items.size() + "개", 14.0f, Color.rgb(104, 82, 226), true);
+            count.setPadding(dp(2), 0, 0, dp(10));
+            container.addView(count, new LinearLayout.LayoutParams(-1, -2));
+        }
+        container.addView(render(items, availableWidthPx, columns), new LinearLayout.LayoutParams(-1, -2));
+        return container;
+    }
+
     private View createCard(final MemoryBrowserItem item, int cardWidth, int imageHeight) {
         LinearLayout card = new LinearLayout(context);
         card.setOrientation(LinearLayout.VERTICAL);

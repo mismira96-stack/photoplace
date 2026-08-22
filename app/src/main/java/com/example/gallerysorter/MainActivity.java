@@ -193,6 +193,8 @@ public class MainActivity extends Activity {
     private boolean overseasMemoryScreenMode = false;
     private boolean memoryBrowserScreenMode = false;
     private boolean memoryBrowserDetailMode = false;
+    private boolean memoryBrowserSearchVisible = false;
+    private String memoryBrowserSearchQuery = "";
     private boolean sourceFolderDialogLoading = false;
     private StoredAlbumSummary activePlaceDetailSummary = null;
     private MemoryGroup activeOverseasMemoryGroup = null;
@@ -8323,12 +8325,17 @@ public class MainActivity extends Activity {
     }
 
     private void showMemoryBrowserScreen() {
-        MemoryBrowserState state;
+        final List<MemoryRecord> discoveryRecords;
         try {
-            state = loadMemoryBrowserState();
+            discoveryRecords = loadMemoryRepository().discoveryMemories();
         } catch (Exception unused) {
             showToast("발견한 장소를 불러오지 못했어요.");
             return;
+        }
+        final MemoryBrowserState state = MemoryBrowserState.fromRecords(discoveryRecords);
+        if (state.isEmpty()) {
+            this.memoryBrowserSearchVisible = false;
+            this.memoryBrowserSearchQuery = "";
         }
         this.resultScreenMode = false;
         this.recentPlacesScreenMode = false;
@@ -8343,7 +8350,7 @@ public class MainActivity extends Activity {
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(1);
         root.setPadding(dp(18), dp(56), dp(18), dp(REQUEST_WRITE_VIDEOS));
-        MemoryBrowserGridRenderer renderer = new MemoryBrowserGridRenderer(
+        final MemoryBrowserGridRenderer renderer = new MemoryBrowserGridRenderer(
                 this,
                 new MemoryBrowserGridRenderer.Listener() {
                     @Override
@@ -8359,11 +8366,50 @@ public class MainActivity extends Activity {
                 });
         int memoryBrowserWindowWidth = currentWindowWidthPx();
         scrollView.addView(root, renderer.contentLayoutParams(memoryBrowserWindowWidth));
-        addMemoryHeader(root, "발견", null);
+        final int availableGridWidth = renderer.availableGridWidth(memoryBrowserWindowWidth);
+        final int columnCount = renderer.columnCount(memoryBrowserWindowWidth);
+        final LinearLayout resultsContainer = new LinearLayout(this);
+        resultsContainer.setOrientation(1);
+        final MemorySearchHeaderRenderer searchHeader = new MemorySearchHeaderRenderer(
+                this,
+                new MemorySearchHeaderRenderer.IconFactory() {
+                    @Override
+                    public Drawable create(String iconName, int color, int backgroundColor, int sizePx) {
+                        return new IconBubbleDrawable(iconName, color, backgroundColor, sizePx);
+                    }
+                },
+                new MemorySearchHeaderRenderer.Listener() {
+                    @Override
+                    public void onSearchVisibilityChanged(boolean visible) {
+                        MainActivity.this.memoryBrowserSearchVisible = visible;
+                        if (!visible) {
+                            MainActivity.this.memoryBrowserSearchQuery = "";
+                        }
+                        MainActivity.this.showMemoryBrowserScreen();
+                    }
+
+                    @Override
+                    public void onQueryChanged(String query) {
+                        MainActivity.this.memoryBrowserSearchQuery = query == null ? "" : query;
+                        MainActivity.this.renderMemoryBrowserSearchResults(
+                                resultsContainer,
+                                renderer,
+                                discoveryRecords,
+                                availableGridWidth,
+                                columnCount);
+                    }
+                });
+        root.addView(searchHeader.header(this.memoryBrowserSearchVisible, !state.isEmpty()), matchWidthWithBottom(dp(18)));
 
         TextView description = bodyText("앨범을 만들기 전에 PhotoPlace 안에서 먼저 둘러볼 수 있어요.");
         description.setPadding(dp(4), 0, dp(4), dp(12));
         root.addView(description, matchWidth());
+
+        if (this.memoryBrowserSearchVisible) {
+            EditText searchInput = searchHeader.input(this.memoryBrowserSearchQuery);
+            root.addView(searchInput, matchWidthWithBottom(dp(14)));
+            searchInput.requestFocus();
+        }
 
         if (state.isEmpty()) {
             LinearLayout empty = new LinearLayout(this);
@@ -8392,13 +8438,36 @@ public class MainActivity extends Activity {
             empty.addView(home, matchWidth());
             root.addView(empty, matchWidthWithBottom(dp(14)));
         } else {
-            root.addView(renderer.render(
-                    state.items,
-                    renderer.availableGridWidth(memoryBrowserWindowWidth),
-                    renderer.columnCount(memoryBrowserWindowWidth)), matchWidthWithBottom(dp(14)));
+            root.addView(resultsContainer, matchWidthWithBottom(dp(14)));
+            renderMemoryBrowserSearchResults(
+                    resultsContainer,
+                    renderer,
+                    discoveryRecords,
+                    availableGridWidth,
+                    columnCount);
         }
 
         setContentViewWithBottomTabs(scrollView, 1);
+    }
+
+    private void renderMemoryBrowserSearchResults(LinearLayout container,
+                                                  MemoryBrowserGridRenderer renderer,
+                                                  List<MemoryRecord> discoveryRecords,
+                                                  int availableGridWidth,
+                                                  int columnCount) {
+        if (container == null || renderer == null) {
+            return;
+        }
+        container.removeAllViews();
+        String query = this.memoryBrowserSearchQuery;
+        MemoryBrowserState filtered = MemoryBrowserState.fromRecords(
+                MemoryBrowserSearch.filter(discoveryRecords, query));
+        boolean searching = query != null && !query.trim().isEmpty();
+        container.addView(renderer.renderResults(
+                filtered.items,
+                availableGridWidth,
+                columnCount,
+                searching), matchWidth());
     }
 
     private void showMemoryBrowserDetailScreen(String memoryKey) {
