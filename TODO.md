@@ -3,7 +3,7 @@
 ## 2026-08-22 Display First 후속
 
 - [x] 분석 완료 dialog의 primary action을 `발견한 장소 보기`로 변경.
-- [x] `앨범 만들기`는 secondary action으로 유지.
+- [x] Preview dialog의 legacy `앨범 만들기`를 제거하고, 앨범 생성은 발견 tab의 사용자 확인 CTA로 단일화.
 - [x] 분석 직후 홈의 중복 대형 앨범 만들기 CTA는 숨김.
 - [x] `발견한 장소 둘러보기`를 photo-first 카드 grid로 변경(일반 폭 2열, 넓은 화면 3열).
 - [ ] Memory detail을 수백/수천 장까지 안전하게 볼 수 있는 lazy date grid로 전환.
@@ -40,6 +40,37 @@
 - Gallery 앨범 열기와 관리 책임은 `위치 앨범`에만 둔다. MIXED 상태는 내부 정합성 용도로만 유지한다.
 - Organize Optional은 장소별 선택이 아니라 `앱 안에서만 보기`와 `발견한 장소 전체 앨범 생성` 중 사용자 선택을 뜻한다.
 - 해외 Gallery 정리 단위는 국가/여행 세션/도시 중 어느 것이 좋은지 별도 POC한다. 현 단계에서 국가당 1앨범으로 고정하지 않는다.
+
+### 다음 UI/UX Polish
+
+#### P0 - 발견과 위치 앨범 역할 구분
+
+- [ ] 발견 tab의 `발견한 장소를 위치 앨범으로 만들기`를 secondary action으로 낮춘다.
+  - 앨범 생성에 익숙한 사용자 접근성은 유지하되 photo-first 카드보다 강하게 보이지 않게 한다.
+  - 상단 유지/subtle style과 목록 하단 배치 중 실기기에서 비교한다.
+- [ ] 위치 앨범 header의 `총 N개 장소 발견`을 `위치 앨범 N개` 중심 문구로 변경한다.
+- [ ] 사용자 노출 사진 수 표현을 `N개 사진`에서 `사진 N장`으로 통일한다. 동영상 혼합 시 `항목 N개`가 필요한 경계는 별도 확인한다.
+- [ ] 설정 root 화면의 Back 아이콘을 제거한다. 설정 내부 하위 화면에만 Back을 유지한다.
+- [ ] `발견 장소 다시 만들기`를 `장소 목록 다시 구성하기` 등 비파괴 의미가 분명한 문구로 검토하고 `사진과 앨범은 삭제되지 않아요` 설명을 추가한다.
+
+#### P1 - Memory detail polish
+
+- [ ] 발견 상세에서 bottom navigation의 `발견` 선택 상태가 유지되는지 회귀 확인한다.
+- [ ] 상세 하단 `발견한 장소로 돌아가기`를 유지할 경우 `다른 장소 둘러보기`처럼 상단 Back과 다른 목적임을 명확히 한다.
+- [ ] 날짜 header accent를 경고처럼 보이지 않는 muted blue 또는 저채도 coral로 비교한다.
+- [ ] 날짜별 한 줄 메모 작성/수정 UI를 stable memory/date key 설계 후 구현한다.
+
+#### P1 - 반복 분석과 대용량 탐색
+
+- [ ] 같은 source folder 재분석 시 기존 snapshot과 source signature를 활용해 EXIF/Geocoder 재호출을 줄인다.
+- [ ] 위치 없음 cache는 과거 `새 항목 0개` 회귀를 막는 무효화 테스트를 먼저 만든 뒤 적용한다.
+- [ ] 10k 이상 discovery refs에서 live-filter, 검색, 전역 CTA prepare 시간과 메모리를 측정한다.
+- [ ] 중단 후 처음부터 재분석하지 않는 checkpoint/이어하기를 별도 설계한다.
+
+#### P2 - Empty-state illustration system
+
+- [x] 발견 및 위치 앨범의 빈 화면에만 PhotoPlace illustration을 적용하고 실제 photo-first 화면과 tab icon에는 적용하지 않는다.
+- [ ] 다음 실기기 확인에서 illustration의 입체감/테두리가 강하면 alpha와 asset style을 더 단순한 2D 선·면 중심으로 조정한다.
 
 ## 2026-08-16 긴급 추가 (요청: 발견 장소 다시보기 CTA 관련)
 
