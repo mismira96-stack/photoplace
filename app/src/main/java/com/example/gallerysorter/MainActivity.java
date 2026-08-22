@@ -5377,25 +5377,22 @@ public class MainActivity extends Activity {
             addPendingOriginalCleanupCompactCard(linearLayout);
         }
         if (!hasRecentPlaces) {
-            LinearLayout linearLayout2 = new LinearLayout(this);
-            linearLayout2.setOrientation(1);
-            linearLayout2.setPadding(dp(16), dp(18), dp(16), dp(18));
-            linearLayout.addView(linearLayout2, matchWidth());
-            applyCardBackground(linearLayout2);
-            linearLayout2.addView(sectionTitle("아직 만든 위치 앨범이 없어요"), matchWidthWithBottom(dp(6)));
-            linearLayout2.addView(bodyText("발견한 장소를 위치 앨범으로 만들면 여기에 모여요."), matchWidthWithBottom(dp(12)));
-            if (hasMemoryBrowserItems()) {
-                Button discoveryButton = new Button(this);
-                discoveryButton.setContentDescription("발견한 장소 보기");
-                discoveryButton.setOnClickListener(new View.OnClickListener() {
-                    @Override
-                    public void onClick(View view) {
-                        MainActivity.this.navigateToTopLevelTab(1);
-                    }
-                });
-                styleSubtleActionButton(discoveryButton, "발견한 장소 보기");
-                linearLayout2.addView(discoveryButton, matchWidth());
-            }
+            final boolean canOpenDiscovery = hasMemoryBrowserItems();
+            LocationAlbumEmptyStateRenderer emptyRenderer = new LocationAlbumEmptyStateRenderer(
+                    this,
+                    new LocationAlbumEmptyStateRenderer.ButtonStyler() {
+                        @Override
+                        public void style(Button button) {
+                            MainActivity.this.stylePurpleCtaButton(button, "발견한 장소 보기");
+                        }
+                    },
+                    new LocationAlbumEmptyStateRenderer.Listener() {
+                        @Override
+                        public void onOpenDiscovery() {
+                            MainActivity.this.navigateToTopLevelTab(1);
+                        }
+                    });
+            linearLayout.addView(emptyRenderer.render(canOpenDiscovery), matchWidth());
         } else {
             final List<StoredAlbumSummary> searchableSummaries = listLoadRecentAlbumSummaries;
             final LinearLayout resultsContainer = new LinearLayout(this);
@@ -8280,9 +8277,11 @@ public class MainActivity extends Activity {
         root.addView(searchHeader.header(this.memoryBrowserSearchVisible, !state.isEmpty()), matchWidthWithBottom(dp(18)));
         addWorkingBanner(root);
 
-        TextView description = bodyText("앨범을 만들기 전에 PhotoPlace 안에서 먼저 둘러볼 수 있어요.");
-        description.setPadding(dp(4), 0, dp(4), dp(6));
-        root.addView(description, matchWidthWithBottom(dp(8)));
+        if (!state.isEmpty()) {
+            TextView description = bodyText("앨범을 만들기 전에 PhotoPlace 안에서 먼저 둘러볼 수 있어요.");
+            description.setPadding(dp(4), 0, dp(4), dp(6));
+            root.addView(description, matchWidthWithBottom(dp(8)));
+        }
 
         if (!state.isEmpty()) {
             Button organize = new Button(this);
@@ -8312,31 +8311,28 @@ public class MainActivity extends Activity {
         }
 
         if (state.isEmpty()) {
-            LinearLayout empty = new LinearLayout(this);
-            empty.setOrientation(1);
-            empty.setGravity(17);
-            empty.setPadding(dp(18), dp(24), dp(18), dp(24));
-            applyCardBackground(empty);
-            TextView title = new TextView(this);
-            title.setText("아직 발견한 장소가 없어요");
-            title.setTextSize(17.0f);
-            title.setTypeface(Typeface.DEFAULT_BOLD);
-            title.setTextColor(-14735049);
-            title.setGravity(17);
-            empty.addView(title, matchWidthWithBottom(dp(6)));
-            TextView body = bodyText("사진 확인을 먼저 실행하면 위치별 기억을 여기서 볼 수 있어요.");
-            body.setGravity(17);
-            empty.addView(body, matchWidthWithBottom(dp(12)));
-            Button home = new Button(this);
-            home.setOnClickListener(new View.OnClickListener() {
-                @Override
-                public void onClick(View view) {
-                    MainActivity.this.navigateToTopLevelTab(0);
-                }
-            });
-            styleActionButton(home, "홈에서 사진 속 장소 찾기", "photoLibrary", -1050881, -4203522, -14326805);
-            empty.addView(home, matchWidth());
-            root.addView(empty, matchWidthWithBottom(dp(14)));
+            DiscoveryEmptyStateRenderer emptyRenderer = new DiscoveryEmptyStateRenderer(
+                    this,
+                    new DiscoveryEmptyStateRenderer.ButtonStyler() {
+                        @Override
+                        public void style(Button button) {
+                            MainActivity.this.styleHeroStartButton(button, "사진 속 장소 찾기");
+                            HeroStartDrawable heroIcon = new HeroStartDrawable();
+                            heroIcon.setBounds(0, 0, dp(42), dp(34));
+                            button.setCompoundDrawables(
+                                    heroIcon,
+                                    null,
+                                    new IconBubbleDrawable("arrow", -9740826, -1, dp(36)),
+                                    null);
+                        }
+                    },
+                    new DiscoveryEmptyStateRenderer.Listener() {
+                        @Override
+                        public void onFindPlaces() {
+                            MainActivity.this.navigateToTopLevelTab(0);
+                        }
+                    });
+            root.addView(emptyRenderer.render(), matchWidthWithBottom(dp(14)));
         } else {
             root.addView(resultsContainer, matchWidthWithBottom(dp(14)));
             renderMemoryBrowserSearchResults(
