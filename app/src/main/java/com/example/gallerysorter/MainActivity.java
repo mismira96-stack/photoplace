@@ -8392,7 +8392,22 @@ public class MainActivity extends Activity {
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(1);
         root.setPadding(dp(18), dp(56), dp(18), dp(REQUEST_WRITE_VIDEOS));
-        scrollView.addView(root, scrollContentLayoutParams());
+        MemoryBrowserGridRenderer renderer = new MemoryBrowserGridRenderer(
+                this,
+                new MemoryBrowserGridRenderer.Listener() {
+                    @Override
+                    public void onMemorySelected(MemoryBrowserItem item) {
+                        MainActivity.this.showMemoryBrowserDetailScreen(item.memoryKey);
+                    }
+                },
+                new MemoryBrowserGridRenderer.ThumbnailLoader() {
+                    @Override
+                    public void load(ImageView target, String uriValue, int sizePx) {
+                        MainActivity.this.loadMemoryBrowserThumbnailInto(target, uriValue, sizePx);
+                    }
+                });
+        int memoryBrowserWindowWidth = currentWindowWidthPx();
+        scrollView.addView(root, renderer.contentLayoutParams(memoryBrowserWindowWidth));
         addMemoryHeader(root, "발견한 장소", new Runnable() {
             @Override
             public void run() {
@@ -8422,14 +8437,7 @@ public class MainActivity extends Activity {
             empty.addView(body, matchWidth());
             root.addView(empty, matchWidthWithBottom(dp(14)));
         } else {
-            LinearLayout list = new LinearLayout(this);
-            list.setOrientation(1);
-            list.setPadding(dp(14), dp(6), dp(14), dp(6));
-            applyCardBackground(list);
-            root.addView(list, matchWidthWithBottom(dp(14)));
-            for (final MemoryBrowserItem item : state.items) {
-                addMemoryBrowserRow(list, item);
-            }
+            root.addView(renderer.render(state.items, renderer.availableGridWidth(memoryBrowserWindowWidth)), matchWidthWithBottom(dp(14)));
         }
 
         Button resultButton = new Button(this);
@@ -8442,61 +8450,6 @@ public class MainActivity extends Activity {
         styleActionButton(resultButton, "결과 화면으로 돌아가기", "grid", -1050881, -4203522, -14326805);
         root.addView(resultButton, matchWidth());
         setContentViewWithBottomTabs(scrollView, -1);
-    }
-
-    private void addMemoryBrowserRow(LinearLayout parent, final MemoryBrowserItem item) {
-        LinearLayout row = new LinearLayout(this);
-        row.setOrientation(0);
-        row.setGravity(16);
-        row.setPadding(0, dp(10), 0, dp(10));
-        row.setClickable(true);
-        row.setFocusable(true);
-        row.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                MainActivity.this.showMemoryBrowserDetailScreen(item.memoryKey);
-            }
-        });
-        parent.addView(row, matchWidth());
-
-        ImageView image = new ImageView(this);
-        image.setScaleType(ImageView.ScaleType.CENTER_CROP);
-        GradientDrawable imageBg = new GradientDrawable();
-        imageBg.setColor(-460036);
-        imageBg.setCornerRadius(dp(14));
-        image.setBackground(imageBg);
-        image.setClipToOutline(true);
-        row.addView(image, squareParams(dp(54)));
-        loadMemoryBrowserThumbnailInto(image, item.coverUri, dp(54));
-
-        LinearLayout text = new LinearLayout(this);
-        text.setOrientation(1);
-        text.setPadding(dp(12), 0, dp(8), 0);
-        row.addView(text, weightedParams(1));
-
-        TextView eyebrow = new TextView(this);
-        eyebrow.setText(item.subtitle);
-        eyebrow.setTextSize(12.0f);
-        eyebrow.setTextColor(item.discoveryOnly ? -14326805 : -6511697);
-        text.addView(eyebrow);
-
-        TextView title = new TextView(this);
-        title.setText(item.title);
-        title.setTextSize(16.0f);
-        title.setTypeface(Typeface.DEFAULT_BOLD);
-        title.setTextColor(-14735049);
-        text.addView(title);
-
-        TextView date = bodyText(item.dateText);
-        date.setTextSize(12.5f);
-        text.addView(date);
-
-        TextView count = new TextView(this);
-        count.setText(item.countText);
-        count.setTextSize(16.0f);
-        count.setTypeface(Typeface.DEFAULT_BOLD);
-        count.setTextColor(-14326805);
-        row.addView(count);
     }
 
     private void showMemoryBrowserDetailScreen(String memoryKey) {

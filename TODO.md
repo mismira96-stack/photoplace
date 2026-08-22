@@ -5,6 +5,7 @@
 - [x] 분석 완료 dialog의 primary action을 `발견한 장소 보기`로 변경.
 - [x] `앨범 만들기`는 secondary action으로 유지.
 - [x] 분석 직후 홈의 중복 대형 앨범 만들기 CTA는 숨김.
+- [x] `발견한 장소 둘러보기`를 photo-first 카드 grid로 변경(일반 폭 2열, 넓은 화면 3열).
 - [ ] Memory detail을 수백/수천 장까지 안전하게 볼 수 있는 lazy date grid로 전환.
 - [ ] 앱 내부 사진 viewer 또는 같은 장소 사진 간 자연스러운 좌우 탐색 제공.
 - [ ] 발견 장소 검색 추가. 1차 검색 대상은 장소명, 국가명/국가 alias, 도시명, 연도/월.
