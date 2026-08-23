@@ -27,6 +27,16 @@
 - [x] 분석 완료 dialog의 legacy 앨범/결과 CTA와 organizer 통계를 제거하고 발견 완료 UI로 단순화.
 - [x] 홈의 legacy `새 장소 / 위치 없음 / 정리 완료` 요약 바 제거.
 - [x] crash/업데이트 후 로컬 위치 분석 progress가 가짜 진행 상태로 복원되지 않도록 수정.
+- [x] 서로 다른 분석 폴더를 순서대로 확인해도 기존 DiscoverySnapshot 기록이 덮어써지지 않고 URI 단위로 병합되도록 수정.
+- [ ] 발견 기록 첫 화면 맨 위에 `이번에 새로 발견한 장소` 섹션을 추가한다.
+  - 이번 분석에서 새로 추가된 **장소 카드 수**와 장소 목록을 보여준다. `앱에서 볼 항목 N개`처럼 파일 수를 장소 수로 오해하게 하지 않는다.
+  - 기존 발견 장소는 아래의 전체 발견 기록에서 계속 탐색/검색 가능해야 한다.
+- [ ] 분석 완료 dialog와 홈 안내 문구에서 파일 수와 장소 수를 분리한다.
+  - 예: `이번에 새로 발견한 장소 7곳 · 사진 174장`.
+  - 위치 없음/이미 위치 앨범에 있는 파일 수는 보조 정보로 약하게 표기한다.
+- [ ] 앱 삭제/데이터 초기화 후 발견 기록 복원 UX를 설계한다.
+  - 위치 앨범은 MediaStore/정리 기록에서 다시 보이지만, discovery snapshot은 앱 내부 파일이라 삭제 시 복원되지 않는 현재 한계를 명시한다.
+  - 설정에 `발견 기록 다시 구성하기`를 제공해 저장된 분석 폴더를 재분석할 수 있게 한다. 사진과 Gallery 앨범은 삭제하지 않는다는 안전 문구를 포함한다.
 - [ ] 발견/위치 앨범이 공유하는 Memory detail과 날짜별 메모 stable key 설계.
 - [ ] 앨범 생성 후 발견 UI에서는 숨기되 snapshot/personalization 원본을 보존하는 lifecycle 회귀 테스트 추가.
 - [ ] 발견 상세의 날짜 그룹 단위 앱 내부 사진/동영상 스와이프 viewer 추가.
@@ -62,8 +72,14 @@
 
 #### P1 - 반복 분석과 대용량 탐색
 
-- [ ] 같은 source folder 재분석 시 기존 snapshot과 source signature를 활용해 EXIF/Geocoder 재호출을 줄인다.
-- [ ] 위치 없음 cache는 과거 `새 항목 0개` 회귀를 막는 무효화 테스트를 먼저 만든 뒤 적용한다.
+- [ ] P0: `LocationAnalysisCache`를 설계/구현해 같은 source folder 재분석 시 EXIF/Geocoder 재호출을 줄인다.
+  - `DiscoverySnapshot`은 발견 결과 저장소이지 분석 캐시가 아니다. 앱 삭제 시 사라지는 것이 현재 정상 동작이다.
+  - 캐시는 미디어 identity/signature별로 `LOCATION_NONE` 또는 정규화된 위치 결과(`placeKey`, country/admin/address metadata)를 저장한다.
+  - cache hit은 파일을 분석 결과에서 숨기지 않는다. 저장된 위치 결과로 `PhotoItem`/발견 기록을 재구성하고, 위치 없음은 카운트에만 남긴다.
+  - signature 필수 후보: mediaStoreId, sourceUri, displayName, date_modified, date_added, datetaken, size, duration, media type, policyVersion.
+  - MediaStore GPS가 있거나 signature/policy가 달라지면 무조건 cache miss로 재분석한다.
+  - 먼저 단위 테스트: 신규 사진 누락 금지, 수정/이동/복사 무효화, GPS 추가 재분석, 위치 없음 카운트 유지, 손상 JSON 복구, policy 변경 무효화.
+- [ ] 현재 비활성 `NoLocationCache`는 위 `LocationAnalysisCache`로 대체 가능한 수준의 테스트가 갖춰지기 전 재활성화하지 않는다.
 - [ ] 10k 이상 discovery refs에서 live-filter, 검색, 전역 CTA prepare 시간과 메모리를 측정한다.
 - [ ] 중단 후 처음부터 재분석하지 않는 checkpoint/이어하기를 별도 설계한다.
 

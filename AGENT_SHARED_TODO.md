@@ -339,6 +339,20 @@ Next work should avoid widening this stabilization batch:
 
 ## Known Open TODOs
 
+0. Discovery record persistence, new-results UX, and analysis cache (next P0):
+  - `DiscoverySnapshot` now merges records across sequential source-folder analyses (`9beef8b`), but it is app-private storage and is deleted when the app/data is deleted.
+  - Do not call this problem only a cache problem: the app needs both a persistent discovery-result UX and a separate `LocationAnalysisCache` that avoids repeated EXIF/Geocoder work.
+  - Add a top section in Discovery: `이번에 새로 발견한 장소`.
+    - Show newly discovered place cards and a place count, separate from file count.
+    - Copy must distinguish `새 장소 7곳` from `사진 174장`; the current `앱에서 볼 항목 174개` is a file count.
+  - Add a safe `발견 기록 다시 구성하기` flow for reinstall/data-clear recovery. It must reanalyze saved source folders, never delete photos or Gallery albums.
+  - `LocationAnalysisCache` contract:
+    - key by stable media identity + metadata signature; result is either `LOCATION_NONE` or normalized location data usable to rebuild `PhotoItem`.
+    - a cache hit skips expensive location lookup, not user-visible inventory. It must still restore the correct discovered place or no-location count.
+    - invalidate on new/copy/move/modified media, policy changes, or GPS becoming available.
+    - never revive the old dangerous “new files become 0” behavior; test this before enabling.
+  - Suggested Gemini task: design the cache schema/invalidation rules and tests only. Do not modify `MainActivity` or re-enable `NoLocationCache` without approval.
+
 1. Sort history search (V2 priority):
   - User need: 정리기록/최근 발견한 장소가 많아지면 드래그로 찾기 어렵다.
   - Add a search bar to the sort history/recent places screen.
