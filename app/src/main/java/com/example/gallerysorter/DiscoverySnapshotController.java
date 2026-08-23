@@ -28,22 +28,33 @@ final class DiscoverySnapshotController {
     }
 
     boolean savePreviewItems(List<PhotoItem> items, String sourceSignature) {
+        return savePreviewItemsWithResult(items, sourceSignature).saved;
+    }
+
+    DiscoverySnapshotUpdate savePreviewItemsWithResult(List<PhotoItem> items, String sourceSignature) {
         long now = clock.nowMillis();
         DiscoverySnapshot snapshot = DiscoverySnapshotMapper.fromPhotoItems(
                 items,
                 now,
                 now,
                 sourceSignature == null ? "" : sourceSignature);
+        DiscoverySnapshot existing = store.read();
         DiscoverySnapshot merged = DiscoverySnapshotMerger.replaceAnalyzedItems(
-                store.read(),
+                existing,
                 snapshot,
                 photoItemUris(items));
-        return store.save(merged);
+        return updateFor(store.save(merged), existing, snapshot);
     }
 
     boolean saveSourceItems(List<DiscoverySnapshotMapper.SourceItem> items,
                             int sourceItemCount,
                             String sourceSignature) {
+        return saveSourceItemsWithResult(items, sourceItemCount, sourceSignature).saved;
+    }
+
+    DiscoverySnapshotUpdate saveSourceItemsWithResult(List<DiscoverySnapshotMapper.SourceItem> items,
+                                                       int sourceItemCount,
+                                                       String sourceSignature) {
         long now = clock.nowMillis();
         DiscoverySnapshot snapshot = DiscoverySnapshotMapper.fromSourceItems(
                 items,
@@ -53,11 +64,46 @@ final class DiscoverySnapshotController {
                 sourceSignature == null ? "" : sourceSignature,
                 DiscoverySnapshotMapper.DEFAULT_ANALYSIS_POLICY_VERSION,
                 DiscoverySnapshotMapper.DEFAULT_COUNTRY_IDENTITY_POLICY_VERSION);
+        DiscoverySnapshot existing = store.read();
         DiscoverySnapshot merged = DiscoverySnapshotMerger.replaceAnalyzedItems(
-                store.read(),
+                existing,
                 snapshot,
                 sourceItemUris(items));
-        return store.save(merged);
+        return updateFor(store.save(merged), existing, snapshot);
+    }
+
+    private DiscoverySnapshotUpdate updateFor(boolean saved,
+                                              DiscoverySnapshot existing,
+                                              DiscoverySnapshot incoming) {
+        int itemCount = 0;
+        int placeCount = 0;
+        int newPlaceCount = 0;
+        Set<String> existingPlaces = placeKeys(existing);
+        if (incoming != null) {
+            placeCount = incoming.groupCount();
+            for (DiscoveryMemoryGroup group : incoming.groups) {
+                if (group == null) {
+                    continue;
+                }
+                itemCount += group.itemCount;
+                if (!existingPlaces.contains(group.placeKey)) {
+                    newPlaceCount++;
+                }
+            }
+        }
+        return new DiscoverySnapshotUpdate(saved, itemCount, placeCount, newPlaceCount);
+    }
+
+    private Set<String> placeKeys(DiscoverySnapshot snapshot) {
+        LinkedHashSet<String> keys = new LinkedHashSet<>();
+        if (snapshot != null) {
+            for (DiscoveryMemoryGroup group : snapshot.groups) {
+                if (group != null && !group.placeKey.isEmpty()) {
+                    keys.add(group.placeKey);
+                }
+            }
+        }
+        return keys;
     }
 
     private Set<String> photoItemUris(List<PhotoItem> items) {

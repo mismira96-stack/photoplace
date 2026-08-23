@@ -90,6 +90,34 @@ public class DiscoverySnapshotControllerTest {
         assertEquals(2, snapshot.sourceItemCount);
     }
 
+    @Test
+    public void updateSeparatesNewPlacesFromDiscoveredFiles() throws Exception {
+        DiscoverySnapshotStore store = new DiscoverySnapshotStore(temporaryFolder.newFolder("update"));
+        DiscoverySnapshotController controller = new DiscoverySnapshotController(store, fixedClock(1786000000000L));
+
+        DiscoverySnapshotUpdate first = controller.saveSourceItemsWithResult(
+                Arrays.asList(
+                        sourceItem("content://media/external/images/media/101", "삿포로"),
+                        sourceItem("content://media/external/images/media/102", "삿포로")),
+                2,
+                "camera");
+        DiscoverySnapshotUpdate second = controller.saveSourceItemsWithResult(
+                Arrays.asList(
+                        sourceItem("content://media/external/images/media/202", "삿포로"),
+                        sourceItem("content://media/external/images/media/203", "오타루")),
+                2,
+                "download");
+
+        assertTrue(first.saved);
+        assertEquals(2, first.discoveredItemCount);
+        assertEquals(1, first.discoveredPlaceCount);
+        assertEquals(1, first.newPlaceCount);
+        assertTrue(second.saved);
+        assertEquals(2, second.discoveredItemCount);
+        assertEquals(2, second.discoveredPlaceCount);
+        assertEquals(1, second.newPlaceCount);
+    }
+
     private static DiscoverySnapshotController.Clock fixedClock(final long nowMillis) {
         return new DiscoverySnapshotController.Clock() {
             @Override

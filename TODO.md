@@ -787,3 +787,14 @@ Build a memory-based photo organization system that replaces folder hierarchy wi
 
 - [ ] 발견 상세에서 선택한 날짜 그룹의 사진/동영상을 앱 내부에서 좌우로 넘겨보는 뷰어 추가
 - [ ] 앱 내부 뷰어에서 현재 항목 위치, 동영상 재생, 원본 앱으로 열기 제공
+
+## Discovery cache and new-place correctness (next P0)
+
+- [ ] Reproduce and fix: reanalyzing the same `Band` folder after adding a new `안성에서` photo reported `새로 발견한 장소 0곳`.
+  - Trace MediaStore selection, duplicate filter, snapshot mapper, merger, and `DiscoverySnapshotUpdate` baseline comparison.
+  - Add a regression test for “existing snapshot + new URI/new place = newPlaceCount 1”.
+  - Confirm the new group appears in Discovery on device before changing caching behavior.
+- [ ] Add `LocationAnalysisCache` only after the new-place regression is resolved.
+  - Cache normalized place results and `LOCATION_NONE`, never merely hide items.
+  - Cache hit must still rebuild Preview/Discovery counts and cards.
+  - New, copied, moved, changed, GPS-added, or policy-version-changed media must miss the cache.

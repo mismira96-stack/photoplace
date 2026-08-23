@@ -1054,7 +1054,7 @@ public class MainActivity extends Activity {
         } else if (this.copyCompletedMode) {
             strCompactResultSummary = completedResultSummary(iCountRecentlySortedGroups, i2, iCountRecentlySortedItems, pendingOriginalCleanupCount());
         } else {
-            strCompactResultSummary = discoveryResultSummary(countDiscoverableItems(this.previewItems), i2);
+            strCompactResultSummary = discoveryResultSummary(0, countDiscoverableItems(this.previewItems), i2);
         }
         textView2.setText(strCompactResultSummary);
         if (this.copyCompletedMode || this.copyStoppedMode) {
@@ -1331,21 +1331,22 @@ public class MainActivity extends Activity {
     /* synthetic */ void m45lambda$runPreview$11$comexamplegallerysorterMainActivity(List list, int i, int i2, int i3) {
         this.previewItems.clear();
         this.previewItems.addAll(list);
-        saveDiscoverySnapshot(list);
+        DiscoverySnapshotUpdate discoveryUpdate = saveDiscoverySnapshot(list);
         setStatus("확인 완료", String.valueOf(i), String.valueOf(i2), String.valueOf(i3));
-        this.summaryText.setText(discoveryResultSummary(countDiscoverableItems(list), i2));
+        this.summaryText.setText(discoveryResultSummary(discoveryUpdate.newPlaceCount, discoveryUpdate.discoveredItemCount, i2));
         renderPreviewResults(list);
         setWorking(false, null);
         this.copyButton.setVisibility(8);
         this.copyButton.setEnabled(hasCopyableItems(list));
         this.deleteOriginalsButton.setEnabled(false);
-        showPreviewCompleteDialog(countDiscoverableItems(list), i2);
+        showPreviewCompleteDialog(discoveryUpdate.newPlaceCount, discoveryUpdate.discoveredItemCount, i2);
     }
 
-    private void saveDiscoverySnapshot(List<PhotoItem> items) {
+    private DiscoverySnapshotUpdate saveDiscoverySnapshot(List<PhotoItem> items) {
         try {
-            discoverySnapshotController().savePreviewItems(items, discoverySourceSignature());
+            return discoverySnapshotController().savePreviewItemsWithResult(items, discoverySourceSignature());
         } catch (Exception unused) {
+            return new DiscoverySnapshotUpdate(false, countDiscoverableItems(items), 0, 0);
         }
     }
 
@@ -1402,7 +1403,7 @@ public class MainActivity extends Activity {
         });
     }
 
-    private void showPreviewCompleteDialog(final int i, int i2) {
+    private void showPreviewCompleteDialog(final int i, int i2, int i3) {
         final Dialog dialog = new Dialog(this);
         dialog.requestWindowFeature(1);
         LinearLayout linearLayout = new LinearLayout(this);
@@ -1420,7 +1421,7 @@ public class MainActivity extends Activity {
         textView.setGravity(17);
         linearLayout.addView(textView, matchWidthWithBottom(dp(8)));
         TextView textView2 = new TextView(this);
-        textView2.setText(i > 0 ? "앨범을 만들지 않고 먼저 둘러볼 수 있어요." : "새로 발견한 장소가 없어요.");
+        textView2.setText(i > 0 ? "앨범을 만들지 않고 먼저 둘러볼 수 있어요." : "새로운 장소는 없어요. 기존 발견 기록을 확인해 보세요.");
         textView2.setTextSize(15.0f);
         textView2.setTextColor(-10193781);
         textView2.setGravity(17);
@@ -1434,20 +1435,23 @@ public class MainActivity extends Activity {
         gradientDrawable2.setStroke(1, -1709326);
         linearLayout2.setBackground(gradientDrawable2);
         linearLayout.addView(linearLayout2, matchWidthWithBottom(dp(16)));
-        addDialogStat(linearLayout2, "앱에서 볼 항목", i + "개", -14326805);
-        addDialogStat(linearLayout2, "위치 정보 없음", i2 + "개", -680437);
+        addDialogStat(linearLayout2, "이번에 새로 발견한 장소", i + "곳", -14326805);
+        addDialogStat(linearLayout2, "발견된 사진/동영상", i2 + "개", -9609738);
+        if (i3 > 0) {
+            addDialogStat(linearLayout2, "위치 정보 없음", i3 + "개", -680437);
+        }
         TextView textView3 = bodyText(i > 0
-                ? "위치가 확인된 사진을 발견 탭에서 장소와 날짜별로 볼 수 있어요."
+                ? "새 장소 " + i + "곳에 사진/동영상 " + i2 + "개가 있어요. 발견 기록에서 장소와 날짜별로 볼 수 있어요."
                 : "새 사진을 추가한 뒤 다시 실행하면 장소별로 찾아드려요.");
         textView3.setGravity(17);
         linearLayout.addView(textView3, matchWidthWithBottom(dp(14)));
         Button button = new Button(this);
-        button.setText(i > 0 ? "발견한 장소 보기" : "확인");
+        button.setText(i2 > 0 ? "발견 기록 보기" : "확인");
         styleDialogPrimaryButton(button);
         button.setOnClickListener(new View.OnClickListener() { // from class: com.example.gallerysorter.MainActivity$$ExternalSyntheticLambda57
             @Override // android.view.View.OnClickListener
             public final void onClick(View view) {
-                MainActivity.this.m51xef5d6fd4(dialog, i, view);
+                MainActivity.this.m51xef5d6fd4(dialog, i2, view);
             }
         });
         linearLayout.addView(button, matchWidth());
@@ -4722,12 +4726,16 @@ public class MainActivity extends Activity {
         return counts.recentlySortedGroupCount > 0 ? counts.recentlySortedGroupCount : counts.alreadySortedGroupCount;
     }
 
-    private String discoveryResultSummary(int discoverableCount, int noLocationCount) {
+    private String discoveryResultSummary(int newPlaceCount, int discoverableCount, int noLocationCount) {
+        if (newPlaceCount > 0) {
+            String text = "이번에 새로 발견한 장소 " + newPlaceCount + "곳 · 사진/동영상 " + discoverableCount + "개";
+            return noLocationCount > 0 ? text + " · 위치 정보 없음 " + noLocationCount + "개" : text;
+        }
         if (noLocationCount > 0) {
-            return "앱에서 볼 항목 " + discoverableCount + "개 · 위치 정보 없음 " + noLocationCount + "개";
+            return "새로운 장소 없음 · 사진/동영상 " + discoverableCount + "개 · 위치 정보 없음 " + noLocationCount + "개";
         }
         if (discoverableCount > 0) {
-            return "앱에서 볼 항목 " + discoverableCount + "개";
+            return "새로운 장소 없음 · 사진/동영상 " + discoverableCount + "개";
         }
         return "새로 발견한 장소가 없어요";
     }
