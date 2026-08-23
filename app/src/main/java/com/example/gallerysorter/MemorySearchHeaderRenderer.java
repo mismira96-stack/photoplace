@@ -39,7 +39,7 @@ final class MemorySearchHeaderRenderer {
         header.setOrientation(LinearLayout.HORIZONTAL);
         header.setGravity(Gravity.CENTER_VERTICAL);
 
-        TextView title = text(searchVisible ? "발견 검색" : "발견", 24.0f, true);
+        TextView title = text(searchVisible ? "발견 기록 검색" : "발견 기록", 24.0f, true);
         header.addView(title, new LinearLayout.LayoutParams(0, -2, 1.0f));
         if (searchEnabled) {
             TextView action = new TextView(context);
