@@ -20,7 +20,7 @@ final class BottomNavigationRenderer {
     }
 
     private static final String[] ICONS = {"home", "photoLibrary", "grid", "settings"};
-    private static final String[] LABELS = {"홈", "발견", "위치 앨범", "설정"};
+    private static final String[] LABELS = {"홈", "발견 기록", "위치 앨범", "설정"};
 
     private final Context context;
     private final IconFactory iconFactory;

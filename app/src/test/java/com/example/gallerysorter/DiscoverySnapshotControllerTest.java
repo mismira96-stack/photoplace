@@ -71,6 +71,25 @@ public class DiscoverySnapshotControllerTest {
         assertEquals(1, detail.sourceUris.size());
     }
 
+    @Test
+    public void sequentialSourceSavesAccumulateDiscoveryItems() throws Exception {
+        DiscoverySnapshotStore store = new DiscoverySnapshotStore(temporaryFolder.newFolder("merge"));
+        DiscoverySnapshotController controller = new DiscoverySnapshotController(store, fixedClock(1786000000000L));
+        controller.saveSourceItems(
+                Arrays.asList(sourceItem("content://media/external/images/media/101", "삿포로")),
+                1,
+                "camera");
+        controller.saveSourceItems(
+                Arrays.asList(sourceItem("content://media/external/images/media/202", "오타루")),
+                1,
+                "download");
+
+        DiscoverySnapshot snapshot = store.read();
+
+        assertEquals(2, snapshot.groupCount());
+        assertEquals(2, snapshot.sourceItemCount);
+    }
+
     private static DiscoverySnapshotController.Clock fixedClock(final long nowMillis) {
         return new DiscoverySnapshotController.Clock() {
             @Override

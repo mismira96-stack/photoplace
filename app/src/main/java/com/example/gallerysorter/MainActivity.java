@@ -8207,6 +8207,7 @@ public class MainActivity extends Activity {
             showToast("발견한 장소를 불러오지 못했어요.");
             return;
         }
+        acknowledgeHomeDiscoveryResult();
         final MemoryBrowserState state = MemoryBrowserState.fromRecords(discoveryRecords);
         if (state.isEmpty()) {
             this.memoryBrowserSearchVisible = false;
@@ -8344,6 +8345,12 @@ public class MainActivity extends Activity {
         }
 
         setContentViewWithBottomTabs(scrollView, 1);
+    }
+
+    private void acknowledgeHomeDiscoveryResult() {
+        if (!this.isWorking && !this.copyCompletedMode && !this.copyStoppedMode) {
+            this.previewItems.clear();
+        }
     }
 
     private void showDiscoveryOrganizeConfirmation() {

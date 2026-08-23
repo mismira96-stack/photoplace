@@ -2,7 +2,9 @@ package com.example.gallerysorter;
 
 import android.content.Context;
 
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 
 final class DiscoverySnapshotController {
     private final DiscoverySnapshotStore store;
@@ -32,7 +34,11 @@ final class DiscoverySnapshotController {
                 now,
                 now,
                 sourceSignature == null ? "" : sourceSignature);
-        return store.save(snapshot);
+        DiscoverySnapshot merged = DiscoverySnapshotMerger.replaceAnalyzedItems(
+                store.read(),
+                snapshot,
+                photoItemUris(items));
+        return store.save(merged);
     }
 
     boolean saveSourceItems(List<DiscoverySnapshotMapper.SourceItem> items,
@@ -47,7 +53,35 @@ final class DiscoverySnapshotController {
                 sourceSignature == null ? "" : sourceSignature,
                 DiscoverySnapshotMapper.DEFAULT_ANALYSIS_POLICY_VERSION,
                 DiscoverySnapshotMapper.DEFAULT_COUNTRY_IDENTITY_POLICY_VERSION);
-        return store.save(snapshot);
+        DiscoverySnapshot merged = DiscoverySnapshotMerger.replaceAnalyzedItems(
+                store.read(),
+                snapshot,
+                sourceItemUris(items));
+        return store.save(merged);
+    }
+
+    private Set<String> photoItemUris(List<PhotoItem> items) {
+        LinkedHashSet<String> uris = new LinkedHashSet<>();
+        if (items != null) {
+            for (PhotoItem item : items) {
+                if (item != null && item.uri != null) {
+                    uris.add(item.uri.toString());
+                }
+            }
+        }
+        return uris;
+    }
+
+    private Set<String> sourceItemUris(List<DiscoverySnapshotMapper.SourceItem> items) {
+        LinkedHashSet<String> uris = new LinkedHashSet<>();
+        if (items != null) {
+            for (DiscoverySnapshotMapper.SourceItem item : items) {
+                if (item != null && !item.sourceUri.isEmpty()) {
+                    uris.add(item.sourceUri);
+                }
+            }
+        }
+        return uris;
     }
 
     MemoryBrowserState loadBrowserState(List<StoredAlbumSummary> organizedAlbums) {
