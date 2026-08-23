@@ -790,6 +790,12 @@ Build a memory-based photo organization system that replaces folder hierarchy wi
 
 ## Discovery cache and new-place correctness (next P0)
 
+- [ ] Mark places newly added by the latest completed analysis in `발견 기록`.
+  - Show a compact `NEW` badge on cards/list rows whose place key was absent from the pre-analysis Discovery snapshot.
+  - Keep the badge scoped to the latest successful analysis; it must not permanently mark historical records as new.
+  - New-place ordering should be newest-first while the marker is active, without changing the user's normal sort order after acknowledgement.
+  - Persist only the latest-analysis place-key set (or equivalent analysis token), not presentation-only flags per photo.
+  - Opening a place may acknowledge that one badge; provide an explicit, predictable point to clear all remaining NEW markers.
 - [ ] Reproduce and fix: reanalyzing the same `Band` folder after adding a new `안성에서` photo reported `새로 발견한 장소 0곳`.
   - Trace MediaStore selection, duplicate filter, snapshot mapper, merger, and `DiscoverySnapshotUpdate` baseline comparison.
   - Add a regression test for “existing snapshot + new URI/new place = newPlaceCount 1”.
