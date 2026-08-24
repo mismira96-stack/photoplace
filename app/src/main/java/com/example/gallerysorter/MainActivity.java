@@ -208,6 +208,7 @@ public class MainActivity extends Activity {
     private long recentAlbumSummaryCacheMillis = 0L;
     private NoLocationCache noLocationCache = null;
     private MediaAnalysisStore mediaAnalysisStore = null;
+    private MediaStoreDuplicateIndex mediaStoreDuplicateIndex = null;
     private AlbumSummaryHistoryStore albumSummaryHistoryStore = null;
     private MemoryPersonalizationStore memoryPersonalizationStore = null;
     private DiscoverySnapshotController discoverySnapshotController = null;
@@ -1977,6 +1978,7 @@ public class MainActivity extends Activity {
     private List<PhotoItem> loadSourcePhotos(List<AlbumFolder> list) throws Throwable {
         ArrayList arrayList = new ArrayList();
         List<String> selectedSourcePaths = getSelectedSourcePaths();
+        this.mediaStoreDuplicateIndex = new MediaStoreDuplicateIndex(getContentResolver());
         try {
             loadSourceImages(arrayList, list, selectedSourcePaths);
             loadSourceVideos(arrayList, list, selectedSourcePaths);
@@ -1984,6 +1986,7 @@ public class MainActivity extends Activity {
             if (this.mediaAnalysisStore != null) {
                 this.mediaAnalysisStore.flush();
             }
+            this.mediaStoreDuplicateIndex = null;
         }
         arrayList.sort(new Comparator() { // from class: com.example.gallerysorter.MainActivity$$ExternalSyntheticLambda7
             @Override // java.util.Comparator
@@ -3250,6 +3253,9 @@ public class MainActivity extends Activity {
     }
 
     private boolean hasDisplayNameInPath(String str, String str2, boolean z) {
+        if (this.mediaStoreDuplicateIndex != null) {
+            return this.mediaStoreDuplicateIndex.contains(str2, str, z);
+        }
         Cursor cursorQuery;
         String strDuplicateFileSignature = "";
         ContentResolver contentResolver = getContentResolver();
