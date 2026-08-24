@@ -2,6 +2,7 @@ package com.example.gallerysorter;
 
 import android.content.Context;
 
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
@@ -78,7 +79,7 @@ final class DiscoverySnapshotController {
         int itemCount = 0;
         int placeCount = 0;
         int newPlaceCount = 0;
-        Set<String> existingPlaces = placeKeys(existing);
+        Set<String> existingUris = photoUris(existing);
         if (incoming != null) {
             placeCount = incoming.groupCount();
             for (DiscoveryMemoryGroup group : incoming.groups) {
@@ -86,7 +87,7 @@ final class DiscoverySnapshotController {
                     continue;
                 }
                 itemCount += group.itemCount;
-                if (!existingPlaces.contains(group.placeKey)) {
+                if (hasNewPhotoRef(group, existingUris)) {
                     newPlaceCount++;
                 }
             }
@@ -94,16 +95,33 @@ final class DiscoverySnapshotController {
         return new DiscoverySnapshotUpdate(saved, itemCount, placeCount, newPlaceCount);
     }
 
-    private Set<String> placeKeys(DiscoverySnapshot snapshot) {
-        LinkedHashSet<String> keys = new LinkedHashSet<>();
+    private boolean hasNewPhotoRef(DiscoveryMemoryGroup group, Set<String> existingUris) {
+        if (group == null) {
+            return false;
+        }
+        for (DiscoveryPhotoRef ref : group.photoRefs) {
+            if (ref != null && !ref.sourceUri.isEmpty() && !existingUris.contains(ref.sourceUri)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private Set<String> photoUris(DiscoverySnapshot snapshot) {
+        HashSet<String> uris = new HashSet<>();
         if (snapshot != null) {
             for (DiscoveryMemoryGroup group : snapshot.groups) {
-                if (group != null && !group.placeKey.isEmpty()) {
-                    keys.add(group.placeKey);
+                if (group == null) {
+                    continue;
+                }
+                for (DiscoveryPhotoRef ref : group.photoRefs) {
+                    if (ref != null && !ref.sourceUri.isEmpty()) {
+                        uris.add(ref.sourceUri);
+                    }
                 }
             }
         }
-        return keys;
+        return uris;
     }
 
     private Set<String> photoItemUris(List<PhotoItem> items) {
@@ -150,7 +168,7 @@ final class DiscoverySnapshotController {
     MemoryRepository repository(List<StoredAlbumSummary> organizedAlbums) {
         DiscoverySnapshot snapshot = store.read();
         if (liveFilter != null) {
-            snapshot = liveFilter.filter(snapshot);
+            snapshot = liveFilter.filter(snapshot, organizedAlbums);
         }
         return new MemoryRepository(snapshot, organizedAlbums);
     }

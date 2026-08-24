@@ -5606,7 +5606,7 @@ public class MainActivity extends Activity {
         summary.addView(summaryText, weightedParams(1));
         TextView title = compactCardTitle(group.title + "의 기억", 17);
         summaryText.addView(title);
-        summaryText.addView(compactCardCount(group.itemCount + "개 사진", 18));
+        summaryText.addView(compactCardCount("사진 " + group.itemCount + "장", 18));
         summaryText.addView(compactCardMeta(formatMemoryDateRange(group.startDate, group.endDate)));
         LinearLayout list = new LinearLayout(this);
         list.setOrientation(1);
@@ -5885,13 +5885,13 @@ public class MainActivity extends Activity {
         linearLayout3.setPadding(dp(12), 0, 0, 0);
         linearLayout2.addView(linearLayout3, weightedParams(1));
         TextView textView = new TextView(this);
-        textView.setText("총 " + list.size() + "개 장소 발견");
+        textView.setText("위치 앨범 " + list.size() + "개");
         textView.setTextSize(16.0f);
         textView.setTypeface(Typeface.DEFAULT_BOLD);
         textView.setTextColor(-15656921);
         linearLayout3.addView(textView);
         TextView textView2 = new TextView(this);
-        textView2.setText("총 " + String.format(Locale.KOREA, "%,d", Integer.valueOf(iMax)) + "개 사진 · " + overallYearRange(list));
+        textView2.setText("사진 " + String.format(Locale.KOREA, "%,d", Integer.valueOf(iMax)) + "장 · " + overallYearRange(list));
         textView2.setTextSize(13.0f);
         textView2.setTextColor(-10193781);
         textView2.setPadding(0, dp(2), 0, 0);
@@ -6031,7 +6031,7 @@ public class MainActivity extends Activity {
             textViewCompactCardMeta.setTextColor(-8622181);
             linearLayout2.addView(textViewCompactCardMeta);
         }
-        linearLayout2.addView(compactCardCount(storedAlbumSummary.itemCount + "개 사진", 16));
+        linearLayout2.addView(compactCardCount("사진 " + storedAlbumSummary.itemCount + "장", 16));
         linearLayout2.addView(compactCardMeta(formatStoredMonthRange(storedAlbumSummary)));
     }
 
@@ -6155,6 +6155,15 @@ public class MainActivity extends Activity {
         linearLayout2.addView(textView2, weightedParams(1));
     }
 
+    private void addRootHeader(LinearLayout root, String title) {
+        TextView header = new TextView(this);
+        header.setText(title);
+        header.setTextSize(19.0f);
+        header.setTypeface(Typeface.DEFAULT_BOLD);
+        header.setTextColor(-15656921);
+        root.addView(header, matchWidthWithBottom(dp(18)));
+    }
+
     /* renamed from: lambda$addListHeader$51$com-example-gallerysorter-MainActivity, reason: not valid java name */
     /* synthetic */ void m6lambda$addListHeader$51$comexamplegallerysorterMainActivity(View view) {
         returnToMainScreen();
@@ -6233,7 +6242,7 @@ public class MainActivity extends Activity {
             linearLayout3.addView(textViewCompactCardMeta);
         }
         TextView textView3 = new TextView(this);
-        textView3.setText(storedAlbumSummary.itemCount + "개 사진 · " + formatStoredMonthRange(storedAlbumSummary));
+        textView3.setText("사진 " + storedAlbumSummary.itemCount + "장 · " + formatStoredMonthRange(storedAlbumSummary));
         textView3.setTextSize(13.0f);
         textView3.setTextColor(-10193781);
         textView3.setPadding(0, dp(2), 0, 0);
@@ -7420,7 +7429,7 @@ public class MainActivity extends Activity {
         linearLayout.setOrientation(1);
         linearLayout.setPadding(dp(18), dp(56), dp(18), dp(REQUEST_WRITE_VIDEOS));
         scrollView.addView(linearLayout, scrollContentLayoutParams());
-        addListHeader(linearLayout, "설정");
+        addRootHeader(linearLayout, "설정");
         addWorkingBanner(linearLayout);
         addSettingsSourceFolderCard(linearLayout);
         addSettingsVideoMoveCard(linearLayout);
@@ -8096,7 +8105,7 @@ public class MainActivity extends Activity {
             if (z2) {
                 str = "이미 만들어진 폴더와 정리된 사진은 유지됩니다.\n다시 실행하면 남은 사진만 정리해요.";
             } else {
-                str = "새로 발견한 장소 " + iCountRecentlySortedGroups + "개\n총 " + iCountRecentlySortedItems + "개 사진 정리";
+                str = "새로 발견한 장소 " + iCountRecentlySortedGroups + "개\n사진 " + iCountRecentlySortedItems + "장 정리";
             }
             textView4.setText(str);
             textView4.setTextSize(13.0f);
@@ -8555,9 +8564,9 @@ public class MainActivity extends Activity {
                 MainActivity.this.showMemoryBrowserScreen();
             }
         });
-        styleActionButton(back, "발견한 장소로 돌아가기", "grid", -1050881, -4203522, -14326805);
+        styleActionButton(back, "다른 장소 보기", "grid", -1050881, -4203522, -14326805);
         root.addView(back, matchWidth());
-        setContentViewWithBottomTabs(scrollView, -1);
+        setContentViewWithBottomTabs(scrollView, 1);
     }
 
     private void addMemoryHeader(LinearLayout root, String titleText, final Runnable backAction) {

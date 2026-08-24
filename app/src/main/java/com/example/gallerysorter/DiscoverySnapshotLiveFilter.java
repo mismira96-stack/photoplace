@@ -21,15 +21,16 @@ final class DiscoverySnapshotLiveFilter {
         this.resolver = resolver;
     }
 
-    DiscoverySnapshot filter(DiscoverySnapshot snapshot) {
+    DiscoverySnapshot filter(DiscoverySnapshot snapshot, List<StoredAlbumSummary> organizedAlbums) {
         if (snapshot == null || snapshot.groups.isEmpty() || resolver == null) {
             return snapshot;
         }
         try {
+            Set<String> organizedPaths = organizedRelativePaths(organizedAlbums);
             Set<Long> photoIds = collectIds(snapshot.groups, MediaKind.PHOTO);
             Set<Long> videoIds = collectIds(snapshot.groups, MediaKind.VIDEO);
-            Set<Long> livePhotoIds = queryLiveIds(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, photoIds);
-            Set<Long> liveVideoIds = queryLiveIds(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, videoIds);
+            Set<Long> livePhotoIds = queryLiveIds(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, photoIds, organizedPaths);
+            Set<Long> liveVideoIds = queryLiveIds(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, videoIds, organizedPaths);
             return filter(snapshot, livePhotoIds, liveVideoIds);
         } catch (Exception ignored) {
             // Permission and provider failures are unknown state, not proof that media was deleted.
@@ -138,7 +139,7 @@ final class DiscoverySnapshotLiveFilter {
         return ids;
     }
 
-    private Set<Long> queryLiveIds(Uri collection, Set<Long> requestedIds) {
+    private Set<Long> queryLiveIds(Uri collection, Set<Long> requestedIds, Set<String> organizedPaths) {
         if (requestedIds.isEmpty()) {
             return Collections.emptySet();
         }
@@ -173,7 +174,7 @@ final class DiscoverySnapshotLiveFilter {
                 }
                 while (cursor.moveToNext()) {
                     String relativePath = cursor.isNull(1) ? "" : cursor.getString(1);
-                    if (!isOrganizedLocationPath(relativePath)) {
+                    if (!isOrganizedLocationPath(relativePath, organizedPaths)) {
                         liveIds.add(cursor.getLong(0));
                     }
                 }
@@ -182,16 +183,32 @@ final class DiscoverySnapshotLiveFilter {
         return liveIds;
     }
 
-    static boolean isOrganizedLocationPath(String relativePath) {
+    static Set<String> organizedRelativePaths(List<StoredAlbumSummary> organizedAlbums) {
+        HashSet<String> paths = new HashSet<>();
+        if (organizedAlbums == null) {
+            return paths;
+        }
+        for (StoredAlbumSummary summary : organizedAlbums) {
+            String path = summary == null ? "" : normalizeRelativePath(summary.relativePath);
+            if (!path.isEmpty()) {
+                paths.add(path);
+            }
+        }
+        return paths;
+    }
+
+    static boolean isOrganizedLocationPath(String relativePath, Set<String> organizedPaths) {
+        return organizedPaths != null && organizedPaths.contains(normalizeRelativePath(relativePath));
+    }
+
+    private static String normalizeRelativePath(String relativePath) {
         if (relativePath == null) {
-            return false;
+            return "";
         }
         String value = relativePath.trim().replace('\\', '/');
         while (value.endsWith("/")) {
             value = value.substring(0, value.length() - 1);
         }
-        int slash = value.lastIndexOf('/');
-        String folderName = slash >= 0 ? value.substring(slash + 1) : value;
-        return value.startsWith("Pictures/") && folderName.endsWith("에서");
+        return value;
     }
 }

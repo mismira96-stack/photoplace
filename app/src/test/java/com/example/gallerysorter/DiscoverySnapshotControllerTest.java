@@ -91,7 +91,7 @@ public class DiscoverySnapshotControllerTest {
     }
 
     @Test
-    public void updateSeparatesNewPlacesFromDiscoveredFiles() throws Exception {
+    public void updateCountsPlacesWithNewMediaSeparatelyFromDiscoveredFiles() throws Exception {
         DiscoverySnapshotStore store = new DiscoverySnapshotStore(temporaryFolder.newFolder("update"));
         DiscoverySnapshotController controller = new DiscoverySnapshotController(store, fixedClock(1786000000000L));
 
@@ -115,7 +115,21 @@ public class DiscoverySnapshotControllerTest {
         assertTrue(second.saved);
         assertEquals(2, second.discoveredItemCount);
         assertEquals(2, second.discoveredPlaceCount);
-        assertEquals(1, second.newPlaceCount);
+        assertEquals(2, second.newPlaceCount);
+    }
+
+    @Test
+    public void updateDoesNotMarkSameMediaAsNewOnRepeatedAnalysis() throws Exception {
+        DiscoverySnapshotStore store = new DiscoverySnapshotStore(temporaryFolder.newFolder("repeat"));
+        DiscoverySnapshotController controller = new DiscoverySnapshotController(store, fixedClock(1786000000000L));
+        java.util.List<DiscoverySnapshotMapper.SourceItem> items = Arrays.asList(
+                sourceItem("content://media/external/images/media/101", "안성"));
+
+        DiscoverySnapshotUpdate first = controller.saveSourceItemsWithResult(items, 1, "camera");
+        DiscoverySnapshotUpdate repeated = controller.saveSourceItemsWithResult(items, 1, "camera");
+
+        assertEquals(1, first.newPlaceCount);
+        assertEquals(0, repeated.newPlaceCount);
     }
 
     private static DiscoverySnapshotController.Clock fixedClock(final long nowMillis) {

@@ -12,11 +12,15 @@ import java.util.HashSet;
 
 public class DiscoverySnapshotLiveFilterTest {
     @Test
-    public void organizedLocationAlbumPathsAreExcludedFromDiscovery() {
-        assertTrue(DiscoverySnapshotLiveFilter.isOrganizedLocationPath("Pictures/성남에서/"));
-        assertTrue(DiscoverySnapshotLiveFilter.isOrganizedLocationPath("Pictures\\수원에서\\"));
-        assertFalse(DiscoverySnapshotLiveFilter.isOrganizedLocationPath("DCIM/Camera/"));
-        assertFalse(DiscoverySnapshotLiveFilter.isOrganizedLocationPath("Pictures/여행/"));
+    public void onlyRecordedLocationAlbumPathsAreExcludedFromDiscovery() {
+        java.util.Set<String> organizedPaths = DiscoverySnapshotLiveFilter.organizedRelativePaths(Arrays.asList(
+                summary("성남에서", "Pictures/성남에서/"),
+                summary("여행", "Pictures/2026 여름 일본 여행/")));
+
+        assertTrue(DiscoverySnapshotLiveFilter.isOrganizedLocationPath("Pictures/성남에서/", organizedPaths));
+        assertTrue(DiscoverySnapshotLiveFilter.isOrganizedLocationPath("Pictures\\2026 여름 일본 여행\\", organizedPaths));
+        assertFalse(DiscoverySnapshotLiveFilter.isOrganizedLocationPath("Pictures/수원에서/", organizedPaths));
+        assertFalse(DiscoverySnapshotLiveFilter.isOrganizedLocationPath("DCIM/Camera/", organizedPaths));
     }
 
     @Test
@@ -96,5 +100,10 @@ public class DiscoverySnapshotLiveFilterTest {
                 1L,
                 1L,
                 false);
+    }
+
+    private static StoredAlbumSummary summary(String albumName, String relativePath) {
+        return new StoredAlbumSummary(albumName, relativePath, 1, "2026-08-01", "2026-08-01",
+                "", "", 0L, "KR", "대한민국", "", "");
     }
 }
