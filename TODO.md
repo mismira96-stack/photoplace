@@ -89,12 +89,27 @@
 
 #### P1 - 위치 앨범 통합과 사용자 이름 보존
 
-- [ ] 물리 파일 이동 전, user-named `AlbumCollection`(가상 통합)을 설계/구현한다.
-  - 사용자가 만든 통합 이름과 member `relativePath`를 별도 저장한다.
-  - 위치 앨범에서 통합 이름을 보이되, 원래 앨범/Memory 날짜·위치·메모는 유지한다.
-  - 외부 Gallery rename/delete와 member album missing 상태를 안전하게 표시한다.
+- [ ] **Phase 0 - AlbumCollection MVP 설계 승인**: 실제 Gallery 파일을 건드리지 않는 user-named 가상 통합을 먼저 만든다.
+  - 사용자 목적: `삿포로`, `오타루`, `비에이` 같은 위치 앨범을 선택해 `2026 여름 일본 여행`이라는 한 단위로 다시 본다.
+  - MVP의 성공 기준은 “사용자가 원하는 이름으로 여러 위치 앨범을 한 화면에서 쉽게 다시 찾을 수 있음”이며, 실제 폴더 수를 줄이는 것이 아니다.
+  - `Memory`의 위치/날짜/메모와 기존 `StoredAlbumSummary`를 변경하거나 삭제하지 않는다.
+- [ ] **Phase 1 - 저장 모델과 순수 로직**:
+  - `AlbumCollection`: stable id, user display name, member album stable keys/relative paths, createdAt, updatedAt.
+  - 별도 JSON store + temp/bak 원자 저장 + 손상 파일을 빈 값으로 덮어쓰지 않는 정책.
+  - 멤버가 없는 통합 이름은 저장하지 않는다. 이름 중복은 허용하되 id는 고유해야 한다.
+  - Gallery rename/delete 이후 member path를 찾지 못하면 collection 이름은 보존하고 `앨범을 찾을 수 없음` 상태로 표시한다.
+  - 단위 테스트: 저장/복원, 이름 변경, 멤버 추가/제거, missing member, corrupt JSON, 기존 위치 앨범에 영향 없음.
+- [ ] **Phase 2 - 단순 선택 UX (드래그는 보류)**:
+  - `위치 앨범` 카드 long-press → 다중 선택 mode → 하단 `통합` action → 이름 입력 → 저장.
+  - 드래그 앤 드롭은 첫 MVP에 넣지 않는다. 선택 mode가 One UI와 더 맞고, 넓은 Fold/일반 화면 양쪽에서 안정적이다.
+  - 저장 직후 위치 앨범 상단에 `내 통합 앨범` 섹션을 노출하고, 통합 카드는 사용자 이름·멤버 수·대표 썸네일을 표시한다.
+  - 통합 카드를 열면 멤버 앨범을 모아 보여주며, Gallery 열기/앨범 이름 변경/사진 이동은 제공하지 않는다.
+- [ ] **Phase 3 - 실기기 검증**:
+  - 2개/5개 위치 앨범을 각각 통합하고, 앱 재시작·Fold 전환·Gallery에서 멤버 폴더 삭제 후에도 앱 crash 없이 상태가 보이는지 확인한다.
+  - 기존 위치 앨범 검색과 발견/Memory detail이 변하지 않는지 확인한다.
 - [ ] 실제 폴더 통합(사진 복사/동영상 이동)은 별도 명시 액션으로 보류한다.
-  - confirmation, partial failure, result/action record, rollback/cleanup 정책 후에만 구현한다.
+  - virtual collection의 사용자 이름을 실제 폴더명으로 제안할 수는 있으나 자동 적용하지 않는다.
+  - confirmation, partial failure, result/action record, rollback/cleanup 정책과 대용량 실기기 검증 후에만 구현한다.
 - [ ] 10k 이상 discovery refs에서 live-filter, 검색, 전역 CTA prepare 시간과 메모리를 측정한다.
 - [ ] 중단 후 처음부터 재분석하지 않는 checkpoint/이어하기를 별도 설계한다.
 

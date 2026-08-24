@@ -45,6 +45,10 @@ The first safe merge feature is a user-named **virtual AlbumCollection**:
 
 Physical folder merge (moving/copying media into one Gallery folder) is a later explicit operation. It needs a confirmation screen, a result/action record, partial-failure reporting, and an undo/cleanup policy. Do not combine it with the initial collection UI.
 
+### Interaction MVP
+
+Use `long press -> multi-select -> 통합 -> 이름 입력` for the first UI. It is more predictable than drag-and-drop on phone and Fold layouts, and it keeps the first release focused on user meaning rather than file movement. Show saved collections in a small `내 통합 앨범` section above the ordinary location-album list.
+
 ## Incremental analysis and reconciliation
 
 `LocationAnalysisCache` is replaced by `MediaAnalysisStore` / incremental analysis:
@@ -63,4 +67,3 @@ Physical folder merge (moving/copying media into one Gallery folder) is a later 
 3. Preserve Memory after Gallery organization and expose `발견 기록` / `정리 전` / `전체 기억` as filters.
 4. Implement `AlbumCollection` storage and virtual merge UI with user-name preservation.
 5. Only then evaluate physical merge/move, undo, and background reconciliation.
-
