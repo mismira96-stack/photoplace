@@ -23,6 +23,8 @@
 - [x] Discovery live filter의 `Pictures/*에서` 문자열 휴리스틱을 제거하고, `AlbumSummaryHistoryStore`에서 읽은 실제 위치 앨범 경로와만 일치시킨다.
 - [ ] 발견 기록 첫 화면 맨 위에 `이번에 새로 발견한 장소`를 **장소 카드 수** 기준으로 표시한다.
   - 예: `이번에 새로 발견한 장소 7곳 · 사진 174장`. 파일 수를 장소 수로 표시하지 않는다.
+  - `NEW` badge는 완전히 새로운 placeKey에만 한정하지 않는다. 이번 분석에서 새 media URI가 추가된 기존 장소에도 표시한다.
+  - 상단 섹션 문구는 `이번에 사진이 추가된 장소`처럼 정확히 쓰고, card의 `NEW`는 다음 분석 전까지 최근 변경 표시로 유지하는 정책을 별도 저장 모델로 설계한다.
 - [ ] 앱 삭제/데이터 초기화 후 discovery snapshot이 복원되지 않는 현재 한계를 안내하고, `발견 기록 다시 구성하기` UX를 설계한다.
 
 ### P1 - Incremental Analysis / Memory lifecycle
