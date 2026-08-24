@@ -70,16 +70,31 @@
 - [ ] 날짜 header accent를 경고처럼 보이지 않는 muted blue 또는 저채도 coral로 비교한다.
 - [ ] 날짜별 한 줄 메모 작성/수정 UI를 stable memory/date key 설계 후 구현한다.
 
-#### P1 - 반복 분석과 대용량 탐색
+#### P0 - Media lifecycle / incremental analysis / Memory sync
 
-- [ ] P0: `LocationAnalysisCache`를 설계/구현해 같은 source folder 재분석 시 EXIF/Geocoder 재호출을 줄인다.
-  - `DiscoverySnapshot`은 발견 결과 저장소이지 분석 캐시가 아니다. 앱 삭제 시 사라지는 것이 현재 정상 동작이다.
-  - 캐시는 미디어 identity/signature별로 `LOCATION_NONE` 또는 정규화된 위치 결과(`placeKey`, country/admin/address metadata)를 저장한다.
-  - cache hit은 파일을 분석 결과에서 숨기지 않는다. 저장된 위치 결과로 `PhotoItem`/발견 기록을 재구성하고, 위치 없음은 카운트에만 남긴다.
-  - signature 필수 후보: mediaStoreId, sourceUri, displayName, date_modified, date_added, datetaken, size, duration, media type, policyVersion.
-  - MediaStore GPS가 있거나 signature/policy가 달라지면 무조건 cache miss로 재분석한다.
-  - 먼저 단위 테스트: 신규 사진 누락 금지, 수정/이동/복사 무효화, GPS 추가 재분석, 위치 없음 카운트 유지, 손상 JSON 복구, policy 변경 무효화.
-- [ ] 현재 비활성 `NoLocationCache`는 위 `LocationAnalysisCache`로 대체 가능한 수준의 테스트가 갖춰지기 전 재활성화하지 않는다.
+- [ ] `LocationAnalysisCache` 단독 TODO를 V2.1 `MediaAnalysisStore`로 교체한다. 설계는 `MEDIA_LIFECYCLE_MEMORY_SYNC_DESIGN.md`를 따른다.
+  - media identity/signature별로 `ANALYZED`, `NO_LOCATION`, retryable `FAILED`, 정규화된 위치 결과를 저장한다.
+  - cache hit은 EXIF/Geocoder만 생략하며, `PhotoItem`/Memory/위치 없음 카운트를 숨기지 않는다.
+  - 신규/복사/이동/변경/policy 변경/GPS 추가 미디어는 반드시 재분석한다.
+  - 단위 테스트: 신규 사진 누락 금지, 수정/이동/복사 무효화, GPS 추가 재분석, 위치 없음 카운트 유지, 손상 복구, 정책 변경 무효화.
+- [ ] 재분석과 분리된 MediaStore reconciliation을 추가한다.
+  - indexed media ref가 실제로 존재하는지 먼저 확인하고, 삭제된 사진만 Memory live ref에서 제거한다.
+  - 사진 0장 + 메모 없음은 정리 가능; 사진 0장 + 메모 있음은 메모를 보존하고 unavailable 상태를 표시한다.
+- [ ] `발견 기록`과 `위치 앨범`을 동일 Memory의 다른 projection으로 재정의한다.
+  - 발견 기록은 `새로 분석됨`/`아직 위치 앨범 없음` 필터이며, 앨범 생성이 Memory 자체를 삭제하지 않는다.
+  - 장기 root tab 이름은 `기억`으로 검토하고, 내부 상단 섹션/필터에 `이번에 발견`, `정리 전`, `전체 기억`을 둔다.
+  - 현재 `DiscoverySnapshotMapper`의 `duplicateInTarget` 제외 규칙을 즉시 뒤집지 않는다. 먼저 MediaAnalysisStore와 Memory projection 경계를 만든다.
+- [ ] 현재 비활성 `NoLocationCache`는 `MediaAnalysisStore` 테스트가 갖춰지기 전 재활성화하지 않는다.
+- [ ] 앱 삭제/데이터 초기화 후 `기억 다시 구성하기` UX를 추가한다. 선택 폴더를 재분석하며 사진/Gallery 앨범은 삭제하지 않는다.
+
+#### P1 - 위치 앨범 통합과 사용자 이름 보존
+
+- [ ] 물리 파일 이동 전, user-named `AlbumCollection`(가상 통합)을 설계/구현한다.
+  - 사용자가 만든 통합 이름과 member `relativePath`를 별도 저장한다.
+  - 위치 앨범에서 통합 이름을 보이되, 원래 앨범/Memory 날짜·위치·메모는 유지한다.
+  - 외부 Gallery rename/delete와 member album missing 상태를 안전하게 표시한다.
+- [ ] 실제 폴더 통합(사진 복사/동영상 이동)은 별도 명시 액션으로 보류한다.
+  - confirmation, partial failure, result/action record, rollback/cleanup 정책 후에만 구현한다.
 - [ ] 10k 이상 discovery refs에서 live-filter, 검색, 전역 CTA prepare 시간과 메모리를 측정한다.
 - [ ] 중단 후 처음부터 재분석하지 않는 checkpoint/이어하기를 별도 설계한다.
 

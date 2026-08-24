@@ -339,6 +339,15 @@ Next work should avoid widening this stabilization batch:
 
 ## Known Open TODOs
 
+## V2.1 Media lifecycle / Memory sync (design accepted, implementation not started)
+
+- Read `MEDIA_LIFECYCLE_MEMORY_SYNC_DESIGN.md` before changing repeat-analysis caching, Discovery lifecycle, or location-album merge behavior.
+- Do not treat `DiscoverySnapshot` as the permanent Memory source or as the analysis cache.
+- Target split: `MediaStore` is live-media truth; `MediaAnalysisStore` avoids repeated analysis; `Memory` is the logical location/date/memo view; Gallery albums are optional organization output.
+- Album creation must not delete a Memory. `발견 기록` is a new/unorganized filter; the long-term parent concept is `기억`.
+- First merge MVP is user-named virtual `AlbumCollection`; do not implement physical folder merge until explicit confirmation, result record, partial-failure, and cleanup/undo policy are designed.
+
+
 0. Discovery record persistence, new-results UX, and analysis cache (next P0):
   - `DiscoverySnapshot` now merges records across sequential source-folder analyses (`9beef8b`), but it is app-private storage and is deleted when the app/data is deleted.
   - Do not call this problem only a cache problem: the app needs both a persistent discovery-result UX and a separate `LocationAnalysisCache` that avoids repeated EXIF/Geocoder work.
