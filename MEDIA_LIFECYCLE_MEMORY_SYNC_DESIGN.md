@@ -37,19 +37,17 @@ Do not solve the new lifecycle by re-including duplicates in the existing discov
 
 ## Album merge policy
 
-The first safe merge feature is a user-named **virtual MemoryCollection**:
+`위치 앨범` is a list of real Gallery folders. Therefore its merge feature is always a real move operation, never a virtual collection.
 
-- fields: stable collection id, user display name, member Memory stable keys, created/updated time;
-- it is shown in `기억` while physical albums and Memory details remain intact;
-- user-created name is preserved even when member albums are refreshed.
-
-Physical folder merge (moving/copying media into one Gallery folder) is a later explicit operation. It needs a confirmation screen, a result/action record, partial-failure reporting, and an undo/cleanup policy. Do not combine it with the initial collection UI.
-
-`위치 앨범` is a list of real Gallery folders. Do not present a virtual collection there as an album: that would imply a physical merge that did not happen.
+The user selects PhotoPlace-created location albums, enters a target name, and the generated-album media moves to `Pictures/{user name}/`. Memory stays independent: its location/date/memo data is not renamed, moved, or deleted by the Gallery operation.
 
 ### Interaction MVP
 
-Use `long press -> multi-select -> 기억으로 묶기 -> 이름 입력` in the `기억`/Discovery view for the first UI. It is more predictable than drag-and-drop on phone and Fold layouts, and it keeps the first release focused on user meaning rather than file movement. Show saved collections in a small `내 기억 모음` section above the ordinary Memory list.
+Use `long press -> multi-select -> 통합 -> 이름 입력 -> 이동 확인`. It is more predictable than drag-and-drop on phone and Fold layouts. The confirmation must state photo/video counts, that source folders may become empty, and that this does not delete the separate originals.
+
+### Implementation boundary
+
+Do not use `MediaCopyEngine` directly: its normal sort contract copies photos but moves videos. Album merge needs a dedicated engine that moves both generated photos and generated videos by updating each MediaStore entry's `relative_path` to the target folder. This is a real Gallery move without creating another byte-for-byte copy, but it still runs per media item. Persist an action plan before moving and record per-item outcomes for recovery/rollback.
 
 ## Incremental analysis and reconciliation
 
