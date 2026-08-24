@@ -25,6 +25,7 @@
   - `NEW`는 완전히 새로운 placeKey에만 한정하지 않는다. 기존 장소에 새 사진이 추가된 경우도 표시한다.
   - `DiscoveryPhotoRef.firstSeenSnapshotVersion`을 URI별로 보존해, 같은 폴더를 재분석해도 기존 사진 전체가 NEW가 되지 않도록 한다.
   - 현재는 카드 정렬/배지로 노출한다. 별도 `이번에 사진이 추가된 장소` 섹션과 분석 완료 dialog의 장소 수·사진 수 분리는 후속 polish로 둔다.
+  - 후속 테스트 보강: 동일 `+N장` 장소 간 최신 날짜 정렬, `ORGANIZED_ALBUM`/`MIXED` NEW 억제, URI 장소 재분류 뒤 first-seen 보존.
 - [ ] 앱 삭제/데이터 초기화 후 discovery snapshot이 복원되지 않는 현재 한계를 안내하고, `발견 기록 다시 구성하기` UX를 설계한다.
 
 ### P1 - Incremental Analysis / Memory lifecycle
