@@ -8296,9 +8296,7 @@ public class MainActivity extends Activity {
         addWorkingBanner(root);
 
         if (!state.isEmpty()) {
-            TextView description = bodyText("앨범을 만들기 전에 PhotoPlace 안에서 먼저 둘러볼 수 있어요.");
-            description.setPadding(dp(4), 0, dp(4), dp(6));
-            root.addView(description, matchWidthWithBottom(dp(8)));
+            root.addView(new MemoryBrowserSummaryRenderer(this).render(discoveryRecords), matchWidthWithBottom(dp(14)));
         }
 
         if (!state.isEmpty()) {
@@ -8523,21 +8521,12 @@ public class MainActivity extends Activity {
         applyCardBackground(summary);
         root.addView(summary, matchWidthWithBottom(dp(14)));
 
-        TextView label = new TextView(this);
-        label.setText("발견한 장소");
-        label.setTextSize(13.0f);
-        label.setTextColor(detail.item.discoveryOnly ? -14326805 : -6511697);
-        summary.addView(label, matchWidthWithBottom(dp(4)));
-
         TextView count = new TextView(this);
         count.setText(detail.item.countText + (detail.item.dateText.isEmpty() ? "" : " · " + detail.item.dateText));
         count.setTextSize(16.0f);
         count.setTypeface(Typeface.DEFAULT_BOLD);
         count.setTextColor(-14735049);
-        summary.addView(count, matchWidthWithBottom(dp(6)));
-
-        TextView hint = bodyText("앨범 생성 여부와 관계없이 PhotoPlace 안에서 위치와 날짜별로 볼 수 있어요.");
-        summary.addView(hint, matchWidth());
+        summary.addView(count, matchWidth());
 
         if (!detail.sourceUris.isEmpty()) {
             root.addView(sectionTitle("사진 보기"), matchWidthWithBottom(dp(10)));

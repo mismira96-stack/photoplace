@@ -11,6 +11,7 @@ This file is the shared handoff note for Codex and Gemini CLI. Keep it short, cu
 - Current local patch: preserves `DiscoveryPhotoRef.firstSeenSnapshotVersion` across URI reanalysis, then shows recently updated Discovery cards first with `NEW` and `이번에 +N장`.
 - Discovery card totals now use `사진 N장`; `NEW` means new media in the latest analysis, not a newly created place key.
 - Gemini review of `f56c38e`: no blocker. Deferred test-only coverage is recorded in `TODO.md` (same-count ordering, organized/MIXED suppression, URI place reclassification).
+- Next visual polish is intentionally deferred: Discovery/Location Albums header surface consistency and the Discovery-detail red date divider.
 - Device smoke result: after a clean reinstall, Band analysis showed 17 places; a repeat analysis showed 0 newly updated places and Discovery History stayed at 17.
 - The missing two places from the earlier 19-place observation are not a repeat-merge loss. They remain part of the separate `duplicateInTarget` identity-policy investigation.
 - Incremental analysis cache remains unimplemented and disabled. Start with a tested `MediaAnalysisStore`; do not re-enable the old `NoLocationCache`.
