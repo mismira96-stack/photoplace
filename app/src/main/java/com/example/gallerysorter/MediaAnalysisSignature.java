@@ -28,6 +28,24 @@ final class MediaAnalysisSignature {
         return build(uri, displayName, modifiedSeconds, addedSeconds, mediaTakenMillis, video, "");
     }
 
+    static String buildForMediaAnalysis(long mediaStoreId,
+                                        Uri uri,
+                                        String displayName,
+                                        long modifiedSeconds,
+                                        long addedSeconds,
+                                        long mediaTakenMillis,
+                                        long sizeBytes,
+                                        long durationMillis,
+                                        boolean video,
+                                        String relativePath,
+                                        int policyVersion) {
+        return "analysis|" + policyVersion
+                + "|" + mediaStoreId
+                + "|" + build(uri, displayName, modifiedSeconds, addedSeconds, mediaTakenMillis, video, relativePath)
+                + "|" + sizeBytes
+                + "|" + durationMillis;
+    }
+
     private static String safe(String value) {
         return value == null ? "" : value;
     }

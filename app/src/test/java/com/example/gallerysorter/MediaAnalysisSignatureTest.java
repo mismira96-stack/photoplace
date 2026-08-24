@@ -54,4 +54,17 @@ public class MediaAnalysisSignatureTest {
 
         assertEquals("i|content://media/external/images/media/10|IMG_0001.jpg|100|90|80|", signature);
     }
+
+    @Test
+    public void detailedAnalysisSignatureInvalidatesForSizePathAndPolicy() {
+        String uri = "content://media/external/images/media/10";
+        String original = MediaAnalysisSignature.buildForMediaAnalysis(10L, null, "IMG_0001.jpg", 100L, 90L, 80L, 1000L, 0L, false, "DCIM/Camera/", 1);
+        String resized = MediaAnalysisSignature.buildForMediaAnalysis(10L, null, "IMG_0001.jpg", 100L, 90L, 80L, 2000L, 0L, false, "DCIM/Camera/", 1);
+        String moved = MediaAnalysisSignature.buildForMediaAnalysis(10L, null, "IMG_0001.jpg", 100L, 90L, 80L, 1000L, 0L, false, "Download/", 1);
+        String policyChanged = MediaAnalysisSignature.buildForMediaAnalysis(10L, null, "IMG_0001.jpg", 100L, 90L, 80L, 1000L, 0L, false, "DCIM/Camera/", 2);
+
+        assertNotEquals(original, resized);
+        assertNotEquals(original, moved);
+        assertNotEquals(original, policyChanged);
+    }
 }

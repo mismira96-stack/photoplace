@@ -207,6 +207,7 @@ public class MainActivity extends Activity {
     private List<StoredAlbumSummary> recentAlbumSummaryCache = null;
     private long recentAlbumSummaryCacheMillis = 0L;
     private NoLocationCache noLocationCache = null;
+    private MediaAnalysisStore mediaAnalysisStore = null;
     private AlbumSummaryHistoryStore albumSummaryHistoryStore = null;
     private MemoryPersonalizationStore memoryPersonalizationStore = null;
     private DiscoverySnapshotController discoverySnapshotController = null;
@@ -297,6 +298,7 @@ public class MainActivity extends Activity {
         super.onCreate(bundle);
         SortNotificationHelper.clearCompleteNotification(this);
         this.noLocationCache = new NoLocationCache(getSharedPreferences(PREFS_NAME, 0));
+        this.mediaAnalysisStore = new MediaAnalysisStore(this);
         this.albumSummaryHistoryStore = new AlbumSummaryHistoryStore(this);
         this.memoryPersonalizationStore = new MemoryPersonalizationStore(this);
         this.mediaCopyEngine = new MediaCopyEngine(this);
@@ -1975,8 +1977,14 @@ public class MainActivity extends Activity {
     private List<PhotoItem> loadSourcePhotos(List<AlbumFolder> list) throws Throwable {
         ArrayList arrayList = new ArrayList();
         List<String> selectedSourcePaths = getSelectedSourcePaths();
-        loadSourceImages(arrayList, list, selectedSourcePaths);
-        loadSourceVideos(arrayList, list, selectedSourcePaths);
+        try {
+            loadSourceImages(arrayList, list, selectedSourcePaths);
+            loadSourceVideos(arrayList, list, selectedSourcePaths);
+        } finally {
+            if (this.mediaAnalysisStore != null) {
+                this.mediaAnalysisStore.flush();
+            }
+        }
         arrayList.sort(new Comparator() { // from class: com.example.gallerysorter.MainActivity$$ExternalSyntheticLambda7
             @Override // java.util.Comparator
             public final int compare(Object obj, Object obj2) {
@@ -1994,7 +2002,7 @@ public class MainActivity extends Activity {
         ContentResolver contentResolver = getContentResolver();
         Uri uri = MediaStore.Images.Media.EXTERNAL_CONTENT_URI;
         try {
-            Cursor cursorQuery = contentResolver.query(uri, new String[]{"_id", "_display_name", "mime_type", "date_modified", "date_added", "datetaken", "latitude", "longitude"}, visibleMediaSelection(buildRelativePathSelection("relative_path", list3)), (String[]) list3.toArray(new String[0]), "date_modified DESC");
+            Cursor cursorQuery = contentResolver.query(uri, new String[]{"_id", "_display_name", "mime_type", "date_modified", "date_added", "datetaken", "latitude", "longitude", "_size", "relative_path"}, visibleMediaSelection(buildRelativePathSelection("relative_path", list3)), (String[]) list3.toArray(new String[0]), "date_modified DESC");
             if (cursorQuery == null) {
                 if (cursorQuery != null) {
                     cursorQuery.close();
@@ -2011,6 +2019,8 @@ public class MainActivity extends Activity {
                 int columnIndex2 = cursorQuery.getColumnIndex("datetaken");
                 int columnIndex3 = cursorQuery.getColumnIndex("latitude");
                 int columnIndex4 = cursorQuery.getColumnIndex("longitude");
+                int sizeIndex = cursorQuery.getColumnIndex("_size");
+                int relativePathIndex = cursorQuery.getColumnIndex("relative_path");
                 int count = cursorQuery.getCount();
                 while (cursorQuery.moveToNext()) {
                     if (this.cancelRequested) {
@@ -2036,10 +2046,12 @@ public class MainActivity extends Activity {
                         long mediaTakenMillis = readOptionalLong(cursorQuery, columnIndex2);
                         Double mediaLatitude = readOptionalDouble(cursorQuery, columnIndex3);
                         Double mediaLongitude = readOptionalDouble(cursorQuery, columnIndex4);
-                        LocationResult locationResult = cachedNoLocationResult(uriWithAppendedPath, strSafeName, modifiedSeconds, addedSeconds, mediaTakenMillis, mediaLatitude, mediaLongitude, false);
+                        String mediaAnalysisSignature = mediaAnalysisSignature(cursorQuery.getLong(columnIndexOrThrow), uriWithAppendedPath, strSafeName, modifiedSeconds, addedSeconds, mediaTakenMillis, readOptionalLong(cursorQuery, sizeIndex), 0L, false, relativePathIndex < 0 ? "" : cursorQuery.getString(relativePathIndex));
+                        LocationResult locationResult = cachedMediaAnalysisResult(mediaAnalysisSignature, mediaLatitude, mediaLongitude);
                         if (locationResult == null) {
-                            locationResult = readLocation(uriWithAppendedPath, strSafeName, modifiedSeconds, addedSeconds, mediaTakenMillis, mediaLatitude, mediaLongitude, false);
-                            rememberNoLocationIfNeeded(uriWithAppendedPath, strSafeName, modifiedSeconds, addedSeconds, mediaTakenMillis, locationResult, false);
+                            LocationAnalysisReadResult readResult = readLocation(uriWithAppendedPath, strSafeName, modifiedSeconds, addedSeconds, mediaTakenMillis, mediaLatitude, mediaLongitude, false);
+                            locationResult = readResult.locationResult;
+                            rememberMediaAnalysisResult(mediaAnalysisSignature, readResult);
                         }
                         final PhotoItem photoItemBuildPhotoItem = buildPhotoItem(uriWithAppendedPath, strSafeName, cursorQuery.getString(columnIndexOrThrow3), locationResult, list2, false);
                         list.add(photoItemBuildPhotoItem);
@@ -2125,7 +2137,7 @@ public class MainActivity extends Activity {
         ContentResolver contentResolver = getContentResolver();
         Uri uri = MediaStore.Video.Media.EXTERNAL_CONTENT_URI;
         try {
-            Cursor cursorQuery = contentResolver.query(uri, new String[]{"_id", "_display_name", "mime_type", "date_modified", "date_added", "datetaken", "latitude", "longitude"}, visibleMediaSelection(buildRelativePathSelection("relative_path", list3)), (String[]) list3.toArray(new String[0]), "date_modified DESC");
+            Cursor cursorQuery = contentResolver.query(uri, new String[]{"_id", "_display_name", "mime_type", "date_modified", "date_added", "datetaken", "latitude", "longitude", "_size", "duration", "relative_path"}, visibleMediaSelection(buildRelativePathSelection("relative_path", list3)), (String[]) list3.toArray(new String[0]), "date_modified DESC");
             if (cursorQuery == null) {
                 if (cursorQuery != null) {
                     cursorQuery.close();
@@ -2142,6 +2154,9 @@ public class MainActivity extends Activity {
                 int columnIndex2 = cursorQuery.getColumnIndex("datetaken");
                 int columnIndex3 = cursorQuery.getColumnIndex("latitude");
                 int columnIndex4 = cursorQuery.getColumnIndex("longitude");
+                int sizeIndex = cursorQuery.getColumnIndex("_size");
+                int durationIndex = cursorQuery.getColumnIndex("duration");
+                int relativePathIndex = cursorQuery.getColumnIndex("relative_path");
                 int count = cursorQuery.getCount();
                 int i2 = 0;
                 while (cursorQuery.moveToNext()) {
@@ -2168,10 +2183,12 @@ public class MainActivity extends Activity {
                         long mediaTakenMillis = readOptionalLong(cursorQuery, columnIndex2);
                         Double mediaLatitude = readOptionalDouble(cursorQuery, columnIndex3);
                         Double mediaLongitude = readOptionalDouble(cursorQuery, columnIndex4);
-                        LocationResult locationResult = cachedNoLocationResult(uriWithAppendedPath, strSafeName, modifiedSeconds, addedSeconds, mediaTakenMillis, mediaLatitude, mediaLongitude, true);
+                        String mediaAnalysisSignature = mediaAnalysisSignature(cursorQuery.getLong(columnIndexOrThrow), uriWithAppendedPath, strSafeName, modifiedSeconds, addedSeconds, mediaTakenMillis, readOptionalLong(cursorQuery, sizeIndex), readOptionalLong(cursorQuery, durationIndex), true, relativePathIndex < 0 ? "" : cursorQuery.getString(relativePathIndex));
+                        LocationResult locationResult = cachedMediaAnalysisResult(mediaAnalysisSignature, mediaLatitude, mediaLongitude);
                         if (locationResult == null) {
-                            locationResult = readLocation(uriWithAppendedPath, strSafeName, modifiedSeconds, addedSeconds, mediaTakenMillis, mediaLatitude, mediaLongitude, true);
-                            rememberNoLocationIfNeeded(uriWithAppendedPath, strSafeName, modifiedSeconds, addedSeconds, mediaTakenMillis, locationResult, true);
+                            LocationAnalysisReadResult readResult = readLocation(uriWithAppendedPath, strSafeName, modifiedSeconds, addedSeconds, mediaTakenMillis, mediaLatitude, mediaLongitude, true);
+                            locationResult = readResult.locationResult;
+                            rememberMediaAnalysisResult(mediaAnalysisSignature, readResult);
                         }
                         final PhotoItem photoItemBuildPhotoItem = buildPhotoItem(uriWithAppendedPath, strSafeName, cursorQuery.getString(columnIndexOrThrow3), locationResult, list2, true);
                         list.add(photoItemBuildPhotoItem);
@@ -2713,7 +2730,7 @@ public class MainActivity extends Activity {
         return date;
     }
 
-    private LocationResult readLocation(Uri uri, String name, long modifiedSeconds, long addedSeconds, long mediaTakenMillis, Double mediaLatitude, Double mediaLongitude, boolean video) {
+    private LocationAnalysisReadResult readLocation(Uri uri, String name, long modifiedSeconds, long addedSeconds, long mediaTakenMillis, Double mediaLatitude, Double mediaLongitude, boolean video) {
         Date fileNameTakenAt = sanitizeTakenAt(parseDateFromName(name));
         Date mediaTakenAt = sanitizeTakenAt(mediaTakenMillis > 0 ? new Date(mediaTakenMillis) : null);
         Date modifiedAt = sanitizeTakenAt(modifiedSeconds > 0 ? new Date(modifiedSeconds * 1000L) : null);
@@ -2721,6 +2738,7 @@ public class MainActivity extends Activity {
         Date takenAt = null;
         String folderKey = LOCATION_NONE;
         LocationLookupResult locationLookup = LocationLookupResult.empty();
+        boolean coordinatesObserved = false;
 
         if (video) {
             VideoMetadataResult videoResult = readVideoMetadata(uri);
@@ -2729,6 +2747,7 @@ public class MainActivity extends Activity {
                 takenAt = videoTakenAt;
             }
             if (hasUsableCoordinates(videoResult.latitude, videoResult.longitude)) {
+                coordinatesObserved = true;
                 locationLookup = safeResolveLocationLookup(videoResult.latitude, videoResult.longitude);
                 folderKey = locationLookup.folderKey;
             }
@@ -2745,6 +2764,7 @@ public class MainActivity extends Activity {
             takenAt = exifTakenAt;
         }
         if (hasUsableCoordinates(exifResult.latitude, exifResult.longitude)) {
+            coordinatesObserved = true;
             locationLookup = safeResolveLocationLookup(exifResult.latitude, exifResult.longitude);
             folderKey = locationLookup.folderKey;
         }
@@ -2756,6 +2776,7 @@ public class MainActivity extends Activity {
                 takenAt = fallbackTakenAt;
             }
             if (hasUsableCoordinates(fallbackResult.latitude, fallbackResult.longitude)) {
+                coordinatesObserved = true;
                 locationLookup = safeResolveLocationLookup(fallbackResult.latitude, fallbackResult.longitude);
                 folderKey = locationLookup.folderKey;
             }
@@ -2765,6 +2786,7 @@ public class MainActivity extends Activity {
                 && mediaLatitude != null
                 && mediaLongitude != null
                 && hasUsableCoordinates(mediaLatitude, mediaLongitude)) {
+            coordinatesObserved = true;
             locationLookup = safeResolveLocationLookup(mediaLatitude, mediaLongitude);
             folderKey = locationLookup.folderKey;
         }
@@ -2782,7 +2804,25 @@ public class MainActivity extends Activity {
             takenAt = addedAt;
         }
 
-        return new LocationResult(sanitizeTakenAt(takenAt), folderKey, locationLookup.countryCode, locationLookup.countryName, locationLookup.adminArea, locationLookup.addressLine);
+        return new LocationAnalysisReadResult(new LocationResult(sanitizeTakenAt(takenAt), folderKey, locationLookup.countryCode, locationLookup.countryName, locationLookup.adminArea, locationLookup.addressLine), coordinatesObserved);
+    }
+
+    private String mediaAnalysisSignature(long mediaStoreId, Uri uri, String name, long modifiedSeconds, long addedSeconds, long mediaTakenMillis, long sizeBytes, long durationMillis, boolean video, String relativePath) {
+        return MediaAnalysisSignature.buildForMediaAnalysis(mediaStoreId, uri, name, modifiedSeconds, addedSeconds, mediaTakenMillis, sizeBytes, durationMillis, video, relativePath, MediaAnalysisStore.POLICY_VERSION);
+    }
+
+    private LocationResult cachedMediaAnalysisResult(String signature, Double latitude, Double longitude) {
+        if (this.mediaAnalysisStore == null) {
+            return null;
+        }
+        return this.mediaAnalysisStore.cachedResult(signature, hasUsableCoordinates(latitude, longitude));
+    }
+
+    private void rememberMediaAnalysisResult(String signature, LocationAnalysisReadResult readResult) {
+        if (this.mediaAnalysisStore == null || readResult == null || !readResult.canPersist()) {
+            return;
+        }
+        this.mediaAnalysisStore.remember(signature, readResult.locationResult);
     }
 
     private LocationResult cachedNoLocationResult(Uri uri, String name, long modifiedSeconds, long addedSeconds, long mediaTakenMillis, Double mediaLatitude, Double mediaLongitude, boolean video) {
