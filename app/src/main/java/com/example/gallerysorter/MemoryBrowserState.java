@@ -82,6 +82,10 @@ final class MemoryBrowserItem {
     static final Comparator<MemoryBrowserItem> BY_RECENT_THEN_TITLE = new Comparator<MemoryBrowserItem>() {
         @Override
         public int compare(MemoryBrowserItem left, MemoryBrowserItem right) {
+            int newItems = Integer.compare(right.recentAddedCount, left.recentAddedCount);
+            if (newItems != 0) {
+                return newItems;
+            }
             int date = Long.compare(right.sortDateMillis, left.sortDateMillis);
             if (date != 0) {
                 return date;
@@ -104,6 +108,7 @@ final class MemoryBrowserItem {
     final boolean canOpenGalleryAlbum;
     final boolean canOrganize;
     final boolean canAddNewItems;
+    final int recentAddedCount;
     final long sortDateMillis;
 
     private MemoryBrowserItem(String memoryKey,
@@ -120,6 +125,7 @@ final class MemoryBrowserItem {
                               boolean canOpenGalleryAlbum,
                               boolean canOrganize,
                               boolean canAddNewItems,
+                              int recentAddedCount,
                               long sortDateMillis) {
         this.memoryKey = clean(memoryKey);
         this.title = clean(title);
@@ -135,6 +141,7 @@ final class MemoryBrowserItem {
         this.canOpenGalleryAlbum = canOpenGalleryAlbum;
         this.canOrganize = canOrganize;
         this.canAddNewItems = canAddNewItems;
+        this.recentAddedCount = Math.max(0, recentAddedCount);
         this.sortDateMillis = Math.max(0L, sortDateMillis);
     }
 
@@ -161,6 +168,7 @@ final class MemoryBrowserItem {
                 record.canOpenGalleryAlbum,
                 record.canOrganize,
                 record.canAddNewItems,
+                recentAddedCount(record),
                 record.endDateMillis > 0L ? record.endDateMillis : record.startDateMillis);
     }
 
@@ -175,7 +183,22 @@ final class MemoryBrowserItem {
     }
 
     private static String countText(int itemCount) {
-        return Math.max(0, itemCount) + "개";
+        return "사진 " + Math.max(0, itemCount) + "장";
+    }
+
+    private static int recentAddedCount(MemoryRecord record) {
+        if (record == null || record.sourceType != MemorySourceType.DISCOVERED_ONLY
+                || record.discoveryGroup == null) {
+            return 0;
+        }
+        int count = 0;
+        long currentVersion = record.discoveryGroup.snapshotVersion;
+        for (DiscoveryPhotoRef ref : record.discoveryGroup.photoRefs) {
+            if (ref != null && ref.firstSeenSnapshotVersion == currentVersion) {
+                count++;
+            }
+        }
+        return count;
     }
 
     private static String dateText(long startMillis, long endMillis) {

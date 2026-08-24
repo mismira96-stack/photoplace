@@ -66,7 +66,7 @@ public class DiscoverySnapshotControllerTest {
 
         assertNotNull(detail);
         assertEquals("discovery:삿포로", detail.item.memoryKey);
-        assertEquals("1개", detail.item.countText);
+        assertEquals("사진 1장", detail.item.countText);
         assertFalse(detail.canOpenGalleryAlbum);
         assertEquals(1, detail.sourceUris.size());
     }

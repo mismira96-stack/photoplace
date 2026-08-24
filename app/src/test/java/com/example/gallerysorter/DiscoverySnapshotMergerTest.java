@@ -51,6 +51,25 @@ public class DiscoverySnapshotMergerTest {
         assertEquals(1, merged.groupCount());
         assertEquals("송파구", merged.groups.get(0).placeKey);
         assertEquals(1, merged.groups.get(0).itemCount);
+        assertEquals(100L, merged.groups.get(0).photoRefs.get(0).firstSeenSnapshotVersion);
+        assertEquals(200L, merged.groups.get(0).photoRefs.get(0).lastSeenSnapshotVersion);
+    }
+
+    @Test
+    public void keepsFirstSeenVersionOnlyForExistingUriWhenNewPhotoIsAdded() {
+        DiscoverySnapshot first = snapshot(100L, source("content://media/1", "안성", false, false));
+        DiscoverySnapshot second = snapshot(200L,
+                source("content://media/1", "안성", false, false),
+                source("content://media/2", "안성", false, false));
+
+        DiscoverySnapshot merged = DiscoverySnapshotMerger.replaceAnalyzedItems(
+                first,
+                second,
+                uris("content://media/1", "content://media/2"));
+
+        assertEquals(2, merged.groups.get(0).photoRefs.size());
+        assertEquals(100L, merged.groups.get(0).photoRefs.get(0).firstSeenSnapshotVersion);
+        assertEquals(200L, merged.groups.get(0).photoRefs.get(1).firstSeenSnapshotVersion);
     }
 
     @Test

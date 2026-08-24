@@ -18,9 +18,29 @@ final class DiscoverySnapshotMerger {
             return existing;
         }
         LinkedHashMap<String, DiscoveryPhotoRef> refsByUri = new LinkedHashMap<>();
+        Map<String, DiscoveryPhotoRef> existingByUri = existingRefsByUri(existing);
         addExistingRefs(refsByUri, existing, cleanSet(analyzedSourceUris));
-        addIncomingRefs(refsByUri, incoming);
+        addIncomingRefs(refsByUri, incoming, existingByUri);
         return rebuild(existing, incoming, refsByUri.values());
+    }
+
+    private static Map<String, DiscoveryPhotoRef> existingRefsByUri(DiscoverySnapshot existing) {
+        LinkedHashMap<String, DiscoveryPhotoRef> refsByUri = new LinkedHashMap<>();
+        if (existing == null) {
+            return refsByUri;
+        }
+        for (DiscoveryMemoryGroup group : existing.groups) {
+            if (group == null) {
+                continue;
+            }
+            for (DiscoveryPhotoRef ref : group.photoRefs) {
+                String uri = clean(ref == null ? "" : ref.sourceUri);
+                if (!uri.isEmpty()) {
+                    refsByUri.put(uri, ref);
+                }
+            }
+        }
+        return refsByUri;
     }
 
     private static void addExistingRefs(Map<String, DiscoveryPhotoRef> refsByUri,
@@ -43,7 +63,8 @@ final class DiscoverySnapshotMerger {
     }
 
     private static void addIncomingRefs(Map<String, DiscoveryPhotoRef> refsByUri,
-                                        DiscoverySnapshot incoming) {
+                                        DiscoverySnapshot incoming,
+                                        Map<String, DiscoveryPhotoRef> existingByUri) {
         for (DiscoveryMemoryGroup group : incoming.groups) {
             if (group == null) {
                 continue;
@@ -51,10 +72,31 @@ final class DiscoverySnapshotMerger {
             for (DiscoveryPhotoRef ref : group.photoRefs) {
                 String uri = clean(ref == null ? "" : ref.sourceUri);
                 if (!uri.isEmpty()) {
-                    refsByUri.put(uri, ref);
+                    DiscoveryPhotoRef existing = existingByUri.get(uri);
+                    refsByUri.put(uri, existing == null ? ref : withFirstSeenVersion(ref, existing.firstSeenSnapshotVersion));
                 }
             }
         }
+    }
+
+    private static DiscoveryPhotoRef withFirstSeenVersion(DiscoveryPhotoRef ref, long firstSeenSnapshotVersion) {
+        return new DiscoveryPhotoRef(
+                ref.sourceUri,
+                ref.mediaStoreId,
+                ref.mediaKind,
+                ref.mimeType,
+                ref.displayName,
+                ref.takenAtMillis,
+                ref.locationKey,
+                ref.placeName,
+                ref.countryCode,
+                ref.countryName,
+                ref.adminArea,
+                ref.addressLine,
+                ref.sourceRelativePath,
+                firstSeenSnapshotVersion,
+                ref.lastSeenSnapshotVersion,
+                ref.stale);
     }
 
     private static DiscoverySnapshot rebuild(DiscoverySnapshot existing,

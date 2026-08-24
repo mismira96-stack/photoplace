@@ -134,11 +134,26 @@ final class MemoryBrowserGridRenderer {
         caption.setPadding(dp(12), dp(8), dp(10), dp(10));
         card.addView(caption, new LinearLayout.LayoutParams(-1, -2));
 
+        LinearLayout titleRow = new LinearLayout(context);
+        titleRow.setOrientation(LinearLayout.HORIZONTAL);
+        titleRow.setGravity(Gravity.CENTER_VERTICAL);
+        caption.addView(titleRow, new LinearLayout.LayoutParams(-1, -2));
+
         TextView title = text(item.title, 15.0f, Color.rgb(31, 35, 48), true);
         singleLine(title);
-        caption.addView(title, new LinearLayout.LayoutParams(-1, -2));
+        titleRow.addView(title, new LinearLayout.LayoutParams(0, -2, 1.0f));
 
-        TextView count = text(item.countText + " 사진", 15.0f, Color.rgb(104, 82, 226), true);
+        if (item.recentAddedCount > 0) {
+            TextView badge = text("NEW", 10.0f, Color.rgb(104, 82, 226), true);
+            badge.setGravity(Gravity.CENTER);
+            badge.setPadding(dp(6), dp(2), dp(6), dp(2));
+            badge.setBackground(newBadgeBackground());
+            LinearLayout.LayoutParams badgeParams = new LinearLayout.LayoutParams(-2, -2);
+            badgeParams.setMargins(dp(4), 0, 0, 0);
+            titleRow.addView(badge, badgeParams);
+        }
+
+        TextView count = text(item.countText, 15.0f, Color.rgb(104, 82, 226), true);
         count.setPadding(0, dp(4), 0, 0);
         caption.addView(count, new LinearLayout.LayoutParams(-1, -2));
 
@@ -146,6 +161,11 @@ final class MemoryBrowserGridRenderer {
         singleLine(date);
         date.setPadding(0, dp(2), 0, 0);
         caption.addView(date, new LinearLayout.LayoutParams(-1, -2));
+        if (item.recentAddedCount > 0) {
+            TextView added = text("이번에 +" + item.recentAddedCount + "장", 11.5f, Color.rgb(104, 82, 226), true);
+            added.setPadding(0, dp(4), 0, 0);
+            caption.addView(added, new LinearLayout.LayoutParams(-1, -2));
+        }
         return card;
     }
 
@@ -171,6 +191,13 @@ final class MemoryBrowserGridRenderer {
         background.setColor(Color.WHITE);
         background.setCornerRadius(dp(24));
         background.setStroke(dp(1), Color.rgb(231, 233, 239));
+        return background;
+    }
+
+    private GradientDrawable newBadgeBackground() {
+        GradientDrawable background = new GradientDrawable();
+        background.setColor(Color.rgb(245, 242, 255));
+        background.setCornerRadius(dp(10));
         return background;
     }
 

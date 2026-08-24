@@ -28,7 +28,7 @@ public class MemoryBrowserStateTest {
         assertEquals("discovery:삿포로", item.memoryKey);
         assertEquals("삿포로", item.title);
         assertEquals("앨범 만들기 전", item.subtitle);
-        assertEquals("2개", item.countText);
+        assertEquals("사진 2장", item.countText);
         assertEquals("2026.08.02 ~ 2026.08.06", item.dateText);
         assertEquals("2026.8", item.cardDateText);
         assertEquals("content://media/external/images/media/101", item.coverUri);
@@ -51,7 +51,7 @@ public class MemoryBrowserStateTest {
 
         assertEquals("오타루에서", item.title);
         assertEquals("정리된 앨범", item.subtitle);
-        assertEquals("5개", item.countText);
+        assertEquals("사진 5장", item.countText);
         assertEquals(MemorySourceType.ORGANIZED_ALBUM, item.sourceType);
         assertFalse(item.discoveryOnly);
         assertTrue(item.organizedAlbum);
@@ -81,6 +81,18 @@ public class MemoryBrowserStateTest {
 
         assertEquals("삿포로", state.items.get(0).title);
         assertEquals("오타루", state.items.get(1).title);
+    }
+
+    @Test
+    public void sortsPlaceWithRecentlyAddedPhotosBeforeNewerUnchangedPlace() {
+        MemoryRecord unchanged = record("discovery:오타루", "오타루", 1785600000000L, 1785945600000L);
+        MemoryRecord updated = MemoryRepository.fromDiscoveryGroup(discoveryGroupWithVersions(
+                "discovery:삿포로", "삿포로", 100L, 200L));
+
+        MemoryBrowserState state = MemoryBrowserState.fromRecords(Arrays.asList(unchanged, updated));
+
+        assertEquals("삿포로", state.items.get(0).title);
+        assertEquals(1, state.items.get(0).recentAddedCount);
     }
 
     @Test
@@ -223,6 +235,19 @@ public class MemoryBrowserStateTest {
                 1L);
     }
 
+    private static DiscoveryMemoryGroup discoveryGroupWithVersions(String memoryKey,
+                                                                    String placeName,
+                                                                    long existingVersion,
+                                                                    long currentVersion) {
+        ArrayList<DiscoveryPhotoRef> refs = new ArrayList<>();
+        refs.add(photoRefWithVersions("content://media/external/images/media/401", existingVersion, currentVersion));
+        refs.add(photoRefWithVersions("content://media/external/images/media/402", currentVersion, currentVersion));
+        return new DiscoveryMemoryGroup(
+                memoryKey, placeName, placeName, "JP", "Japan", "Hokkaido", "",
+                2, 2, 0, 1785600000000L, 1785945600000L,
+                refs.get(0).sourceUri, refs, 0, currentVersion);
+    }
+
     private static List<DiscoveryPhotoRef> photoRefs(int itemCount, int staleCount) {
         ArrayList<DiscoveryPhotoRef> refs = new ArrayList<>();
         for (int i = 0; i < itemCount; i++) {
@@ -234,6 +259,14 @@ public class MemoryBrowserStateTest {
     }
 
     private static DiscoveryPhotoRef photoRef(String uri, boolean stale) {
+        return photoRefWithVersions(uri, 1L, 1L, stale);
+    }
+
+    private static DiscoveryPhotoRef photoRefWithVersions(String uri, long firstSeen, long lastSeen) {
+        return photoRefWithVersions(uri, firstSeen, lastSeen, false);
+    }
+
+    private static DiscoveryPhotoRef photoRefWithVersions(String uri, long firstSeen, long lastSeen, boolean stale) {
         return new DiscoveryPhotoRef(
                 uri,
                 DiscoveryPhotoRef.UNKNOWN_ID,
@@ -248,8 +281,8 @@ public class MemoryBrowserStateTest {
                 "Hokkaido",
                 "Sapporo, Hokkaido, Japan",
                 "",
-                1L,
-                1L,
+                firstSeen,
+                lastSeen,
                 stale);
     }
 
