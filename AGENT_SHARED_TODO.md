@@ -4,6 +4,14 @@ Updated: 2026-08-24
 
 This file is the shared handoff note for Codex and Gemini CLI. Keep it short, current, and safe to act on.
 
+## Latest Checkpoint - 2026-08-24
+
+- `1a14883`: URI-based Discovery update counts, managed-album-path live filtering, and small UI polish.
+- `d55293a`: prevents a ref excluded from an incoming discovery snapshot from deleting its existing discovery record during repeat analysis.
+- Device smoke result: after a clean reinstall, Band analysis showed 17 places; a repeat analysis showed 0 newly updated places and Discovery History stayed at 17.
+- The missing two places from the earlier 19-place observation are not a repeat-merge loss. They remain part of the separate `duplicateInTarget` identity-policy investigation.
+- Incremental analysis cache remains unimplemented and disabled. Start with a tested `MediaAnalysisStore`; do not re-enable the old `NoLocationCache`.
+
 ## Workspace And Shared Docs
 
 Project root:

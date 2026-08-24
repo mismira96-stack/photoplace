@@ -133,6 +133,22 @@ public class DiscoverySnapshotControllerTest {
     }
 
     @Test
+    public void updateCountsOneExistingPlaceWhenOnlyOneNewUriWasAdded() throws Exception {
+        DiscoverySnapshotStore store = new DiscoverySnapshotStore(temporaryFolder.newFolder("existing-place-new-photo"));
+        DiscoverySnapshotController controller = new DiscoverySnapshotController(store, fixedClock(1786000000000L));
+        DiscoverySnapshotMapper.SourceItem original = sourceItem("content://media/external/images/media/101", "안성");
+        controller.saveSourceItems(Arrays.asList(original), 1, "band");
+
+        DiscoverySnapshotUpdate update = controller.saveSourceItemsWithResult(Arrays.asList(
+                original,
+                sourceItem("content://media/external/images/media/102", "안성")), 2, "band");
+
+        assertEquals(2, update.discoveredItemCount);
+        assertEquals(1, update.discoveredPlaceCount);
+        assertEquals(1, update.newPlaceCount);
+    }
+
+    @Test
     public void saveKeepsExistingDiscoveryRefWhenReanalysisMarksItDuplicate() throws Exception {
         DiscoverySnapshotStore store = new DiscoverySnapshotStore(temporaryFolder.newFolder("duplicate"));
         DiscoverySnapshotController controller = new DiscoverySnapshotController(store, fixedClock(1786000000000L));

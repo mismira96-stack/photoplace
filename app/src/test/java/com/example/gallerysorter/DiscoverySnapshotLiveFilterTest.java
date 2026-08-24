@@ -21,6 +21,12 @@ public class DiscoverySnapshotLiveFilterTest {
         assertTrue(DiscoverySnapshotLiveFilter.isOrganizedLocationPath("Pictures\\2026 여름 일본 여행\\", organizedPaths));
         assertFalse(DiscoverySnapshotLiveFilter.isOrganizedLocationPath("Pictures/수원에서/", organizedPaths));
         assertFalse(DiscoverySnapshotLiveFilter.isOrganizedLocationPath("DCIM/Camera/", organizedPaths));
+
+        java.util.Set<String> noTrailingSlash = DiscoverySnapshotLiveFilter.organizedRelativePaths(Collections.singletonList(
+                summary("서울에서", "Pictures/서울에서")));
+        assertTrue(DiscoverySnapshotLiveFilter.isOrganizedLocationPath("Pictures/서울에서/", noTrailingSlash));
+        assertFalse(DiscoverySnapshotLiveFilter.isOrganizedLocationPath("Pictures/서울에서/",
+                DiscoverySnapshotLiveFilter.organizedRelativePaths(null)));
     }
 
     @Test
