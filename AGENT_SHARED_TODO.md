@@ -1,6 +1,6 @@
 # PhotoPlace Agent Shared TODO
 
-Updated: 2026-08-15
+Updated: 2026-08-24
 
 This file is the shared handoff note for Codex and Gemini CLI. Keep it short, current, and safe to act on.
 
@@ -14,6 +14,10 @@ Read these first:
 
 - `AGENT_SHARED_TODO.md`
   - Current shared status, stable baseline, open TODOs, and guardrails.
+- `TODO.md`
+  - Read `Current Execution Plan (2026-08-24)` first. It is the single current priority order; lower dated sections are detailed/historical context.
+- `MEDIA_LIFECYCLE_MEMORY_SYNC_DESIGN.md`
+  - V2.1 lifecycle design. It explicitly separates Discovery History virtual `MemoryCollection` from Location Albums physical MediaStore move merge.
 - `WORKLOG_2026-07-30.md`
   - Latest release/work record for 1.2.5, overseas-history metadata fix, Fold UI checks, and Play draft automation.
 - `WORKLOG_2026-08-06.md`
@@ -51,8 +55,6 @@ Reference docs:
   - Release/regression test checklist.
 - `README.md`
   - General project notes.
-- `TODO.md`
-  - Older large TODO file. Treat as historical/reference only unless a current item is copied into this shared TODO.
 - `HANDOFF_*.md`, `WORKLOG_*.md`
   - Historical handoff/worklog notes.
 

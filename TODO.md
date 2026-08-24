@@ -1,5 +1,54 @@
 # 앨범정리 TODO
 
+## Current Execution Plan (2026-08-24)
+
+이 섹션이 현재 구현 순서의 단일 기준이다. 아래 날짜별 항목은 맥락과 세부 설계를 보존하는 참고용이다.
+
+### P0 - 작은 UI 정리
+
+- [ ] 위치 앨범 헤더를 `위치 앨범 N개`로 변경하고 `총 N개 장소 발견` 표현을 제거한다.
+- [ ] 사진 수 표현을 `사진 N장`으로 통일한다. 사진/동영상 혼합 총계에는 필요한 경우에만 `항목 N개`를 사용한다.
+- [ ] 설정 최상위 화면의 Back 버튼을 제거한다. 하위 설정 화면만 Back을 유지한다.
+- [ ] 발견 상세 진입 중 Bottom Navigation의 `발견` 선택 상태를 유지한다.
+- [ ] 상세 하단 복귀 CTA는 상단 Back과 목적이 다를 때만 유지하고, 필요하면 `다른 장소 보기`로 변경한다.
+- [x] 발견 탭의 `발견한 장소를 위치 앨범으로 만들기` CTA는 현재 위치와 강도를 유지한다.
+  - Display First, Organize Optional은 Organize Hidden이 아니다. 발견 후 바로 Gallery 정리를 원하는 사용자 흐름도 유지한다.
+
+### P0 - 발견 기록 정합성 조사와 표시 개선
+
+- [ ] 새 분석 뒤 같은 장소가 다시 `새로 발견됨`으로 보이거나, 새 장소가 0곳으로 보이는 재현을 먼저 코드/덤프 기준으로 확정한다.
+  - source scope 병합, `duplicateInTarget`, snapshot merge/replace, live filter를 함께 점검한다.
+- [ ] 발견 기록 첫 화면 맨 위에 `이번에 새로 발견한 장소`를 **장소 카드 수** 기준으로 표시한다.
+  - 예: `이번에 새로 발견한 장소 7곳 · 사진 174장`. 파일 수를 장소 수로 표시하지 않는다.
+- [ ] 앱 삭제/데이터 초기화 후 discovery snapshot이 복원되지 않는 현재 한계를 안내하고, `발견 기록 다시 구성하기` UX를 설계한다.
+
+### P1 - Incremental Analysis / Memory lifecycle
+
+- [ ] `MediaAnalysisStore`를 설계·테스트한 뒤 이미 분석한 사진의 EXIF/Geocoder 재분석을 건너뛴다.
+  - `ANALYZED`, `NO_LOCATION`, retryable `FAILED`, normalized location result와 media identity/signature를 저장한다.
+  - 신규/복사/이동/변경/policy 변경/GPS 추가 미디어만 재분석한다.
+  - cache hit도 발견/위치 없음 카운트와 Memory ref에는 포함한다.
+- [ ] MediaStore reconciliation으로 외부 삭제/변경된 미디어를 live Memory에서만 제거한다.
+- [ ] 현재 `NoLocationCache`는 이 설계와 단위 테스트가 완료되기 전 재활성화하지 않는다.
+
+### P1 - 대용량 안정성 및 복구
+
+- [ ] 10k+ 사진/수천 장 장소에서 상세 진입, 날짜 grouping, 스크롤, 메모리/OOM을 측정한다.
+- [ ] 필요 시 visible cap을 제거하지 않고 lazy photo grid/paging으로 전환한다.
+- [ ] 분석 중단 후 이어하기를 위한 checkpoint와 foreground/background 복구 정책을 설계한다.
+
+### P1 - Memory personalization과 통합
+
+- [ ] 날짜별 한 줄 메모를 stable memory/date key에 저장하고, Gallery 앨범 정리 뒤에도 보존한다.
+- [ ] **발견 기록 가상 기억 통합**: 파일을 바꾸지 않고 여러 Memory를 사용자 이름으로 묶는 `MemoryCollection`을 구현한다.
+- [ ] **위치 앨범 실제 통합**: 별도 기능으로, PhotoPlace 생성 앨범만 선택해 새 Gallery 폴더로 실제 이동한다.
+  - 두 통합은 UI, 저장 모델, 실패/되돌리기 정책을 절대 공유하거나 혼동하지 않는다.
+
+### 보류
+
+- [ ] 복잡한 추천 시스템, Memory Dashboard, AI 전면 도입, 월/연도별 실제 Gallery 폴더 생성.
+- [ ] 드래그 앤 드롭 통합. MVP는 long-press 다중 선택으로 유지한다.
+
 ## 2026-08-22 Display First 후속
 
 - [x] 분석 완료 dialog의 primary action을 `발견한 장소 보기`로 변경.
@@ -51,13 +100,12 @@
 - Organize Optional은 장소별 선택이 아니라 `앱 안에서만 보기`와 `발견한 장소 전체 앨범 생성` 중 사용자 선택을 뜻한다.
 - 해외 Gallery 정리 단위는 국가/여행 세션/도시 중 어느 것이 좋은지 별도 POC한다. 현 단계에서 국가당 1앨범으로 고정하지 않는다.
 
-### 다음 UI/UX Polish
+### 상세 UI/UX 백로그 (현재 실행 순서는 상단 계획 우선)
 
-#### P0 - 발견과 위치 앨범 역할 구분
+#### 발견과 위치 앨범 역할 구분
 
-- [ ] 발견 tab의 `발견한 장소를 위치 앨범으로 만들기`를 secondary action으로 낮춘다.
-  - 앨범 생성에 익숙한 사용자 접근성은 유지하되 photo-first 카드보다 강하게 보이지 않게 한다.
-  - 상단 유지/subtle style과 목록 하단 배치 중 실기기에서 비교한다.
+- [x] 발견 tab의 `발견한 장소를 위치 앨범으로 만들기` CTA는 현재 위치/강도를 유지한다.
+  - 앨범 생성에 익숙한 사용자가 발견 후 바로 정리할 수 있어야 하며, 현재 Memory Viewer 사용성도 확보됐다.
 - [ ] 위치 앨범 header의 `총 N개 장소 발견`을 `위치 앨범 N개` 중심 문구로 변경한다.
 - [ ] 사용자 노출 사진 수 표현을 `N개 사진`에서 `사진 N장`으로 통일한다. 동영상 혼합 시 `항목 N개`가 필요한 경계는 별도 확인한다.
 - [ ] 설정 root 화면의 Back 아이콘을 제거한다. 설정 내부 하위 화면에만 Back을 유지한다.
