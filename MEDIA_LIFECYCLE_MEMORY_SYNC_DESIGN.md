@@ -37,17 +37,19 @@ Do not solve the new lifecycle by re-including duplicates in the existing discov
 
 ## Album merge policy
 
-The first safe merge feature is a user-named **virtual AlbumCollection**:
+The first safe merge feature is a user-named **virtual MemoryCollection**:
 
-- fields: stable collection id, user display name, member album relative paths, created/updated time;
-- it is shown in `위치 앨범` while member albums and Memory details remain intact;
+- fields: stable collection id, user display name, member Memory stable keys, created/updated time;
+- it is shown in `기억` while physical albums and Memory details remain intact;
 - user-created name is preserved even when member albums are refreshed.
 
 Physical folder merge (moving/copying media into one Gallery folder) is a later explicit operation. It needs a confirmation screen, a result/action record, partial-failure reporting, and an undo/cleanup policy. Do not combine it with the initial collection UI.
 
+`위치 앨범` is a list of real Gallery folders. Do not present a virtual collection there as an album: that would imply a physical merge that did not happen.
+
 ### Interaction MVP
 
-Use `long press -> multi-select -> 통합 -> 이름 입력` for the first UI. It is more predictable than drag-and-drop on phone and Fold layouts, and it keeps the first release focused on user meaning rather than file movement. Show saved collections in a small `내 통합 앨범` section above the ordinary location-album list.
+Use `long press -> multi-select -> 기억으로 묶기 -> 이름 입력` in the `기억`/Discovery view for the first UI. It is more predictable than drag-and-drop on phone and Fold layouts, and it keeps the first release focused on user meaning rather than file movement. Show saved collections in a small `내 기억 모음` section above the ordinary Memory list.
 
 ## Incremental analysis and reconciliation
 
