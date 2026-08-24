@@ -3,7 +3,6 @@ package com.example.gallerysorter;
 import android.content.Context;
 
 import java.util.HashSet;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 
@@ -43,7 +42,7 @@ final class DiscoverySnapshotController {
         DiscoverySnapshot merged = DiscoverySnapshotMerger.replaceAnalyzedItems(
                 existing,
                 snapshot,
-                photoItemUris(items));
+                photoUris(snapshot));
         return updateFor(store.save(merged), existing, snapshot);
     }
 
@@ -69,7 +68,7 @@ final class DiscoverySnapshotController {
         DiscoverySnapshot merged = DiscoverySnapshotMerger.replaceAnalyzedItems(
                 existing,
                 snapshot,
-                sourceItemUris(items));
+                photoUris(snapshot));
         return updateFor(store.save(merged), existing, snapshot);
     }
 
@@ -118,30 +117,6 @@ final class DiscoverySnapshotController {
                     if (ref != null && !ref.sourceUri.isEmpty()) {
                         uris.add(ref.sourceUri);
                     }
-                }
-            }
-        }
-        return uris;
-    }
-
-    private Set<String> photoItemUris(List<PhotoItem> items) {
-        LinkedHashSet<String> uris = new LinkedHashSet<>();
-        if (items != null) {
-            for (PhotoItem item : items) {
-                if (item != null && item.uri != null) {
-                    uris.add(item.uri.toString());
-                }
-            }
-        }
-        return uris;
-    }
-
-    private Set<String> sourceItemUris(List<DiscoverySnapshotMapper.SourceItem> items) {
-        LinkedHashSet<String> uris = new LinkedHashSet<>();
-        if (items != null) {
-            for (DiscoverySnapshotMapper.SourceItem item : items) {
-                if (item != null && !item.sourceUri.isEmpty()) {
-                    uris.add(item.sourceUri);
                 }
             }
         }

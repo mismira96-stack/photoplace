@@ -132,6 +132,22 @@ public class DiscoverySnapshotControllerTest {
         assertEquals(0, repeated.newPlaceCount);
     }
 
+    @Test
+    public void saveKeepsExistingDiscoveryRefWhenReanalysisMarksItDuplicate() throws Exception {
+        DiscoverySnapshotStore store = new DiscoverySnapshotStore(temporaryFolder.newFolder("duplicate"));
+        DiscoverySnapshotController controller = new DiscoverySnapshotController(store, fixedClock(1786000000000L));
+        String uri = "content://media/external/images/media/101";
+        controller.saveSourceItems(Arrays.asList(sourceItem(uri, "안성")), 1, "band");
+
+        controller.saveSourceItems(Arrays.asList(new DiscoverySnapshotMapper.SourceItem(
+                uri, "IMG.jpg", "image/jpeg", 1785600000000L, "안성", false, true,
+                false, "KR", "대한민국", "경기도", "안성")), 1, "band");
+
+        DiscoverySnapshot snapshot = store.read();
+        assertEquals(1, snapshot.groupCount());
+        assertEquals(1, snapshot.groups.get(0).itemCount);
+    }
+
     private static DiscoverySnapshotController.Clock fixedClock(final long nowMillis) {
         return new DiscoverySnapshotController.Clock() {
             @Override
