@@ -1,6 +1,6 @@
 # PhotoPlace Agent Shared TODO
 
-Updated: 2026-08-24
+Updated: 2026-08-25
 
 This file is the shared handoff note for Codex and Gemini CLI. Keep it short, current, and safe to act on.
 
@@ -16,6 +16,13 @@ This file is the shared handoff note for Codex and Gemini CLI. Keep it short, cu
 - Device smoke result: after a clean reinstall, Band analysis showed 17 places; a repeat analysis showed 0 newly updated places and Discovery History stayed at 17.
 - The missing two places from the earlier 19-place observation are not a repeat-merge loss. They remain part of the separate `duplicateInTarget` identity-policy investigation.
 - Incremental analysis cache remains unimplemented and disabled. Start with a tested `MediaAnalysisStore`; do not re-enable the old `NoLocationCache`.
+
+## Latest Checkpoint - 2026-08-25
+
+- `MemoryPhotoPage` paging now keeps a date grid visually continuous when a single date crosses the 48-photo page boundary; the next page does not repeat that date header.
+- Regression coverage now includes an offset past the final photo and `MediaAnalysisStore` recovery from a corrupt main file using its `.bak` file.
+- `MediaAnalysisStore` remains deliberately isolated. Its first scan-loop integration must reuse cached values to create normal `PhotoItem`/Discovery records while skipping only EXIF and Geocoder work.
+- P1 product direction: after date-level memos are validated, show a conditional Home section named `기억을 꺼내보기` only for users who have saved memos. Do not add an empty state or another permanent tab.
 
 ## Workspace And Shared Docs
 

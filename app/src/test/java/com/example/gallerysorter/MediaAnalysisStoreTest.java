@@ -8,6 +8,10 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 
+import java.io.File;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
 import java.util.Arrays;
 
 public class MediaAnalysisStoreTest {
@@ -38,5 +42,22 @@ public class MediaAnalysisStoreTest {
 
         assertEquals("성남", store.get(before).folderKey);
         assertNull(store.get(after));
+    }
+
+    @Test
+    public void restoresBackupWhenMainCacheIsCorrupt() throws Exception {
+        File folder = temporaryFolder.newFolder("backup");
+        MediaAnalysisStore store = new MediaAnalysisStore(folder);
+        MediaAnalysisEntry entry = new MediaAnalysisEntry("backup-signature", MediaAnalysisEntry.STATUS_ANALYZED,
+                1786000000000L, "성남", "KR", "대한민국", "경기", "성남", 1);
+        assertTrue(store.saveAll(Arrays.asList(entry)));
+
+        File main = new File(folder, "media_analysis_cache.json");
+        File backup = new File(folder, "media_analysis_cache.json.bak");
+        Files.copy(main.toPath(), backup.toPath(), StandardCopyOption.REPLACE_EXISTING);
+        Files.write(main.toPath(), "{not-json".getBytes(StandardCharsets.UTF_8));
+
+        assertEquals("성남", store.get("backup-signature").folderKey);
+        assertTrue(main.isFile());
     }
 }

@@ -54,13 +54,17 @@
 ### P1 - Memory personalization과 통합
 
 - [ ] 날짜별 한 줄 메모를 stable memory/date key에 저장하고, Gallery 앨범 정리 뒤에도 보존한다.
+- [ ] **기억을 꺼내보기**: 날짜별 메모가 있는 사용자에게만 홈에서 다시 볼 수 있는 조건부 섹션을 제공한다.
+  - 대표 사진, 장소명, 날짜, 메모 첫 줄을 표시하고 해당 Memory detail로 연다.
+  - 메모가 하나도 없을 때는 홈에 빈 카드나 새 탭을 만들지 않는다.
+  - 이는 날짜별 메모 MVP 검증 뒤에 진행하며, 독립적인 Memory Dashboard는 그 다음 단계로 보류한다.
 - [ ] **발견 기록 가상 기억 통합**: 파일을 바꾸지 않고 여러 Memory를 사용자 이름으로 묶는 `MemoryCollection`을 구현한다.
 - [ ] **위치 앨범 실제 통합**: 별도 기능으로, PhotoPlace 생성 앨범만 선택해 새 Gallery 폴더로 실제 이동한다.
   - 두 통합은 UI, 저장 모델, 실패/되돌리기 정책을 절대 공유하거나 혼동하지 않는다.
 
 ### 보류
 
-- [ ] 복잡한 추천 시스템, Memory Dashboard, AI 전면 도입, 월/연도별 실제 Gallery 폴더 생성.
+- [ ] 복잡한 추천 시스템, 확장 Memory Dashboard, AI 전면 도입, 월/연도별 실제 Gallery 폴더 생성.
 - [ ] 드래그 앤 드롭 통합. MVP는 long-press 다중 선택으로 유지한다.
 
 ## 2026-08-22 Display First 후속

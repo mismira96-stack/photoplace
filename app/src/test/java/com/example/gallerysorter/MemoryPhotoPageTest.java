@@ -1,6 +1,7 @@
 package com.example.gallerysorter;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 import org.junit.Test;
 
@@ -29,6 +30,14 @@ public class MemoryPhotoPageTest {
     public void totalCountIgnoresEmptySections() {
         assertEquals(3, MemoryPhotoPage.totalItemCount(Arrays.asList(section("1", 3), section("2", 0))));
         assertEquals(0, MemoryPhotoPage.totalItemCount(Collections.<MemoryPhotoSection>emptyList()));
+    }
+
+    @Test
+    public void returnsEmptyPageWhenOffsetIsPastAllPhotos() {
+        MemoryPhotoPage page = MemoryPhotoPage.from(Collections.singletonList(section("1", 3)), 20, 48);
+
+        assertEquals(0, page.itemCount);
+        assertTrue(page.slices.isEmpty());
     }
 
     private static MemoryPhotoSection section(String key, int count) {

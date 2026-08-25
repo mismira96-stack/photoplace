@@ -8646,9 +8646,12 @@ public class MainActivity extends Activity {
         MemoryPhotoPage page = MemoryPhotoPage.from(sections, offset, limit);
         boolean firstSection = true;
         for (MemoryPhotoPage.SectionSlice slice : page.slices) {
-            addMemoryPhotoSectionHeader(parent, slice.section, firstSection);
+            // A date section can continue on the next page; keep its grid contiguous.
+            if (slice.startIndex == 0) {
+                addMemoryPhotoSectionHeader(parent, slice.section, firstSection);
+                firstSection = false;
+            }
             addMemoryPhotoGrid(parent, slice.section.photos, slice.startIndex, slice.itemCount);
-            firstSection = false;
         }
         return page.itemCount;
     }
