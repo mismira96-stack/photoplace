@@ -8657,7 +8657,7 @@ public class MainActivity extends Activity {
 
         View accent = new View(this);
         GradientDrawable accentBg = new GradientDrawable();
-        accentBg.setColor(Color.rgb(255, 95, 95));
+        accentBg.setColor(Color.rgb(104, 82, 226));
         accentBg.setCornerRadius(dp(2));
         accent.setBackground(accentBg);
         LinearLayout.LayoutParams accentParams = new LinearLayout.LayoutParams(dp(4), dp(28));
