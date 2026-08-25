@@ -40,6 +40,8 @@
   - `ANALYZED`, `NO_LOCATION`, retryable `FAILED`, normalized location result와 media identity/signature를 저장한다.
   - 신규/복사/이동/변경/policy 변경/GPS 추가 미디어만 재분석한다.
   - cache hit도 발견/위치 없음 카운트와 Memory ref에는 포함한다.
+- [x] `MediaAnalysisStore` 1단계: signature별 `ANALYZED`/`NO_LOCATION` 결과를 JSON 파일에 원자 저장·복원하는 독립 저장소와 단위 테스트를 추가했다.
+  - 아직 스캔 루프에는 연결하지 않았다. 다음 단계에서 cache hit도 기존 `PhotoItem`을 만들어 결과 목록과 snapshot에 반드시 포함해야 한다.
 - [ ] MediaStore reconciliation으로 외부 삭제/변경된 미디어를 live Memory에서만 제거한다.
 - [ ] 현재 `NoLocationCache`는 이 설계와 단위 테스트가 완료되기 전 재활성화하지 않는다.
 
@@ -67,7 +69,8 @@
 - [x] Preview dialog의 legacy `앨범 만들기`를 제거하고, 앨범 생성은 발견 tab의 사용자 확인 CTA로 단일화.
 - [x] 분석 직후 홈의 중복 대형 앨범 만들기 CTA는 숨김.
 - [x] `발견한 장소 둘러보기`를 photo-first 카드 grid로 변경(일반 폭 2열, 넓은 화면 3열).
-- [ ] Memory detail을 수백/수천 장까지 안전하게 볼 수 있는 lazy date grid로 전환.
+- [x] Memory detail에서 처음 48장을 빠르게 보여준 뒤 `사진 더 보기`로 다음 48장을 현재 화면 아래에 이어서 표시한다.
+- [ ] 장기적으로 Memory detail을 수백/수천 장까지 안전하게 볼 수 있는 lazy date grid로 전환.
 - [ ] 앱 내부 사진 viewer 또는 같은 장소 사진 간 자연스러운 좌우 탐색 제공.
 - [x] 발견 장소 검색 추가. 1차 검색 대상은 장소명, 국가명/국가 alias, 도시명, 연도/월.
 - [x] Memory Browser를 `발견` 메인 tab으로 승격하고 `정리 기록`을 `위치 앨범`으로 명확히 구분.

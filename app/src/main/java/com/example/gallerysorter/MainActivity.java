@@ -8530,13 +8530,31 @@ public class MainActivity extends Activity {
 
         if (!detail.sourceUris.isEmpty()) {
             root.addView(sectionTitle("사진 보기"), matchWidthWithBottom(dp(10)));
-            LinearLayout grid = new LinearLayout(this);
+            final LinearLayout grid = new LinearLayout(this);
             grid.setOrientation(1);
             root.addView(grid, matchWidthWithBottom(dp(12)));
-            addMemoryPhotoSections(grid, detail.photoSections, MAX_RESULT_DETAIL_THUMBNAILS);
-            if (detail.sourceUris.size() > MAX_RESULT_DETAIL_THUMBNAILS) {
-                TextView more = bodyText("먼저 " + MAX_RESULT_DETAIL_THUMBNAILS + "개만 보여줍니다. 나머지는 다음 업데이트에서 더 자연스럽게 볼 수 있게 할게요.");
-                more.setGravity(17);
+            final int totalPhotoCount = MemoryPhotoPage.totalItemCount(detail.photoSections);
+            final int[] visiblePhotoCount = {addMemoryPhotoPage(grid, detail.photoSections, 0, MAX_RESULT_DETAIL_THUMBNAILS)};
+            if (totalPhotoCount > visiblePhotoCount[0]) {
+                final Button more = new Button(this);
+                updateMemoryPhotoMoreButton(more, totalPhotoCount - visiblePhotoCount[0]);
+                more.setOnClickListener(new View.OnClickListener() {
+                    @Override
+                    public void onClick(View view) {
+                        int added = MainActivity.this.addMemoryPhotoPage(
+                                grid,
+                                detail.photoSections,
+                                visiblePhotoCount[0],
+                                MAX_RESULT_DETAIL_THUMBNAILS);
+                        visiblePhotoCount[0] += added;
+                        int remaining = totalPhotoCount - visiblePhotoCount[0];
+                        if (remaining <= 0 || added <= 0) {
+                            ((android.view.ViewGroup) more.getParent()).removeView(more);
+                        } else {
+                            MainActivity.this.updateMemoryPhotoMoreButton(more, remaining);
+                        }
+                    }
+                });
                 root.addView(more, matchWidthWithBottom(dp(12)));
             }
         } else {
@@ -8621,23 +8639,23 @@ public class MainActivity extends Activity {
         }
     }
 
-    private void addMemoryPhotoSections(LinearLayout parent, List<MemoryPhotoSection> sections, int limit) {
-        if (sections == null || sections.isEmpty()) {
-            return;
-        }
-        int remaining = Math.max(0, limit);
+    private int addMemoryPhotoPage(LinearLayout parent,
+                                    List<MemoryPhotoSection> sections,
+                                    int offset,
+                                    int limit) {
+        MemoryPhotoPage page = MemoryPhotoPage.from(sections, offset, limit);
         boolean firstSection = true;
-        for (MemoryPhotoSection section : sections) {
-            if (section == null || section.photos.isEmpty() || remaining <= 0) {
-                continue;
-            }
-            addMemoryPhotoSectionHeader(parent, section, firstSection);
-
-            int count = Math.min(section.photos.size(), remaining);
-            addMemoryPhotoGrid(parent, section.photos, count);
-            remaining -= count;
+        for (MemoryPhotoPage.SectionSlice slice : page.slices) {
+            addMemoryPhotoSectionHeader(parent, slice.section, firstSection);
+            addMemoryPhotoGrid(parent, slice.section.photos, slice.startIndex, slice.itemCount);
             firstSection = false;
         }
+        return page.itemCount;
+    }
+
+    private void updateMemoryPhotoMoreButton(Button button, int remainingCount) {
+        styleSubtleActionButton(button, "사진 더 보기 (" + Math.max(0, remainingCount) + "장 남음)");
+        button.setContentDescription("사진 " + Math.max(0, remainingCount) + "장 더 보기");
     }
 
     private void addMemoryPhotoSectionHeader(LinearLayout parent, MemoryPhotoSection section, boolean firstSection) {
@@ -8677,9 +8695,9 @@ public class MainActivity extends Activity {
 
     }
 
-    private void addMemoryPhotoGrid(LinearLayout parent, List<MemoryPhotoItem> photos, int count) {
-        int index = 0;
-        int max = Math.min(photos == null ? 0 : photos.size(), Math.max(0, count));
+    private void addMemoryPhotoGrid(LinearLayout parent, List<MemoryPhotoItem> photos, int startIndex, int count) {
+        int index = Math.max(0, startIndex);
+        int max = Math.min(photos == null ? 0 : photos.size(), index + Math.max(0, count));
         while (index < max) {
             LinearLayout row = new LinearLayout(this);
             row.setOrientation(0);
