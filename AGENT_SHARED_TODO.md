@@ -1,6 +1,6 @@
 # PhotoPlace Agent Shared TODO
 
-Updated: 2026-08-25
+Updated: 2026-08-26
 
 This file is the shared handoff note for Codex and Gemini CLI. Keep it short, current, and safe to act on.
 
@@ -23,6 +23,14 @@ This file is the shared handoff note for Codex and Gemini CLI. Keep it short, cu
 - Regression coverage now includes an offset past the final photo and `MediaAnalysisStore` recovery from a corrupt main file using its `.bak` file.
 - `MediaAnalysisStore` remains deliberately isolated. Its first scan-loop integration must reuse cached values to create normal `PhotoItem`/Discovery records while skipping only EXIF and Geocoder work.
 - P1 product direction: after date-level memos are validated, show a conditional Home section named `기억을 꺼내보기` only for users who have saved memos. Do not add an empty state or another permanent tab.
+
+## Cache Integration Checkpoint - 2026-08-26
+
+- Read `MEDIA_ANALYSIS_CACHE_INTEGRATION_PLAN_2026-08-26.md` before wiring the store into scanning.
+- First implementation is images only. Keep videos on the existing path.
+- The scan loop must load the file cache once into a run-local index, reconstruct `LocationResult` on a hit, and always continue to `buildPhotoItem()`.
+- Persist staged cache entries only after a normal completed scan. Cancellation or a failed scan must not write partial new cache state.
+- Do not reuse or re-enable `cachedNoLocationResult()` / `NoLocationCache` as the implementation shortcut.
 
 ## Workspace And Shared Docs
 
