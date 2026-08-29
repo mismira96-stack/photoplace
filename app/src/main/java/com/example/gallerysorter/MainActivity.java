@@ -207,6 +207,7 @@ public class MainActivity extends Activity {
     private List<StoredAlbumSummary> recentAlbumSummaryCache = null;
     private long recentAlbumSummaryCacheMillis = 0L;
     private NoLocationCache noLocationCache = null;
+    private MediaAnalysisStore mediaAnalysisStore = null;
     private AlbumSummaryHistoryStore albumSummaryHistoryStore = null;
     private MemoryPersonalizationStore memoryPersonalizationStore = null;
     private DiscoverySnapshotController discoverySnapshotController = null;
@@ -1989,115 +1990,64 @@ public class MainActivity extends Activity {
     }
 
     private void loadSourceImages(List<PhotoItem> list, List<AlbumFolder> list2, List<String> list3) throws Throwable {
-        Cursor cursor;
-        int i;
         ContentResolver contentResolver = getContentResolver();
         Uri uri = MediaStore.Images.Media.EXTERNAL_CONTENT_URI;
-        try {
-            Cursor cursorQuery = contentResolver.query(uri, new String[]{"_id", "_display_name", "mime_type", "date_modified", "date_added", "datetaken", "latitude", "longitude"}, visibleMediaSelection(buildRelativePathSelection("relative_path", list3)), (String[]) list3.toArray(new String[0]), "date_modified DESC");
+        ImageAnalysisCacheSession cacheSession = new ImageAnalysisCacheSession(mediaAnalysisStore().readAll());
+        try (Cursor cursorQuery = contentResolver.query(uri,
+                new String[]{"_id", "_display_name", "mime_type", "date_modified", "date_added", "datetaken", "latitude", "longitude", "relative_path"},
+                visibleMediaSelection(buildRelativePathSelection("relative_path", list3)),
+                (String[]) list3.toArray(new String[0]), "date_modified DESC")) {
             if (cursorQuery == null) {
-                if (cursorQuery != null) {
-                    cursorQuery.close();
-                    return;
-                }
                 return;
             }
-            try {
-                int columnIndexOrThrow = cursorQuery.getColumnIndexOrThrow("_id");
-                int columnIndexOrThrow2 = cursorQuery.getColumnIndexOrThrow("_display_name");
-                int columnIndexOrThrow3 = cursorQuery.getColumnIndexOrThrow("mime_type");
-                int columnIndexOrThrow4 = cursorQuery.getColumnIndexOrThrow("date_modified");
-                int columnIndex = cursorQuery.getColumnIndex("date_added");
-                int columnIndex2 = cursorQuery.getColumnIndex("datetaken");
-                int columnIndex3 = cursorQuery.getColumnIndex("latitude");
-                int columnIndex4 = cursorQuery.getColumnIndex("longitude");
-                int count = cursorQuery.getCount();
-                while (cursorQuery.moveToNext()) {
-                    if (this.cancelRequested) {
-                        if (cursorQuery != null) {
-                            cursorQuery.close();
-                            return;
-                        }
-                        return;
-                    }
-                    Uri uriWithAppendedPath = Uri.withAppendedPath(uri, String.valueOf(cursorQuery.getLong(columnIndexOrThrow)));
-                    String strSafeName = safeName(cursorQuery.getString(columnIndexOrThrow2));
-                    cursor = cursorQuery;
-                    int i2 = columnIndexOrThrow2;
-                    int i3 = count;
-                    int i4 = columnIndexOrThrow3;
-                    int i5 = columnIndexOrThrow4;
-                    int i6 = columnIndex;
-                    int i7 = columnIndex2;
-                    int i8 = columnIndex3;
-                    try {
-                        long modifiedSeconds = cursorQuery.getLong(columnIndexOrThrow4);
-                        long addedSeconds = readOptionalLong(cursorQuery, columnIndex);
-                        long mediaTakenMillis = readOptionalLong(cursorQuery, columnIndex2);
-                        Double mediaLatitude = readOptionalDouble(cursorQuery, columnIndex3);
-                        Double mediaLongitude = readOptionalDouble(cursorQuery, columnIndex4);
-                        LocationResult locationResult = cachedNoLocationResult(uriWithAppendedPath, strSafeName, modifiedSeconds, addedSeconds, mediaTakenMillis, mediaLatitude, mediaLongitude, false);
-                        if (locationResult == null) {
-                            locationResult = readLocation(uriWithAppendedPath, strSafeName, modifiedSeconds, addedSeconds, mediaTakenMillis, mediaLatitude, mediaLongitude, false);
-                            rememberNoLocationIfNeeded(uriWithAppendedPath, strSafeName, modifiedSeconds, addedSeconds, mediaTakenMillis, locationResult, false);
-                        }
-                        final PhotoItem photoItemBuildPhotoItem = buildPhotoItem(uriWithAppendedPath, strSafeName, cursorQuery.getString(columnIndexOrThrow3), locationResult, list2, false);
-                        list.add(photoItemBuildPhotoItem);
-                        final int size = list.size();
-                        if (size == 1 || size % 25 == 0) {
-                            i = i3;
-                        } else {
-                            i = i3;
-                            if (size != i) {
-                                count = i;
-                                columnIndexOrThrow2 = i2;
-                                columnIndexOrThrow3 = i4;
-                                columnIndexOrThrow4 = i5;
-                                columnIndex = i6;
-                                columnIndex2 = i7;
-                                columnIndex3 = i8;
-                                cursorQuery = cursor;
-                            }
-                        }
-                        final int iMax = Math.max(i, size);
-                        final int iMin = Math.min(size, iMax);
-                        final int i9 = i;
-                        runOnUiThread(new Runnable() { // from class: com.example.gallerysorter.MainActivity$$ExternalSyntheticLambda45
-                            @Override // java.lang.Runnable
-                            public final void run() {
-                                MainActivity.this.m28x61d3495a(size, i9, photoItemBuildPhotoItem, iMin, iMax);
-                            }
-                        });
-                        count = i;
-                        columnIndexOrThrow2 = i2;
-                        columnIndexOrThrow3 = i4;
-                        columnIndexOrThrow4 = i5;
-                        columnIndex = i6;
-                        columnIndex2 = i7;
-                        columnIndex3 = i8;
-                        cursorQuery = cursor;
-                    } catch (Throwable th) {
-                        th = th;
-                        Throwable th2 = th;
-                        if (cursor == null) {
-                            throw th2;
-                        }
-                        try {
-                            cursor.close();
-                            throw th2;
-                        } catch (Throwable th3) {
-                            th2.addSuppressed(th3);
-                            throw th2;
-                        }
-                    }
+            int idIndex = cursorQuery.getColumnIndexOrThrow("_id");
+            int nameIndex = cursorQuery.getColumnIndexOrThrow("_display_name");
+            int mimeTypeIndex = cursorQuery.getColumnIndexOrThrow("mime_type");
+            int modifiedIndex = cursorQuery.getColumnIndexOrThrow("date_modified");
+            int addedIndex = cursorQuery.getColumnIndex("date_added");
+            int takenIndex = cursorQuery.getColumnIndex("datetaken");
+            int latitudeIndex = cursorQuery.getColumnIndex("latitude");
+            int longitudeIndex = cursorQuery.getColumnIndex("longitude");
+            int relativePathIndex = cursorQuery.getColumnIndex("relative_path");
+            int total = cursorQuery.getCount();
+            while (cursorQuery.moveToNext()) {
+                if (this.cancelRequested) {
+                    return;
                 }
-                Cursor cursor2 = cursorQuery;
-                if (cursor2 != null) {
-                    cursor2.close();
+                Uri mediaUri = Uri.withAppendedPath(uri, String.valueOf(cursorQuery.getLong(idIndex)));
+                String name = safeName(cursorQuery.getString(nameIndex));
+                long modifiedSeconds = cursorQuery.getLong(modifiedIndex);
+                long addedSeconds = readOptionalLong(cursorQuery, addedIndex);
+                long mediaTakenMillis = readOptionalLong(cursorQuery, takenIndex);
+                Double mediaLatitude = readOptionalDouble(cursorQuery, latitudeIndex);
+                Double mediaLongitude = readOptionalDouble(cursorQuery, longitudeIndex);
+                boolean hasMediaStoreGps = mediaLatitude != null
+                        && mediaLongitude != null
+                        && hasUsableCoordinates(mediaLatitude.doubleValue(), mediaLongitude.doubleValue());
+                String sourceRelativePath = relativePathIndex < 0 || cursorQuery.isNull(relativePathIndex)
+                        ? "" : cursorQuery.getString(relativePathIndex);
+                String signature = MediaAnalysisSignature.build(mediaUri, name, modifiedSeconds, addedSeconds,
+                        mediaTakenMillis, false, sourceRelativePath);
+                LocationResult locationResult = cacheSession.cachedResult(signature, hasMediaStoreGps);
+                if (locationResult == null) {
+                    locationResult = readLocation(mediaUri, name, modifiedSeconds, addedSeconds, mediaTakenMillis,
+                            mediaLatitude, mediaLongitude, false);
+                    cacheSession.remember(signature, locationResult);
                 }
-            } catch (Throwable th4) {
-                throw new RuntimeException(th4);
+                final PhotoItem photoItem = buildPhotoItem(mediaUri, name, cursorQuery.getString(mimeTypeIndex),
+                        locationResult, list2, false);
+                list.add(photoItem);
+                final int scanned = list.size();
+                final int progressTotal = Math.max(total, scanned);
+                final int progressCurrent = Math.min(scanned, progressTotal);
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        MainActivity.this.m28x61d3495a(scanned, total, photoItem, progressCurrent, progressTotal);
+                    }
+                });
             }
+            mediaAnalysisStore().saveAll(cacheSession.entriesForSave());
         } catch (Exception e) {
             runOnUiThread(new Runnable() { // from class: com.example.gallerysorter.MainActivity$$ExternalSyntheticLambda46
                 @Override // java.lang.Runnable
@@ -2817,6 +2767,13 @@ public class MainActivity extends Activity {
 
     private boolean isNoLocationCacheEnabled() {
         return false;
+    }
+
+    private MediaAnalysisStore mediaAnalysisStore() {
+        if (this.mediaAnalysisStore == null) {
+            this.mediaAnalysisStore = new MediaAnalysisStore(this);
+        }
+        return this.mediaAnalysisStore;
     }
 
     private ExifReadResult readExifData(Uri uri) {

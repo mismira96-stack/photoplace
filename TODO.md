@@ -36,12 +36,14 @@
 
 ### P1 - Incremental Analysis / Memory lifecycle
 
-- [ ] `MediaAnalysisStore`를 설계·테스트한 뒤 이미 분석한 사진의 EXIF/Geocoder 재분석을 건너뛴다.
-  - `ANALYZED`, `NO_LOCATION`, retryable `FAILED`, normalized location result와 media identity/signature를 저장한다.
+- [x] `MediaAnalysisStore`를 이미지 스캔에 연결해 이미 분석한 사진의 EXIF/Geocoder 재분석을 건너뛴다.
+  - 현재 `ANALYZED`/`NO_LOCATION`, normalized location result와 media identity/signature를 저장한다.
   - 신규/복사/이동/변경/policy 변경/GPS 추가 미디어만 재분석한다.
   - cache hit도 발견/위치 없음 카운트와 Memory ref에는 포함한다.
 - [x] `MediaAnalysisStore` 1단계: signature별 `ANALYZED`/`NO_LOCATION` 결과를 JSON 파일에 원자 저장·복원하는 독립 저장소와 단위 테스트를 추가했다.
-  - 아직 스캔 루프에는 연결하지 않았다. 다음 단계에서 cache hit도 기존 `PhotoItem`을 만들어 결과 목록과 snapshot에 반드시 포함해야 한다.
+  - 이미지 스캔은 cache hit에도 기존 `PhotoItem`을 만들며 결과 목록과 snapshot에 포함한다.
+- [ ] 동영상 스캔에도 같은 캐시 계약을 별도 패치로 연결한다.
+- [ ] retryable `FAILED` 상태와 재시도 정책은 실제 실패 원인/사용자 경험이 확인된 뒤 별도 설계한다.
 - [ ] MediaStore reconciliation으로 외부 삭제/변경된 미디어를 live Memory에서만 제거한다.
 - [ ] 현재 `NoLocationCache`는 이 설계와 단위 테스트가 완료되기 전 재활성화하지 않는다.
 

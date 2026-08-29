@@ -1,6 +1,6 @@
 # PhotoPlace Agent Shared TODO
 
-Updated: 2026-08-26
+Updated: 2026-08-29
 
 This file is the shared handoff note for Codex and Gemini CLI. Keep it short, current, and safe to act on.
 
@@ -31,6 +31,15 @@ This file is the shared handoff note for Codex and Gemini CLI. Keep it short, cu
 - The scan loop must load the file cache once into a run-local index, reconstruct `LocationResult` on a hit, and always continue to `buildPhotoItem()`.
 - Persist staged cache entries only after a normal completed scan. Cancellation or a failed scan must not write partial new cache state.
 - Do not reuse or re-enable `cachedNoLocationResult()` / `NoLocationCache` as the implementation shortcut.
+
+## Image Cache Integration Checkpoint - 2026-08-29
+
+- `MediaAnalysisStore` is now connected to `loadSourceImages()` only through `ImageAnalysisCacheSession`.
+- The session loads the file cache once per image scan, reconstructs a normal `LocationResult` on hit, and only stages new entries until a normally completed scan writes them atomically.
+- Cache hits still pass through `buildPhotoItem()` and therefore keep Preview, Discovery History, and no-location totals intact.
+- Current MediaStore GPS invalidates a cached `NO_LOCATION` entry for that image.
+- Device smoke test passed: the large folder became visibly faster on repeat analysis; repeated runs preserved the same visible counts; the device created `media_analysis_cache.json` successfully.
+- Videos still use the legacy, disabled no-location path. Do not extend this patch to video scanning without a separate test/review pass.
 
 ## Workspace And Shared Docs
 
