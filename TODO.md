@@ -47,6 +47,25 @@
 - [ ] MediaStore reconciliation으로 외부 삭제/변경된 미디어를 live Memory에서만 제거한다.
 - [ ] 현재 `NoLocationCache`는 이 설계와 단위 테스트가 완료되기 전 재활성화하지 않는다.
 
+### P1 - 발견 기록에서 선택적으로 위치 앨범 만들기
+
+- [ ] 발견 상세에 `이 장소를 위치 앨범으로 만들기` CTA를 추가한다.
+  - 선택한 Memory 한 곳의 live discovery media만 기존 `SortInputStore` -> `SortWorker` 흐름으로 전달한다.
+  - 확인창은 장소명, 사진/동영상 수, 이미 정리된 중복 제외 수를 보여주고 `원본은 유지돼요`를 명시한다.
+  - 성공한 장소만 실제 `AlbumSummaryHistoryStore`에 기록하고 위치 앨범에서 보이게 한다.
+- [ ] 현재 전역 `발견한 장소를 위치 앨범으로 만들기` CTA는 장소별 생성 UX가 실기기 검증된 뒤 `여러 장소 선택` 보조 동작으로 재검토한다.
+  - 기본 흐름은 `발견해서 보기`이며, Gallery 앨범 생성은 사용자가 특정 기억에 대해 선택하는 행동으로 둔다.
+
+### P2 - 원본 정리 이력과 선택적 Cleanup Handoff
+
+- [ ] 사용자가 확인 후 실제 휴지통 이동/삭제를 완료한 원본 미디어만 별도 cleanup event로 기록하는 모델을 설계한다.
+  - 후보/분석 결과 전체가 아니라 완료 이벤트만 기록한다.
+  - 최소 식별값 후보: 삭제 시각, display name, MIME type, 촬영 시각, size, MediaStore id/URI(진단용), 정리 세션 id.
+  - GPS, 주소, 개인 장소명은 기본 handoff 데이터에 포함하지 않는다.
+- [ ] 향후 별도 Google Photos cleanup 앱과의 연결은 명시적 사용자 동의 기반의 export/import로 검토한다.
+  - 두 앱이 내부 저장소를 직접 공유하지 않는다.
+  - 외부 앱의 실제 Google Photos 라이브러리 접근 가능 범위와 정책은 구현 전에 별도 검증한다.
+
 ### P1 - 대용량 안정성 및 복구
 
 - [ ] 10k+ 사진/수천 장 장소에서 상세 진입, 날짜 grouping, 스크롤, 메모리/OOM을 측정한다.
