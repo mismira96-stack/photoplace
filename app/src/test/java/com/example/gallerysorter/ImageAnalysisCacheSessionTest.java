@@ -64,6 +64,26 @@ public class ImageAnalysisCacheSessionTest {
     }
 
     @Test
+    public void policyVersionMismatchIsACacheMiss() {
+        MediaAnalysisEntry outdated = new MediaAnalysisEntry("photo-4", MediaAnalysisEntry.STATUS_ANALYZED,
+                1786000000000L, "삿포로", "JP", "Japan", "Hokkaido", "Sapporo",
+                ImageAnalysisCacheSession.POLICY_VERSION + 1);
+        ImageAnalysisCacheSession session = new ImageAnalysisCacheSession(
+                Collections.singletonMap(outdated.signature, outdated));
+
+        assertNull(session.cachedResult(outdated.signature, false));
+    }
+
+    @Test
+    public void emptySignaturesAreIgnoredSafely() {
+        ImageAnalysisCacheSession session = new ImageAnalysisCacheSession(Collections.<String, MediaAnalysisEntry>emptyMap());
+
+        assertNull(session.cachedResult(null, false));
+        session.remember("", new LocationResult(null, "성남", "KR", "대한민국", "경기", "성남"));
+        assertTrue(session.entriesForSave().isEmpty());
+    }
+
+    @Test
     public void stagedEntriesAreNotPersistedUntilTheCallerCommitsThem() throws Exception {
         MediaAnalysisStore store = new MediaAnalysisStore(temporaryFolder.newFolder("staging"));
         ImageAnalysisCacheSession session = new ImageAnalysisCacheSession(store.readAll());
