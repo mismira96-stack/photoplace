@@ -4153,6 +4153,25 @@ public class MainActivity extends Activity {
     }
 
     private void showAlbumMemoryEditor(final StoredAlbumSummary storedAlbumSummary) {
+        showSingleLineMemoryEditor(
+                "기억 편집",
+                "원본 앨범: " + storedAlbumSummary.albumName,
+                albumMemory(storedAlbumSummary),
+                true,
+                new MemoryNoteEditorAction() {
+                    @Override
+                    public void save(String value) {
+                        MainActivity.this.saveAlbumMemory(storedAlbumSummary, value);
+                        MainActivity.this.showRecentPlaceDetailScreen(storedAlbumSummary);
+                    }
+                });
+    }
+
+    private void showSingleLineMemoryEditor(String title,
+                                            String subtitle,
+                                            String existingText,
+                                            boolean canDelete,
+                                            final MemoryNoteEditorAction action) {
         final Dialog dialog = new Dialog(this);
         dialog.requestWindowFeature(1);
         LinearLayout linearLayout = new LinearLayout(this);
@@ -4163,20 +4182,20 @@ public class MainActivity extends Activity {
         gradientDrawable.setCornerRadius(dp(24));
         linearLayout.setBackground(gradientDrawable);
         TextView textView = new TextView(this);
-        textView.setText("기억 편집");
+        textView.setText(title);
         textView.setTextSize(21.0f);
         textView.setTypeface(Typeface.DEFAULT_BOLD);
         textView.setTextColor(-15656921);
         linearLayout.addView(textView, matchWidthWithBottom(dp(6)));
-        linearLayout.addView(bodyText("원본 앨범: " + storedAlbumSummary.albumName), matchWidthWithBottom(dp(14)));
+        linearLayout.addView(bodyText(subtitle), matchWidthWithBottom(dp(14)));
         TextView textViewBodyText = bodyText("기억 한 줄");
         textViewBodyText.setTypeface(Typeface.DEFAULT_BOLD);
         linearLayout.addView(textViewBodyText, matchWidthWithBottom(dp(5)));
         final EditText editText = new EditText(this);
         editText.setSingleLine(true);
         editText.setMaxLines(1);
-        editText.setText(albumMemory(storedAlbumSummary));
-        editText.setHint("이 장소에 대한 기억을 남겨보세요");
+        editText.setText(existingText);
+        editText.setHint("이 날의 기억을 한 줄로 남겨보세요");
         editText.setInputType(16385);
         editText.setFilters(new InputFilter[]{new InputFilter.LengthFilter(80)});
         editText.setTextSize(15.0f);
@@ -4191,18 +4210,19 @@ public class MainActivity extends Activity {
         linearLayout2.setOrientation(0);
         linearLayout2.setGravity(16);
         linearLayout.addView(linearLayout2, matchWidth());
-        Button button = new Button(this);
-        button.setText("삭제");
-        styleDialogSecondaryButton(button);
-        button.setOnClickListener(new View.OnClickListener() {
-            @Override // android.content.DialogInterface.OnShowListener
-            public void onClick(View view) {
-                MainActivity.this.saveAlbumMemory(storedAlbumSummary, "");
-                dialog.dismiss();
-                MainActivity.this.showRecentPlaceDetailScreen(storedAlbumSummary);
-            }
-        });
-        linearLayout2.addView(button, dialogButtonParams(true));
+        if (canDelete) {
+            Button button = new Button(this);
+            button.setText("삭제");
+            styleDialogSecondaryButton(button);
+            button.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View view) {
+                    action.save("");
+                    dialog.dismiss();
+                }
+            });
+            linearLayout2.addView(button, dialogButtonParams(true));
+        }
         Button button2 = new Button(this);
         button2.setText("취소");
         styleDialogSecondaryButton(button2);
@@ -4212,26 +4232,29 @@ public class MainActivity extends Activity {
                 dialog.dismiss();
             }
         });
-        linearLayout2.addView(button2, dialogButtonParams(true));
+        linearLayout2.addView(button2, dialogButtonParams(canDelete));
         Button button3 = new Button(this);
         button3.setText("저장");
         styleDialogPrimaryButton(button3);
         button3.setOnClickListener(new View.OnClickListener() {
             @Override // android.view.View.OnClickListener
             public void onClick(View view) {
-                MainActivity.this.saveAlbumMemory(storedAlbumSummary, editText.getText().toString());
+                action.save(editText.getText() == null ? "" : editText.getText().toString());
                 dialog.dismiss();
-                MainActivity.this.showRecentPlaceDetailScreen(storedAlbumSummary);
             }
         });
         linearLayout2.addView(button3, dialogButtonParams(false));
         dialog.setContentView(linearLayout);
+        dialog.show();
         Window window = dialog.getWindow();
         if (window != null) {
             window.setBackgroundDrawable(new ColorDrawable(0));
             window.setLayout(dialogMaxWidthPx(), -2);
         }
-        dialog.show();
+    }
+
+    private interface MemoryNoteEditorAction {
+        void save(String value);
     }
 
     private String formatStoredYearRange(StoredAlbumSummary storedAlbumSummary) {
@@ -8716,35 +8739,20 @@ public class MainActivity extends Activity {
         String stableMemoryId = memoryIdentityRegistryStore().findStableId(memoryAlias);
         MemoryDateNote existing = stableMemoryId.isEmpty()
                 ? null : memoryDateNoteStore().get(stableMemoryId, section.dateKey);
-        final EditText input = new EditText(this);
-        input.setSingleLine(true);
-        input.setMaxLines(1);
-        input.setFilters(new InputFilter[]{new InputFilter.LengthFilter(80)});
-        input.setText(existing == null ? "" : existing.text);
-        input.setSelection(input.getText().length());
-        input.setHint("이 날의 기억을 한 줄로 남겨보세요");
-        input.setPadding(dp(24), 0, dp(24), 0);
-
-        final AlertDialog dialog = new AlertDialog.Builder(this)
-                .setTitle(section.dateText + "의 기억")
-                .setView(input)
-                .setNegativeButton("취소", null)
-                .setNeutralButton(existing == null ? null : "삭제", null)
-                .setPositiveButton("저장", null)
-                .create();
-        dialog.setOnShowListener(new android.content.DialogInterface.OnShowListener() {
-            @Override
-            public void onShow(DialogInterface ignored) {
-                dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(new View.OnClickListener() {
+        showSingleLineMemoryEditor(
+                section.dateText + "의 기억",
+                "이 날의 사진과 함께 기억을 남겨보세요.",
+                existing == null ? "" : existing.text,
+                existing != null,
+                new MemoryNoteEditorAction() {
                     @Override
-                    public void onClick(View view) {
-                        String value = input.getText() == null ? "" : input.getText().toString().trim();
+                    public void save(String rawValue) {
+                        String value = rawValue == null ? "" : rawValue.trim();
                         String stableId = memoryIdentityRegistryStore().findStableId(memoryAlias);
                         if (!value.isEmpty() && stableId.isEmpty()) {
                             stableId = memoryIdentityRegistryStore().resolveOrCreate(memoryAlias);
                         }
                         if (value.isEmpty() && stableId.isEmpty()) {
-                            dialog.dismiss();
                             return;
                         }
                         if (stableId.isEmpty() || !memoryDateNoteStore().save(
@@ -8752,28 +8760,9 @@ public class MainActivity extends Activity {
                             showToast("메모를 저장하지 못했어요.");
                             return;
                         }
-                        dialog.dismiss();
                         showMemoryBrowserDetailScreen(activeMemoryKey);
                     }
                 });
-                if (existing != null) {
-                    dialog.getButton(AlertDialog.BUTTON_NEUTRAL).setOnClickListener(new View.OnClickListener() {
-                        @Override
-                        public void onClick(View view) {
-                            String stableId = memoryIdentityRegistryStore().findStableId(memoryAlias);
-                            if (stableId.isEmpty() || !memoryDateNoteStore().save(
-                                    stableId, section.dateKey, "", System.currentTimeMillis())) {
-                                showToast("메모를 삭제하지 못했어요.");
-                                return;
-                            }
-                            dialog.dismiss();
-                            showMemoryBrowserDetailScreen(activeMemoryKey);
-                        }
-                    });
-                }
-            }
-        });
-        dialog.show();
     }
 
     private void addMemoryPhotoGrid(LinearLayout parent, List<MemoryPhotoItem> photos, int startIndex, int count) {
