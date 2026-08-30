@@ -8718,13 +8718,13 @@ public class MainActivity extends Activity {
             text.addView(noteText, matchWidth());
         }
 
-        TextView edit = new TextView(this);
-        edit.setText(note == null ? "+ 메모" : "수정");
-        edit.setTextSize(13.0f);
-        edit.setTypeface(Typeface.DEFAULT_BOLD);
-        edit.setTextColor(Color.rgb(104, 82, 226));
-        edit.setGravity(Gravity.CENTER);
-        edit.setPadding(dp(8), 0, dp(2), 0);
+        ImageView edit = new ImageView(this);
+        edit.setImageResource(R.drawable.ic_edit_memory);
+        edit.setPadding(dp(6), dp(6), dp(6), dp(6));
+        GradientDrawable editBackground = new GradientDrawable();
+        editBackground.setColor(Color.rgb(236, 232, 255));
+        editBackground.setCornerRadius(dp(10));
+        edit.setBackground(editBackground);
         edit.setClickable(true);
         edit.setContentDescription(section.dateText + " 메모 " + (note == null ? "작성" : "수정"));
         edit.setOnClickListener(new View.OnClickListener() {
@@ -8733,7 +8733,9 @@ public class MainActivity extends Activity {
                 MainActivity.this.showMemoryDateNoteDialog(memoryAlias, section);
             }
         });
-        header.addView(edit, new LinearLayout.LayoutParams(-2, dp(36)));
+        LinearLayout.LayoutParams editParams = new LinearLayout.LayoutParams(dp(32), dp(32));
+        editParams.setMargins(dp(8), 0, 0, 0);
+        header.addView(edit, editParams);
 
     }
 
