@@ -73,4 +73,30 @@ public class MemoryDateNoteStoreTest {
         assertEquals("보존할 메모", store.get("mem_a", "20260802").text);
         assertTrue(main.isFile());
     }
+
+    @Test
+    public void corruptIdentityRegistryRestoresBackupBeforeReading() throws Exception {
+        File folder = temporaryFolder.newFolder("registry-backup");
+        MemoryIdentityRegistryStore registry = new MemoryIdentityRegistryStore(folder);
+        String stableId = registry.resolveOrCreate("discovery:삿포로");
+
+        File main = new File(folder, "memory_identity_registry.json");
+        File backup = new File(folder, "memory_identity_registry.json.bak");
+        Files.copy(main.toPath(), backup.toPath(), StandardCopyOption.REPLACE_EXISTING);
+        Files.write(main.toPath(), "{not-json".getBytes(StandardCharsets.UTF_8));
+
+        assertEquals(stableId, registry.findStableId("discovery:삿포로"));
+        assertTrue(main.isFile());
+    }
+
+    @Test
+    public void corruptNoteFileWithoutBackupRefusesToOverwriteData() throws Exception {
+        File folder = temporaryFolder.newFolder("unsafe-write");
+        File main = new File(folder, "memory_date_notes.json");
+        Files.write(main.toPath(), "{not-json".getBytes(StandardCharsets.UTF_8));
+        MemoryDateNoteStore store = new MemoryDateNoteStore(folder);
+
+        assertFalse(store.save("mem_a", "20260802", "새 메모", 1L));
+        assertEquals("{not-json", new String(Files.readAllBytes(main.toPath()), StandardCharsets.UTF_8));
+    }
 }
