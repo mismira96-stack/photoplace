@@ -84,6 +84,18 @@ public class ImageAnalysisCacheSessionTest {
     }
 
     @Test
+    public void equivalentSourcePathFormattingUsesTheSameSignature() {
+        String withTrailingSlash = MediaAnalysisSignature.build(
+                "content://media/external/images/media/1", "IMG_0001.jpg",
+                100L, 90L, 80L, false, "Pictures\\Camera\\");
+        String normalized = MediaAnalysisSignature.build(
+                "content://media/external/images/media/1", "IMG_0001.jpg",
+                100L, 90L, 80L, false, "Pictures/Camera");
+
+        assertEquals(normalized, withTrailingSlash);
+    }
+
+    @Test
     public void stagedEntriesAreNotPersistedUntilTheCallerCommitsThem() throws Exception {
         MediaAnalysisStore store = new MediaAnalysisStore(temporaryFolder.newFolder("staging"));
         ImageAnalysisCacheSession session = new ImageAnalysisCacheSession(store.readAll());

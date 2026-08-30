@@ -17,7 +17,7 @@ final class MediaAnalysisSignature {
                 + "|" + modifiedSeconds
                 + "|" + addedSeconds
                 + "|" + mediaTakenMillis
-                + "|" + safe(sourceFolderKey);
+                + "|" + normalizeSourceFolderKey(sourceFolderKey);
     }
 
     static String buildForNoLocation(Uri uri, String displayName, long modifiedSeconds, long addedSeconds, long mediaTakenMillis, boolean video) {
@@ -30,5 +30,13 @@ final class MediaAnalysisSignature {
 
     private static String safe(String value) {
         return value == null ? "" : value;
+    }
+
+    private static String normalizeSourceFolderKey(String value) {
+        String normalized = safe(value).trim().replace('\\', '/');
+        while (normalized.endsWith("/")) {
+            normalized = normalized.substring(0, normalized.length() - 1);
+        }
+        return normalized;
     }
 }
