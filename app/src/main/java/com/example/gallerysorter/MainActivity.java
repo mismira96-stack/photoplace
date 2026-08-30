@@ -208,6 +208,8 @@ public class MainActivity extends Activity {
     private long recentAlbumSummaryCacheMillis = 0L;
     private NoLocationCache noLocationCache = null;
     private MediaAnalysisStore mediaAnalysisStore = null;
+    private MemoryIdentityRegistryStore memoryIdentityRegistryStore = null;
+    private MemoryDateNoteStore memoryDateNoteStore = null;
     private AlbumSummaryHistoryStore albumSummaryHistoryStore = null;
     private MemoryPersonalizationStore memoryPersonalizationStore = null;
     private DiscoverySnapshotController discoverySnapshotController = null;
@@ -2774,6 +2776,20 @@ public class MainActivity extends Activity {
             this.mediaAnalysisStore = new MediaAnalysisStore(this);
         }
         return this.mediaAnalysisStore;
+    }
+
+    private MemoryIdentityRegistryStore memoryIdentityRegistryStore() {
+        if (this.memoryIdentityRegistryStore == null) {
+            this.memoryIdentityRegistryStore = new MemoryIdentityRegistryStore(this);
+        }
+        return this.memoryIdentityRegistryStore;
+    }
+
+    private MemoryDateNoteStore memoryDateNoteStore() {
+        if (this.memoryDateNoteStore == null) {
+            this.memoryDateNoteStore = new MemoryDateNoteStore(this);
+        }
+        return this.memoryDateNoteStore;
     }
 
     private ExifReadResult readExifData(Uri uri) {
@@ -8491,7 +8507,8 @@ public class MainActivity extends Activity {
             grid.setOrientation(1);
             root.addView(grid, matchWidthWithBottom(dp(12)));
             final int totalPhotoCount = MemoryPhotoPage.totalItemCount(detail.photoSections);
-            final int[] visiblePhotoCount = {addMemoryPhotoPage(grid, detail.photoSections, 0, MAX_RESULT_DETAIL_THUMBNAILS)};
+            final int[] visiblePhotoCount = {addMemoryPhotoPage(
+                    grid, detail.photoSections, 0, MAX_RESULT_DETAIL_THUMBNAILS, detail.item.memoryKey)};
             if (totalPhotoCount > visiblePhotoCount[0]) {
                 final Button more = new Button(this);
                 updateMemoryPhotoMoreButton(more, totalPhotoCount - visiblePhotoCount[0]);
@@ -8502,7 +8519,8 @@ public class MainActivity extends Activity {
                                 grid,
                                 detail.photoSections,
                                 visiblePhotoCount[0],
-                                MAX_RESULT_DETAIL_THUMBNAILS);
+                                MAX_RESULT_DETAIL_THUMBNAILS,
+                                detail.item.memoryKey);
                         visiblePhotoCount[0] += added;
                         int remaining = totalPhotoCount - visiblePhotoCount[0];
                         if (remaining <= 0 || added <= 0) {
@@ -8599,13 +8617,14 @@ public class MainActivity extends Activity {
     private int addMemoryPhotoPage(LinearLayout parent,
                                     List<MemoryPhotoSection> sections,
                                     int offset,
-                                    int limit) {
+                                    int limit,
+                                    String memoryAlias) {
         MemoryPhotoPage page = MemoryPhotoPage.from(sections, offset, limit);
         boolean firstSection = true;
         for (MemoryPhotoPage.SectionSlice slice : page.slices) {
             // A date section can continue on the next page; keep its grid contiguous.
             if (slice.startIndex == 0) {
-                addMemoryPhotoSectionHeader(parent, slice.section, firstSection);
+                addMemoryPhotoSectionHeader(parent, slice.section, firstSection, memoryAlias);
                 firstSection = false;
             }
             addMemoryPhotoGrid(parent, slice.section.photos, slice.startIndex, slice.itemCount);
@@ -8618,7 +8637,10 @@ public class MainActivity extends Activity {
         button.setContentDescription("사진 " + Math.max(0, remainingCount) + "장 더 보기");
     }
 
-    private void addMemoryPhotoSectionHeader(LinearLayout parent, MemoryPhotoSection section, boolean firstSection) {
+    private void addMemoryPhotoSectionHeader(LinearLayout parent,
+                                             final MemoryPhotoSection section,
+                                             boolean firstSection,
+                                             final String memoryAlias) {
         LinearLayout header = new LinearLayout(this);
         header.setOrientation(0);
         header.setGravity(16);
@@ -8653,6 +8675,105 @@ public class MainActivity extends Activity {
         date.setTextColor(Color.rgb(38, 50, 65));
         text.addView(date, matchWidth());
 
+        String stableMemoryId = memoryIdentityRegistryStore().findStableId(memoryAlias);
+        MemoryDateNote note = stableMemoryId.isEmpty()
+                ? null : memoryDateNoteStore().get(stableMemoryId, section.dateKey);
+        if (note != null) {
+            TextView noteText = new TextView(this);
+            noteText.setText(note.text);
+            noteText.setTextSize(13.0f);
+            noteText.setTextColor(Color.rgb(86, 97, 116));
+            noteText.setSingleLine(true);
+            noteText.setEllipsize(TextUtils.TruncateAt.END);
+            noteText.setPadding(0, dp(3), 0, 0);
+            text.addView(noteText, matchWidth());
+        }
+
+        TextView edit = new TextView(this);
+        edit.setText(note == null ? "메모" : "수정");
+        edit.setTextSize(13.0f);
+        edit.setTypeface(Typeface.DEFAULT_BOLD);
+        edit.setTextColor(Color.rgb(104, 82, 226));
+        edit.setGravity(Gravity.CENTER);
+        edit.setPadding(dp(8), 0, dp(2), 0);
+        edit.setClickable(true);
+        edit.setContentDescription(section.dateText + " 메모 " + (note == null ? "작성" : "수정"));
+        edit.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                MainActivity.this.showMemoryDateNoteDialog(memoryAlias, section);
+            }
+        });
+        header.addView(edit, new LinearLayout.LayoutParams(-2, dp(36)));
+
+    }
+
+    private void showMemoryDateNoteDialog(final String memoryAlias, final MemoryPhotoSection section) {
+        if (section == null || MemoryDateNote.cleanDateKey(section.dateKey).isEmpty()) {
+            showToast("날짜 정보를 찾지 못했어요.");
+            return;
+        }
+        String stableMemoryId = memoryIdentityRegistryStore().findStableId(memoryAlias);
+        MemoryDateNote existing = stableMemoryId.isEmpty()
+                ? null : memoryDateNoteStore().get(stableMemoryId, section.dateKey);
+        final EditText input = new EditText(this);
+        input.setSingleLine(true);
+        input.setMaxLines(1);
+        input.setFilters(new InputFilter[]{new InputFilter.LengthFilter(80)});
+        input.setText(existing == null ? "" : existing.text);
+        input.setSelection(input.getText().length());
+        input.setHint("이 날의 기억을 한 줄로 남겨보세요");
+        input.setPadding(dp(24), 0, dp(24), 0);
+
+        final AlertDialog dialog = new AlertDialog.Builder(this)
+                .setTitle(section.dateText + "의 기억")
+                .setView(input)
+                .setNegativeButton("취소", null)
+                .setNeutralButton(existing == null ? null : "삭제", null)
+                .setPositiveButton("저장", null)
+                .create();
+        dialog.setOnShowListener(new android.content.DialogInterface.OnShowListener() {
+            @Override
+            public void onShow(DialogInterface ignored) {
+                dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(new View.OnClickListener() {
+                    @Override
+                    public void onClick(View view) {
+                        String value = input.getText() == null ? "" : input.getText().toString().trim();
+                        String stableId = memoryIdentityRegistryStore().findStableId(memoryAlias);
+                        if (!value.isEmpty() && stableId.isEmpty()) {
+                            stableId = memoryIdentityRegistryStore().resolveOrCreate(memoryAlias);
+                        }
+                        if (value.isEmpty() && stableId.isEmpty()) {
+                            dialog.dismiss();
+                            return;
+                        }
+                        if (stableId.isEmpty() || !memoryDateNoteStore().save(
+                                stableId, section.dateKey, value, System.currentTimeMillis())) {
+                            showToast("메모를 저장하지 못했어요.");
+                            return;
+                        }
+                        dialog.dismiss();
+                        showMemoryBrowserDetailScreen(activeMemoryKey);
+                    }
+                });
+                if (existing != null) {
+                    dialog.getButton(AlertDialog.BUTTON_NEUTRAL).setOnClickListener(new View.OnClickListener() {
+                        @Override
+                        public void onClick(View view) {
+                            String stableId = memoryIdentityRegistryStore().findStableId(memoryAlias);
+                            if (stableId.isEmpty() || !memoryDateNoteStore().save(
+                                    stableId, section.dateKey, "", System.currentTimeMillis())) {
+                                showToast("메모를 삭제하지 못했어요.");
+                                return;
+                            }
+                            dialog.dismiss();
+                            showMemoryBrowserDetailScreen(activeMemoryKey);
+                        }
+                    });
+                }
+            }
+        });
+        dialog.show();
     }
 
     private void addMemoryPhotoGrid(LinearLayout parent, List<MemoryPhotoItem> photos, int startIndex, int count) {
