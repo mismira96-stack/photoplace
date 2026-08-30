@@ -72,9 +72,26 @@
 - [ ] 필요 시 visible cap을 제거하지 않고 lazy photo grid/paging으로 전환한다.
 - [ ] 분석 중단 후 이어하기를 위한 checkpoint와 foreground/background 복구 정책을 설계한다.
 
-### P1 - Memory personalization과 통합
+### P1 - 날짜별 Memory Note (다음 구현 우선순위)
 
-- [ ] 날짜별 한 줄 메모를 stable memory/date key에 저장하고, Gallery 앨범 정리 뒤에도 보존한다.
+- [ ] **Phase 0 - stable memory key 계약을 먼저 확정한다.**
+  - `MemoryPersonalizationKey.forSummary()`의 `relativePath` 키를 날짜 메모에 재사용하지 않는다. 물리 앨범 이동/통합 시 메모가 끊길 수 있다.
+  - 발견 기록과 위치 앨범이 같은 장소를 가리킬 때 공유 가능한 논리 key를 `MemoryRecord.placeKey` / country / adminArea 기반으로 설계한다.
+  - 장소명이 재분류되거나 country/admin 정보가 바뀐 경우의 alias/migration 정책을 먼저 문서화한다. 임의의 title 문자열 병합은 금지한다.
+- [ ] **Phase 1 - `MemoryDateNoteStore` 저장 기반을 추가한다.**
+  - key: `stableMemoryKey + dateKey(yyyyMMdd)`.
+  - value: 한 줄 text, createdAtMillis, updatedAtMillis. 사진 원본/thumbnail은 저장하지 않는다.
+  - 별도 `memory_date_notes.json`을 사용하고 tmp/bak 원자 저장, 손상 파일을 빈 값으로 덮어쓰지 않는 정책을 적용한다.
+  - 저장/복원, 빈 메모 삭제, JSON 손상 backup 복구, stable key/date key 격리 단위 테스트를 먼저 작성한다.
+- [ ] **Phase 2 - 발견 상세 날짜 섹션에서 작성/수정한다.**
+  - 날짜 헤더 아래에 메모가 있으면 한 줄을 표시하고, 없으면 작은 `이 날의 기억 남기기` 액션만 노출한다.
+  - 입력은 짧은 한 줄로 제한하고, 저장/수정/삭제가 명확히 구분되게 한다.
+  - 사진 그리드/더 보기 paging과 독립적으로 동작해야 한다.
+- [ ] **Phase 3 - lifecycle 회귀를 검증한다.**
+  - 재분석, 동일 장소에 새 사진 추가, 사진 일부 live-filter 제외 뒤에도 메모가 유지돼야 한다.
+  - 발견에서 위치 앨범 생성/이동한 뒤에도 같은 논리 장소·날짜의 메모가 이어지는지 검증한다.
+- [ ] **Gemini 설계 리뷰 게이트**
+  - stable key 충돌, discovery/organized alias, JSON 손상/저장 실패, 앨범 이동 뒤 메모 보존을 우선 검토받는다.
 - [ ] **기억을 꺼내보기**: 날짜별 메모가 있는 사용자에게만 홈에서 다시 볼 수 있는 조건부 섹션을 제공한다.
   - 대표 사진, 장소명, 날짜, 메모 첫 줄을 표시하고 해당 Memory detail로 연다.
   - 메모가 하나도 없을 때는 홈에 빈 카드나 새 탭을 만들지 않는다.
@@ -125,7 +142,7 @@
 - [ ] 앱 삭제/데이터 초기화 후 발견 기록 복원 UX를 설계한다.
   - 위치 앨범은 MediaStore/정리 기록에서 다시 보이지만, discovery snapshot은 앱 내부 파일이라 삭제 시 복원되지 않는 현재 한계를 명시한다.
   - 설정에 `발견 기록 다시 구성하기`를 제공해 저장된 분석 폴더를 재분석할 수 있게 한다. 사진과 Gallery 앨범은 삭제하지 않는다는 안전 문구를 포함한다.
-- [ ] 발견/위치 앨범이 공유하는 Memory detail과 날짜별 메모 stable key 설계.
+- [ ] 발견/위치 앨범이 공유하는 Memory detail stable key는 위 `날짜별 Memory Note` Phase 0에서 확정한다.
 - [ ] 앨범 생성 후 발견 UI에서는 숨기되 snapshot/personalization 원본을 보존하는 lifecycle 회귀 테스트 추가.
 - [ ] 발견 상세의 날짜 그룹 단위 앱 내부 사진/동영상 스와이프 viewer 추가.
 
@@ -157,7 +174,7 @@
 - [ ] 상세 상단 요약 정보밀도를 축소한다.
   - 장소 제목과 `사진 N장 · 날짜 범위`만 우선 노출하고, 중복되는 `발견한 장소` label 및 설명 문구, 불필요한 `사진 보기` 섹션 제목은 제거/축소를 검토한다.
 - [ ] 날짜 header accent를 경고처럼 보이지 않는 muted blue 또는 저채도 coral로 비교한다.
-- [ ] 날짜별 한 줄 메모 작성/수정 UI를 stable memory/date key 설계 후 구현한다.
+- [ ] 날짜별 한 줄 메모 UI는 상단 `날짜별 Memory Note` Phase 2에서 구현한다.
 
 #### P0 - Media lifecycle / incremental analysis / Memory sync
 
