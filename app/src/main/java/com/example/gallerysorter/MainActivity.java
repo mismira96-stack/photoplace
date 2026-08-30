@@ -4157,6 +4157,8 @@ public class MainActivity extends Activity {
                 "기억 편집",
                 "원본 앨범: " + storedAlbumSummary.albumName,
                 albumMemory(storedAlbumSummary),
+                "기억 한 줄",
+                "이 장소에 대한 기억을 남겨보세요",
                 true,
                 new MemoryNoteEditorAction() {
                     @Override
@@ -4170,6 +4172,8 @@ public class MainActivity extends Activity {
     private void showSingleLineMemoryEditor(String title,
                                             String subtitle,
                                             String existingText,
+                                            String inputLabel,
+                                            String inputHint,
                                             boolean canDelete,
                                             final MemoryNoteEditorAction action) {
         final Dialog dialog = new Dialog(this);
@@ -4188,14 +4192,16 @@ public class MainActivity extends Activity {
         textView.setTextColor(-15656921);
         linearLayout.addView(textView, matchWidthWithBottom(dp(6)));
         linearLayout.addView(bodyText(subtitle), matchWidthWithBottom(dp(14)));
-        TextView textViewBodyText = bodyText("기억 한 줄");
-        textViewBodyText.setTypeface(Typeface.DEFAULT_BOLD);
-        linearLayout.addView(textViewBodyText, matchWidthWithBottom(dp(5)));
+        if (inputLabel != null && !inputLabel.trim().isEmpty()) {
+            TextView textViewBodyText = bodyText(inputLabel);
+            textViewBodyText.setTypeface(Typeface.DEFAULT_BOLD);
+            linearLayout.addView(textViewBodyText, matchWidthWithBottom(dp(5)));
+        }
         final EditText editText = new EditText(this);
         editText.setSingleLine(true);
         editText.setMaxLines(1);
         editText.setText(existingText);
-        editText.setHint("이 날의 기억을 한 줄로 남겨보세요");
+        editText.setHint(inputHint == null ? "" : inputHint);
         editText.setInputType(16385);
         editText.setFilters(new InputFilter[]{new InputFilter.LengthFilter(80)});
         editText.setTextSize(15.0f);
@@ -8713,7 +8719,7 @@ public class MainActivity extends Activity {
         }
 
         TextView edit = new TextView(this);
-        edit.setText(note == null ? "메모" : "수정");
+        edit.setText(note == null ? "+ 메모" : "수정");
         edit.setTextSize(13.0f);
         edit.setTypeface(Typeface.DEFAULT_BOLD);
         edit.setTextColor(Color.rgb(104, 82, 226));
@@ -8743,6 +8749,8 @@ public class MainActivity extends Activity {
                 section.dateText + "의 기억",
                 "이 날의 사진과 함께 기억을 남겨보세요.",
                 existing == null ? "" : existing.text,
+                "",
+                "무슨 날이었나요?",
                 existing != null,
                 new MemoryNoteEditorAction() {
                     @Override
