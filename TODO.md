@@ -203,7 +203,10 @@
   - 예: `삿포로에서`, `오타루에서`, `비에이에서`를 선택 → `2026 여름 일본 여행` 입력 → 발견 기록 안에서 하나의 기억 묶음으로 다시 본다.
   - `MemoryCollection`: stable id, user display name, member memory stable keys, createdAt, updatedAt.
   - 이름/메모/멤버 구성은 Gallery 앨범 생성, 이동, 삭제와 독립적으로 보존한다.
-- [ ] 별도 JSON store + temp/bak 원자 저장 + 손상 파일을 빈 값으로 덮어쓰지 않는 정책을 구현한다.
+- [x] `MemoryCollection` / `MemoryCollectionStore` 1단계 저장 기반을 추가했다.
+  - `memory_collections.json`은 `tmp -> bak -> replace` 원자 저장, backup 복구, backup 없는 손상 파일 쓰기 거부를 사용한다.
+  - MVP 정책으로 하나의 stable Memory ID는 활성 collection 하나에만 속하도록 저장소에서 검증한다.
+  - 아직 Registry alias 발급, media aggregation, Group detail, 선택 UI는 연결하지 않았다.
 - [ ] 발견 기록 카드 long-press → 다중 선택 mode → `기억으로 묶기` → 이름 입력 → 저장 UX를 구현한다.
 - [ ] 저장한 묶음은 발견 기록 상단 `내 기억 모음` 섹션에 사용자 이름, 멤버 수, 대표 썸네일로 보여준다.
 - [ ] 단위 테스트: 저장/복원, 이름 변경, 멤버 추가/제거, missing memory, corrupt JSON, Gallery/위치 앨범에 영향 없음.
