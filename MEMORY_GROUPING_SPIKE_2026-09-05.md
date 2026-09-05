@@ -377,8 +377,9 @@ Media
 ```
 
 Gallery organization must not delete or replace the source Memory. A successful future
-organization should transition the same stable Memory from `DISCOVERED` to `ORGANIZED`
-and attach an organization link only after the worker result confirms completion.
+organization attaches an active organization link only after the worker result confirms
+completion. `ORGANIZED` is a derived presentation state: an active successful link exists.
+It is not a second mutable truth stored independently on Memory.
 
 ### Current code alignment
 
@@ -409,3 +410,25 @@ The later order is:
 
 `MemoryCollection` and date notes remain unchanged. A collection keeps its members and
 original place/date note ownership regardless of Gallery organization or live media loss.
+
+### Generic organization output link
+
+The future link should not be Memory-only because a later collection-level Gallery album
+will have the same output concept:
+
+```text
+OrganizationLink {
+  subjectType: MEMORY | COLLECTION
+  subjectId: mem_<uuid> | group_<uuid>
+  albumName: last-known output metadata
+  relativePath: last-known output metadata
+  sortSessionId
+  organizedAtMillis
+  status: PENDING | SUCCESS | PARTIAL | FAILED | MISSING
+}
+```
+
+The stable subject identity remains the source of truth. `albumName` and `relativePath`
+are last-known Gallery output fields and must not become Memory identity. `isOrganized`
+is derived from an active `SUCCESS` link; if the Gallery output later disappears, the
+link can become `MISSING` without deleting Memory, notes, or collection membership.
