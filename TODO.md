@@ -60,16 +60,55 @@
 - [ ] 현재 전역 `발견한 장소를 위치 앨범으로 만들기` CTA는 장소별 생성 UX가 실기기 검증된 뒤 `여러 장소 선택` 보조 동작으로 재검토한다.
   - 기본 흐름은 `발견해서 보기`이며, Gallery 앨범 생성은 사용자가 특정 기억에 대해 선택하는 행동으로 둔다.
 
-### P1 - 해외 기록과 발견 Memory 연결
+### P1 - 해외 기록을 Memory 기반으로 통합
 
-- [ ] **실사용 피드백 (2026-09-05)**: 앨범을 만들지 않고 발견 기록만 사용하는 사용자는 해외 사진을 분석해도 홈의 `해외 기록`에서 찾을 수 없다.
-  - 현재 `해외 기록`은 `AlbumSummaryHistoryStore`의 `StoredAlbumSummary`만 `OverseasMemoryGrouper`로 국가별 묶음 처리한다.
-  - `DiscoverySnapshot` / `MemoryRepository.discoveryMemories()`는 이 경로에 포함되지 않으므로, 발견만 한 일본·해외 장소는 홈 해외 카드에 나타나지 않는다.
-- [ ] 단기 문구 정리: 현행 섹션을 `해외 위치 앨범`으로 바꿔 실제 데이터 범위를 정직하게 표시한다.
-- [ ] 후속 Memory projection: 발견 기록과 위치 앨범을 함께 입력으로 받아 국가별 `해외 기억`을 구성한다.
-  - 앨범 미생성 사용자도 해외 발견 장소를 홈에서 찾을 수 있어야 한다.
-  - 같은 장소가 발견/위치 앨범 양쪽에 있을 때 기존 보수적 identity/URI 규칙으로 중복을 제거한다.
-  - `MemoryCollection` Group UI 및 discovery/organized lifecycle 정책과 함께 설계한 뒤 구현한다. 기존 `OverseasMemoryGrouper`를 섣불리 discovery snapshot에 직접 연결하지 않는다.
+#### 문제
+
+현재 홈의 `해외 기록`은 발견 Memory가 아니라 `AlbumSummaryHistoryStore`의 실제 Gallery 위치 앨범 정리 기록만 사용한다.
+
+따라서 Gallery 앨범을 만들지 않고 PhotoPlace Memory만 사용하는 사용자는 해외 사진을 분석해 발견 기록에 가지고 있어도 `해외 기록`에는 표시되지 않는다.
+
+실제 사용자 피드백:
+
+- 해외 사진 분석 완료.
+- 발견 탭에서는 해외 장소 확인 가능.
+- Gallery 앨범은 생성하지 않음.
+- 홈 `해외 기록`에는 아무것도 나오지 않아 기능 오류로 인식.
+
+이는 `Display First, Organize Optional` 원칙과 맞지 않는 V1 legacy 구조다.
+
+#### 임시 대응
+
+- [ ] 필요 시 `해외 기록`을 `해외 위치 앨범`으로 변경한다.
+- [ ] 이는 현재 데이터 source를 정확히 표현하기 위한 임시 UX 수정이며, 근본 해결로 간주하지 않는다.
+
+#### 최종 방향
+
+홈의 해외 기록을 Gallery Album History 전용 기능이 아니라 Memory 기반 projection으로 재구성한다.
+
+```text
+Discovery Memory
++
+Organized Memory
+-> stable Memory identity 기준 dedupe
+-> 국가별 grouping
+-> 해외 기록
+```
+
+목표:
+
+- Gallery 앨범을 만들지 않은 사용자도 해외 기록을 볼 수 있음.
+- 발견에서 정리 상태가 바뀌어도 동일 Memory로 유지.
+- 동일 장소/사진이 발견 기록과 위치 앨범에서 중복 노출되지 않음.
+- 날짜별 메모 유지.
+- 향후 `MemoryCollection`과 자연스럽게 연결.
+
+#### 구현 시점
+
+`Memory Grouping` Phase 3 이후 검토한다.
+
+- 현재 stable Memory identity / Collection projection 작업과 연결된다.
+- 해외 기록만 별도 legacy 방식으로 확장하면 이후 다시 migration할 가능성이 크다.
 
 ### P2 - 원본 정리 이력과 선택적 Cleanup Handoff
 
