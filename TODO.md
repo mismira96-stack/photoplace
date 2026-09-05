@@ -814,6 +814,20 @@ Organized Memory
 - 해외 기록 필터: 국내가 아닌 주소/국가명을 가진 사진 묶음
 - 태그 후보: 해외, 병원, 학교, 공원, 역, 음식, 카페 등. 처음부터 자동 태그를 과하게 하지 말고 장소명 품질 개선과 연결해서 점진 적용한다.
 
+### V2.1 Memory lifecycle 기준
+
+- [x] 제품 기준을 `Memory = canonical logical record`, `Gallery Album = optional organization output`으로 확정한다.
+- [x] Gallery 앨범 생성 후에도 stable Memory, 날짜 메모, MemoryCollection membership를 삭제하지 않는 방향을 확정한다.
+- [ ] `DISCOVERED -> ORGANIZED`를 같은 stable `mem_<UUID>`에 기록하는 organization link를 설계한다.
+  - 기존 `AlbumSummaryHistoryStore`는 Gallery 결과/이력으로 유지하고, Memory lifecycle link를 별도 저장할지 검토한다.
+  - Worker 성공 결과 확인 전에는 link를 기록하지 않는다.
+  - partial failure, 재시작, 기존 앨범 migration 정책을 먼저 확정한다.
+- [ ] 해외 기록을 `AlbumSummaryHistoryStore` 전용 projection에서 Memory 기반 projection으로 전환한다.
+  - Phase 3-A: discovery와 legacy organized source를 내부적으로 분리한 country-level entry를 read-only로 만든다.
+  - Phase 3-B: stable Memory ID와 Gallery organization result를 명시적으로 연결한다.
+  - Phase 3-C: lifecycle state와 무관하게 stable Memory를 국가별로 한 번만 보여주는 unified projection을 만든다.
+  - 3-A에서 sourceUri만으로 서로 다른 discovery/album record를 같은 Memory로 합치지 않는다.
+
 ### Codex 방향 문장
 Build a memory-based photo organization system that replaces folder hierarchy with tag-based semantic grouping derived from GPS/time clustering, and renders all navigation inside the app as filtered memory views rather than file system browsing.
 

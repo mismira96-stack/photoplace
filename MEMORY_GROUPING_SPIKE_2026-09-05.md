@@ -365,3 +365,47 @@ Implement and test the collection store plus stable-member identity contract fir
 4. Implement the Group detail data model and viewer.
 5. Add simple selection-based creation UI.
 6. Validate on real data before adding Group-level Gallery organization.
+
+## Architecture Update - Memory Lifecycle and Overseas Projection (2026-09-05)
+
+The canonical product model is now explicitly:
+
+```text
+Media
+  -> Memory (stable identity, place, dates, notes, collections)
+  -> optional Gallery Album organization output
+```
+
+Gallery organization must not delete or replace the source Memory. A successful future
+organization should transition the same stable Memory from `DISCOVERED` to `ORGANIZED`
+and attach an organization link only after the worker result confirms completion.
+
+### Current code alignment
+
+- `DiscoverySnapshotController` persists/reconciles the discovery snapshot independently of Gallery history.
+- `DiscoverySnapshotLiveFilter` hides unavailable or already organized media from live discovery views; it does not delete Memory metadata or date notes.
+- `MemoryRepository` can read discovery and organized records together with conservative place matching, but it does not yet persist a stable `mem_...` to Gallery organization link.
+- `AlbumSummaryHistoryStore` is currently an output/history store, not a Memory lifecycle store.
+- The current organize completion path is `SortWorker -> SortResultStore -> MainActivity.saveAlbumSummaryHistory()`; no explicit `DISCOVERED -> ORGANIZED` transition is written.
+
+### Overseas decision
+
+The current home `해외 기록` is still an Album History projection: `StoredAlbumSummary`
+is passed to `OverseasMemoryGrouper`. Discovery-only overseas Memories therefore do not
+appear there. This is a P1 product gap, not an analysis/search data gap.
+
+The safe first step is `Overseas Phase 3-A`: a read-only country-level projection that
+creates one country entry while retaining discovery and legacy organized sources as
+separate internal contributions. It must not claim that the two sources are the same
+Memory, and must not use URI deduplication as an identity bridge.
+
+The later order is:
+
+```text
+3-A country projection
+  -> 3-B stable Memory organization link
+  -> 3-C unified overseas Memory projection
+```
+
+`MemoryCollection` and date notes remain unchanged. A collection keeps its members and
+original place/date note ownership regardless of Gallery organization or live media loss.
