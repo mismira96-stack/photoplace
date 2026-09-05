@@ -97,7 +97,7 @@ final class OverseasMemoryGrouper {
             return Collections.emptyList();
         }
         for (StoredAlbumSummary summary : summaries) {
-            String countryCode = overseasCountryCode(summary);
+            String countryCode = countryCodeFor(summary);
             if (countryCode.isEmpty()) {
                 continue;
             }
@@ -136,11 +136,11 @@ final class OverseasMemoryGrouper {
     }
 
     private static String overseasCountryName(StoredAlbumSummary summary) {
-        String countryCode = overseasCountryCode(summary);
+        String countryCode = countryCodeFor(summary);
         return countryCode.isEmpty() ? "" : CountryIdentityNormalizer.displayNameForCode(countryCode);
     }
 
-    private static String overseasCountryCode(StoredAlbumSummary summary) {
+    static String countryCodeFor(StoredAlbumSummary summary) {
         if (summary == null) {
             return "";
         }

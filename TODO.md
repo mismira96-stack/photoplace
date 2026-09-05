@@ -825,7 +825,7 @@ Organized Memory
   - Worker 성공 결과 확인 전에는 link를 `SUCCESS`로 기록하지 않는다.
   - partial failure, 재시작, Gallery 외부 삭제(`MISSING`), 기존 앨범 migration 정책을 먼저 확정한다.
 - [ ] 해외 기록을 `AlbumSummaryHistoryStore` 전용 projection에서 Memory 기반 projection으로 전환한다.
-  - Phase 3-A: discovery와 legacy organized source를 내부적으로 분리한 country-level entry를 read-only로 만든다.
+  - [x] Phase 3-A 모델 spike: discovery와 legacy organized source를 내부적으로 분리한 country-level entry를 read-only로 만들었다. 홈에는 아직 연결하지 않았다.
   - Phase 3-B: stable Memory ID와 Gallery organization result를 명시적으로 연결한다.
   - Phase 3-C: lifecycle state와 무관하게 stable Memory를 국가별로 한 번만 보여주는 unified projection을 만든다.
   - 3-A에서 sourceUri만으로 서로 다른 discovery/album record를 같은 Memory로 합치지 않는다.
