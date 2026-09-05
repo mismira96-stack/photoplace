@@ -60,6 +60,17 @@
 - [ ] 현재 전역 `발견한 장소를 위치 앨범으로 만들기` CTA는 장소별 생성 UX가 실기기 검증된 뒤 `여러 장소 선택` 보조 동작으로 재검토한다.
   - 기본 흐름은 `발견해서 보기`이며, Gallery 앨범 생성은 사용자가 특정 기억에 대해 선택하는 행동으로 둔다.
 
+### P1 - 해외 기록과 발견 Memory 연결
+
+- [ ] **실사용 피드백 (2026-09-05)**: 앨범을 만들지 않고 발견 기록만 사용하는 사용자는 해외 사진을 분석해도 홈의 `해외 기록`에서 찾을 수 없다.
+  - 현재 `해외 기록`은 `AlbumSummaryHistoryStore`의 `StoredAlbumSummary`만 `OverseasMemoryGrouper`로 국가별 묶음 처리한다.
+  - `DiscoverySnapshot` / `MemoryRepository.discoveryMemories()`는 이 경로에 포함되지 않으므로, 발견만 한 일본·해외 장소는 홈 해외 카드에 나타나지 않는다.
+- [ ] 단기 문구 정리: 현행 섹션을 `해외 위치 앨범`으로 바꿔 실제 데이터 범위를 정직하게 표시한다.
+- [ ] 후속 Memory projection: 발견 기록과 위치 앨범을 함께 입력으로 받아 국가별 `해외 기억`을 구성한다.
+  - 앨범 미생성 사용자도 해외 발견 장소를 홈에서 찾을 수 있어야 한다.
+  - 같은 장소가 발견/위치 앨범 양쪽에 있을 때 기존 보수적 identity/URI 규칙으로 중복을 제거한다.
+  - `MemoryCollection` Group UI 및 discovery/organized lifecycle 정책과 함께 설계한 뒤 구현한다. 기존 `OverseasMemoryGrouper`를 섣불리 discovery snapshot에 직접 연결하지 않는다.
+
 ### P2 - 원본 정리 이력과 선택적 Cleanup Handoff
 
 - [ ] 사용자가 확인 후 실제 휴지통 이동/삭제를 완료한 원본 미디어만 별도 cleanup event로 기록하는 모델을 설계한다.
