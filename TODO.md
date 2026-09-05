@@ -49,6 +49,10 @@
 
 ### P1 - 발견 기록에서 선택적으로 위치 앨범 만들기
 
+- [x] **Spike 완료 (2026-09-05): single-place Gallery Album 생성 경로를 조사했다.**
+  - `OrganizePlaceService.planFor(record)`과 `DiscoveryAlbumOrganizer.prepare(Collections.singletonList(record), ...)`를 그대로 재사용할 수 있어, Gallery 생성 자체는 작은 확장이다.
+  - 다만 현재는 앨범 생성 후 Discovery snapshot을 명시적으로 `ORGANIZED`로 연결하지 않으며, 날짜 메모의 `discovery:<placeKey>` alias를 위치 앨범 viewer가 아직 공유하지 않는다.
+  - 구현은 `MemoryCollection` / Memory lifecycle 설계 뒤로 보류한다. 그때 organization link와 shared Memory detail을 함께 도입해 메모가 화면에서 사라지지 않게 한다.
 - [ ] 발견 상세에 `이 장소를 위치 앨범으로 만들기` CTA를 추가한다.
   - 선택한 Memory 한 곳의 live discovery media만 기존 `SortInputStore` -> `SortWorker` 흐름으로 전달한다.
   - 확인창은 장소명, 사진/동영상 수, 이미 정리된 중복 제외 수를 보여주고 `원본은 유지돼요`를 명시한다.
