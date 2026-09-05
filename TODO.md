@@ -206,7 +206,10 @@
 - [x] `MemoryCollection` / `MemoryCollectionStore` 1단계 저장 기반을 추가했다.
   - `memory_collections.json`은 `tmp -> bak -> replace` 원자 저장, backup 복구, backup 없는 손상 파일 쓰기 거부를 사용한다.
   - MVP 정책으로 하나의 stable Memory ID는 활성 collection 하나에만 속하도록 저장소에서 검증한다.
-  - 아직 Registry alias 발급, media aggregation, Group detail, 선택 UI는 연결하지 않았다.
+- [x] 읽기 전용 `MemoryCollectionResolver`와 Group detail 계층 모델을 추가했다.
+  - 현재 discovery alias를 stable Memory ID로 해석하고, `date -> place -> original date note -> photos` 경계를 보존한다.
+  - group 전체에서 `sourceUri` 중복을 제거하며, 현재 MediaStore에서 사라진 멤버는 collection metadata를 지우지 않고 viewer에서만 건너뛴다.
+  - 아직 collection 생성 시 Registry alias 발급, 화면 진입점, 선택 UI, Gallery 앨범 생성은 연결하지 않았다.
 - [ ] 발견 기록 카드 long-press → 다중 선택 mode → `기억으로 묶기` → 이름 입력 → 저장 UX를 구현한다.
 - [ ] 저장한 묶음은 발견 기록 상단 `내 기억 모음` 섹션에 사용자 이름, 멤버 수, 대표 썸네일로 보여준다.
 - [ ] 단위 테스트: 저장/복원, 이름 변경, 멤버 추가/제거, missing memory, corrupt JSON, Gallery/위치 앨범에 영향 없음.
