@@ -877,7 +877,17 @@ public class MainActivity extends Activity {
                 List<StoredAlbumSummary> homeAlbumSummaries = MainActivity.this.loadRecentAlbumSummariesForUi();
                 homeAlbumSummaries = MainActivity.this.filterLiveStoredAlbumSummaries(homeAlbumSummaries);
                 MainActivity.this.addHomeMemoryBrowserEntry(container, homeAlbumSummaries);
-                MainActivity.this.addOverseasMemoriesSection(container, homeAlbumSummaries);
+                List<MemoryRecord> homeDiscoveryRecords = Collections.emptyList();
+                try {
+                    // Reuse the already live-filtered album list; loading the full repository here
+                    // would query MediaStore a second time during the first home frame.
+                    homeDiscoveryRecords = MainActivity.this.discoverySnapshotController()
+                            .repository(homeAlbumSummaries)
+                            .discoveryMemories();
+                } catch (Exception unused) {
+                    // Keep the organized-album projection available if discovery is unreadable.
+                }
+                MainActivity.this.addOverseasMemoriesSection(container, homeDiscoveryRecords, homeAlbumSummaries);
                 MainActivity.this.addRecentPlacesSection(container, homeAlbumSummaries);
             }
         });
@@ -6823,9 +6833,11 @@ public class MainActivity extends Activity {
         }
     }
 
-    private void addOverseasMemoriesSection(LinearLayout linearLayout, List<StoredAlbumSummary> albumSummaries) {
-        List<MemoryGroup> groups = OverseasMemoryGrouper.buildOverseasGroups(albumSummaries);
-        if (groups.isEmpty()) {
+    private void addOverseasMemoriesSection(LinearLayout linearLayout,
+                                            List<MemoryRecord> discoveryRecords,
+                                            List<StoredAlbumSummary> albumSummaries) {
+        List<OverseasCountryProjection> projections = OverseasCountryProjection.build(discoveryRecords, albumSummaries);
+        if (projections.isEmpty()) {
             return;
         }
         LinearLayout section = new LinearLayout(this);
@@ -6838,7 +6850,7 @@ public class MainActivity extends Activity {
         header.setPadding(dp(2), 0, dp(2), 0);
         section.addView(header, matchWidthWithBottom(dp(4)));
         header.addView(sectionTitle("해외 기록"), weightedParams(1));
-        TextView count = compactCardMetaSmall(groups.size() + "개 국가");
+        TextView count = compactCardMetaSmall(projections.size() + "개 국가");
         count.setGravity(17);
         header.addView(count);
         HorizontalScrollView horizontalScrollView = new HorizontalScrollView(this);
@@ -6848,9 +6860,70 @@ public class MainActivity extends Activity {
         cards.setOrientation(0);
         cards.setGravity(16);
         horizontalScrollView.addView(cards);
-        for (int i = 0; i < groups.size(); i++) {
-            addOverseasMemoryCard(cards, groups.get(i), i == groups.size() - 1, groups.size());
+        for (int i = 0; i < projections.size(); i++) {
+            addOverseasCountryProjectionCard(cards, projections.get(i), i == projections.size() - 1, projections.size());
         }
+    }
+
+    private void addOverseasCountryProjectionCard(LinearLayout linearLayout,
+                                                  final OverseasCountryProjection projection,
+                                                  boolean last,
+                                                  int countryCount) {
+        LinearLayout card = new LinearLayout(this);
+        card.setOrientation(1);
+        card.setPadding(0, 0, 0, dp(7));
+        card.setClickable(true);
+        card.setFocusable(true);
+        card.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                if (projection.hasDiscovery()) {
+                    memoryBrowserSearchVisible = true;
+                    memoryBrowserSearchQuery = projection.countryName;
+                    showMemoryBrowserScreen();
+                    return;
+                }
+                List<MemoryGroup> groups = OverseasMemoryGrouper.buildOverseasGroups(projection.organizedAlbums);
+                if (!groups.isEmpty()) {
+                    showOverseasMemoryScreen(groups.get(0));
+                }
+            }
+        });
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(overseasMemoryHomeCardWidth(countryCount), -2);
+        params.setMargins(0, 0, last ? 0 : dp(8), 0);
+        linearLayout.addView(card, params);
+        applyCardBackground(card);
+        ImageView cover = new ImageView(this);
+        cover.setScaleType(ImageView.ScaleType.CENTER_CROP);
+        card.addView(cover, new LinearLayout.LayoutParams(-1, overseasMemoryHomePhotoHeight(countryCount)));
+        String coverUri = projectionCoverUri(projection);
+        if (!coverUri.isEmpty()) {
+            loadMemoryBrowserThumbnailInto(cover, coverUri, dp(160));
+        }
+        LinearLayout body = new LinearLayout(this);
+        body.setOrientation(1);
+        body.setPadding(dp(10), dp(7), dp(9), dp(8));
+        card.addView(body, matchWidth());
+        int placeCount = projection.discoveryRecords.size() + projection.organizedAlbums.size();
+        body.addView(compactCardTitleWithMutedSuffix(projection.countryName, "(" + placeCount + "곳)", 13));
+        body.addView(compactCardMetaSmall(projection.hasDiscovery() ? "발견 기록에서 보기" : "위치 앨범에서 보기"));
+    }
+
+    private String projectionCoverUri(OverseasCountryProjection projection) {
+        if (projection == null) {
+            return "";
+        }
+        for (MemoryRecord record : projection.discoveryRecords) {
+            if (record != null && record.coverUri != null && !record.coverUri.isEmpty()) {
+                return record.coverUri;
+            }
+        }
+        for (StoredAlbumSummary summary : projection.organizedAlbums) {
+            if (summary != null && summary.thumbnailUri != null && !summary.thumbnailUri.isEmpty()) {
+                return summary.thumbnailUri;
+            }
+        }
+        return "";
     }
 
     private void addOverseasMemoryCard(LinearLayout linearLayout, final MemoryGroup group, boolean last, int groupCount) {

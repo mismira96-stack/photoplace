@@ -103,12 +103,21 @@ Organized Memory
 - 날짜별 메모 유지.
 - 향후 `MemoryCollection`과 자연스럽게 연결.
 
+#### 현재 진행 상태
+
+- [x] `OverseasCountryProjection`을 홈 `해외 기록` 카드의 읽기 전용 source로 연결한다.
+  - 발견 Memory가 있는 국가는 Gallery 앨범을 만들지 않아도 홈 국가 카드에 표시한다.
+  - 발견 기록이 있는 국가 카드는 클릭 시 해당 국가명으로 발견 목록을 열어 장소 리스트를 보여준다.
+  - 기존 위치 앨범만 있는 국가는 기존 Gallery 상세 흐름을 유지한다.
+- [ ] Discovery Memory와 기존 위치 앨범을 stable Memory ID 기준으로 완전 dedupe한다.
+- [ ] 국가 카드 클릭 후 `날짜 -> 장소 -> 메모 -> 사진` 통합 상세 화면을 연결한다.
+
+이번 연결은 파일/MediaStore를 변경하지 않는 Phase 3-A UI projection이며,
+Gallery 조직 상태와 Memory identity를 하나의 mutable state로 합치지 않는다.
+
 #### 구현 시점
 
-`Memory Grouping` Phase 3 이후 검토한다.
-
-- 현재 stable Memory identity / Collection projection 작업과 연결된다.
-- 해외 기록만 별도 legacy 방식으로 확장하면 이후 다시 migration할 가능성이 크다.
+완전한 lifecycle 통합은 `Memory Grouping` Phase 3 UI 및 generic organization link 이후 진행한다.
 
 ### P2 - 원본 정리 이력과 선택적 Cleanup Handoff
 
