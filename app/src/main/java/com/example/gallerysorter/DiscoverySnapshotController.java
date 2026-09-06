@@ -135,8 +135,17 @@ final class DiscoverySnapshotController {
 
     MemoryBrowserDetail loadBrowserDetail(String memoryKey,
                                           List<StoredAlbumSummary> organizedAlbums) {
+        return loadBrowserDetail(memoryKey, organizedAlbums, false);
+    }
+
+    MemoryBrowserDetail loadBrowserDetail(String memoryKey,
+                                          List<StoredAlbumSummary> organizedAlbums,
+                                          boolean includeOrganizedSources) {
         MemoryRepository repository = repository(organizedAlbums);
-        return MemoryBrowserState.fromRecords(repository.discoveryMemories())
+        List<MemoryRecord> records = includeOrganizedSources
+                ? repository.memories()
+                : repository.discoveryMemories();
+        return MemoryBrowserState.fromRecords(records)
                 .detail(memoryKey, repository);
     }
 

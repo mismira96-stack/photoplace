@@ -195,6 +195,7 @@ public class MainActivity extends Activity {
     private boolean memoryBrowserDetailMode = false;
     private boolean memoryBrowserSearchVisible = false;
     private String memoryBrowserSearchQuery = "";
+    private boolean memoryBrowserShowsOrganizedSources;
     private boolean discoveryOrganizePreparing = false;
     private boolean discoveryOrganizePendingStart = false;
     private boolean sourceFolderDialogLoading = false;
@@ -6890,7 +6891,7 @@ public class MainActivity extends Activity {
                 if (projection.hasDiscovery()) {
                     memoryBrowserSearchVisible = true;
                     memoryBrowserSearchQuery = projection.countryName;
-                    showMemoryBrowserScreen();
+                    showMemoryBrowserScreen(true);
                     return;
                 }
                 List<MemoryGroup> groups = OverseasMemoryGrouper.buildOverseasGroups(projection.organizedAlbums);
@@ -8313,13 +8314,19 @@ public class MainActivity extends Activity {
     }
 
     private void showMemoryBrowserScreen() {
+        showMemoryBrowserScreen(false);
+    }
+
+    private void showMemoryBrowserScreen(final boolean includeOrganizedSources) {
         final List<MemoryRecord> discoveryRecords;
         try {
-            discoveryRecords = loadMemoryRepository().discoveryMemories();
+            MemoryRepository repository = loadMemoryRepository();
+            discoveryRecords = includeOrganizedSources ? repository.memories() : repository.discoveryMemories();
         } catch (Exception unused) {
             showToast("발견한 장소를 불러오지 못했어요.");
             return;
         }
+        this.memoryBrowserShowsOrganizedSources = includeOrganizedSources;
         acknowledgeHomeDiscoveryResult();
         final MemoryBrowserState state = MemoryBrowserState.fromRecords(discoveryRecords);
         if (state.isEmpty()) {
@@ -8374,7 +8381,7 @@ public class MainActivity extends Activity {
                         if (!visible) {
                             MainActivity.this.memoryBrowserSearchQuery = "";
                         }
-                        MainActivity.this.showMemoryBrowserScreen();
+                        MainActivity.this.showMemoryBrowserScreen(includeOrganizedSources);
                     }
 
                     @Override
@@ -8391,7 +8398,7 @@ public class MainActivity extends Activity {
         root.addView(searchHeader.header(this.memoryBrowserSearchVisible, !state.isEmpty()), matchWidthWithBottom(dp(18)));
         addWorkingBanner(root);
 
-        if (!state.isEmpty()) {
+        if (!state.isEmpty() && !includeOrganizedSources) {
             root.addView(new MemoryBrowserSummaryRenderer(this).render(discoveryRecords), matchWidthWithBottom(dp(14)));
         }
 
@@ -8581,7 +8588,8 @@ public class MainActivity extends Activity {
         try {
             detail = discoverySnapshotController().loadBrowserDetail(
                     memoryKey,
-                    loadLiveMemoryAlbumSummaries());
+                    loadLiveMemoryAlbumSummaries(),
+                    this.memoryBrowserShowsOrganizedSources);
         } catch (Exception unused) {
             showToast("장소를 불러오지 못했어요.");
             return;
@@ -8607,7 +8615,7 @@ public class MainActivity extends Activity {
         addMemoryHeader(root, detail.item.title, new Runnable() {
             @Override
             public void run() {
-                MainActivity.this.showMemoryBrowserScreen();
+                MainActivity.this.showMemoryBrowserScreen(MainActivity.this.memoryBrowserShowsOrganizedSources);
             }
         });
 
@@ -8666,7 +8674,7 @@ public class MainActivity extends Activity {
         back.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                MainActivity.this.showMemoryBrowserScreen();
+                MainActivity.this.showMemoryBrowserScreen(MainActivity.this.memoryBrowserShowsOrganizedSources);
             }
         });
         styleActionButton(back, "다른 장소 보기", "grid", -1050881, -4203522, -14326805);
