@@ -6914,9 +6914,17 @@ public class MainActivity extends Activity {
         body.setOrientation(1);
         body.setPadding(dp(10), dp(7), dp(9), dp(8));
         card.addView(body, matchWidth());
-        int placeCount = projection.discoveryRecords.size() + projection.organizedAlbums.size();
-        body.addView(compactCardTitleWithMutedSuffix(projection.countryName, "(" + placeCount + "곳)", 13));
-        body.addView(compactCardMetaSmall(projection.hasDiscovery() ? "발견 기록에서 보기" : "위치 앨범에서 보기"));
+        body.addView(compactCardTitle(projection.countryName, 13));
+        String sourceSummary;
+        if (projection.hasDiscovery() && projection.hasOrganizedAlbums()) {
+            sourceSummary = "발견 " + projection.discoveryRecords.size() + "곳 · 위치 앨범 "
+                    + projection.organizedAlbums.size() + "개";
+        } else if (projection.hasDiscovery()) {
+            sourceSummary = "발견 기록 " + projection.discoveryRecords.size() + "곳";
+        } else {
+            sourceSummary = "위치 앨범 " + projection.organizedAlbums.size() + "개";
+        }
+        body.addView(compactCardMetaSmall(sourceSummary));
     }
 
     private String projectionCoverUri(OverseasCountryProjection projection) {
