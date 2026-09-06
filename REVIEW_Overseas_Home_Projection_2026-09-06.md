@@ -81,8 +81,10 @@ MemoryRepository 생성이 UI 흐름에서 동기 실행되던 점이었다.
 - 국가 카드의 통합 날짜/장소 상세 화면은 아직 연결하지 않는다.
 - Gallery 앨범 생성이나 파일 이동은 하지 않는다.
 - 동일 국가의 발견 장소와 기존 위치 앨범은 현재 카드 내부 source count가 합산될 수 있으므로 UX 검토가 필요하다.
-- 발견과 위치 앨범이 모두 있는 국가 카드는 현재 발견 목록으로 우선 진입한다. 위치 앨범 상세를 같은 카드에서
-  별도로 여는 통합 UX는 다음 단계로 남아 있다.
+- 발견과 위치 앨범이 모두 있는 국가 카드는 이제 `MemoryRepository.memories()` 기반의 국가 검색 목록으로 진입한다.
+  기존 전체 발견 탭은 여전히 discovery-only로 유지해 전역 CTA가 정리된 앨범까지 다시 처리하지 않도록 했다.
+- 국가 검색 목록에서의 source 병합은 현재 기존 repository의 place/date fallback 규칙을 사용하며,
+  완전한 stable-ID organization link 기반 dedupe와 통합 상세 화면은 다음 단계다.
 
 ## 다음 단계
 
