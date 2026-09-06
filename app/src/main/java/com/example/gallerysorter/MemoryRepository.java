@@ -131,13 +131,18 @@ final class MemoryRepository {
         if (summary == null || clean(summary.albumName).isEmpty()) {
             return null;
         }
+        String inferredCountryCode = OverseasMemoryGrouper.countryCodeFor(summary);
+        String normalizedCountryCode = firstNonEmpty(summary.countryCode, inferredCountryCode);
+        String normalizedCountryName = firstNonEmpty(
+                summary.countryName,
+                CountryIdentityNormalizer.displayNameForCode(normalizedCountryCode));
         OrganizedAlbumRef organizedAlbum = new OrganizedAlbumRef(
                 summary.relativePath,
                 summary.albumName,
                 summary.itemCount,
                 summary.thumbnailUri,
-                summary.countryCode,
-                summary.countryName,
+                normalizedCountryCode,
+                normalizedCountryName,
                 parseDateMillis(summary.startDate),
                 parseDateMillis(summary.endDate));
         boolean hasGalleryAlbum = !organizedAlbum.relativePath.isEmpty();
@@ -147,8 +152,8 @@ final class MemoryRepository {
                 summary.albumName,
                 canonicalPlaceName(summary.albumName),
                 "",
-                summary.countryCode,
-                summary.countryName,
+                normalizedCountryCode,
+                normalizedCountryName,
                 summary.adminArea,
                 summary.addressLine,
                 summary.itemCount,
