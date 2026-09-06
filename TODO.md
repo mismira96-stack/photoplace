@@ -314,6 +314,10 @@ Gallery 조직 상태와 Memory identity를 하나의 mutable state로 합치지
   - 첫 프레임 표시 전 `buildUi()` 동기 작업
   - 첫 프레임 이후 worker projection 계산
   - 해외 카드/썸네일 바인딩 시간
+- [ ] cold start 체감 개선은 측정 후 선택한다.
+  - 이전 홈 projection을 즉시 표시하는 fast-path cache 검토
+  - projection 계산 중 빈 영역/placeholder 표시 검토
+  - 성능 측정 전 대규모 XML/Java UI 리팩터링은 보류
 - [ ] 중단 후 처음부터 재분석하지 않는 checkpoint/이어하기를 별도 설계한다.
 
 #### P2 - Empty-state illustration system
