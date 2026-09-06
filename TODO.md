@@ -122,6 +122,12 @@ Organized Memory
 이번 연결은 파일/MediaStore를 변경하지 않는 Phase 3-A UI projection이며,
 Gallery 조직 상태와 Memory identity를 하나의 mutable state로 합치지 않는다.
 
+#### 현재 릴리즈 판단
+
+- [ ] 이번 변경은 개발 체크포인트로만 유지한다.
+- [ ] 홈 해외 카드에서 국가 전용 상세 화면으로 연결되는 Phase 3-B 전까지 Play 릴리즈에 포함하지 않는다.
+- [ ] 현재 국가 검색 목록 연결은 mixed-source 검증용 interim UX로 취급한다.
+
 #### 구현 시점
 
 완전한 lifecycle 통합은 `Memory Grouping` Phase 3 UI 및 generic organization link 이후 진행한다.
