@@ -827,6 +827,12 @@ Organized Memory
 - [ ] 해외 기록을 `AlbumSummaryHistoryStore` 전용 projection에서 Memory 기반 projection으로 전환한다.
   - [x] Phase 3-A 모델 spike: discovery와 legacy organized source를 내부적으로 분리한 country-level entry를 read-only로 만들었다. 홈에는 아직 연결하지 않았다.
   - [ ] 다음 단계: 홈 연결 전 국가 카드 클릭 시 discovery-only / organized-only / 양쪽 상태의 상세 UX를 결정하고 실기기에서 확인한다.
+  - [ ] 업데이트 사용자 호환: 별도 마이그레이션 없이 기존 `DiscoverySnapshot`과 `AlbumSummaryHistoryStore`를 앱 업데이트 후 다시 읽어 국가 projection을 구성한다.
+    - 기존 discovery snapshot이 있으면 해외 Memory가 즉시 홈에 나타나야 한다.
+    - 기존 위치 앨범 history만 있는 사용자도 기존 해외 국가가 유지되어야 한다.
+    - 양쪽 source가 있으면 국가 카드는 하나만 만들되 내부 source는 분리해 보존한다.
+    - 앱 삭제/데이터 초기화로 snapshot이 없는 경우에는 해외 기록을 임의로 복원하지 않고 재분석 안내를 사용한다.
+    - 기존 stable identity/date note/MemoryCollection 파일은 읽기만 하며 migration하거나 삭제하지 않는다.
   - Phase 3-B: stable Memory ID와 Gallery organization result를 명시적으로 연결한다.
   - Phase 3-C: lifecycle state와 무관하게 stable Memory를 국가별로 한 번만 보여주는 unified projection을 만든다.
   - 3-A에서 sourceUri만으로 서로 다른 discovery/album record를 같은 Memory로 합치지 않는다.
