@@ -6918,14 +6918,18 @@ public class MainActivity extends Activity {
         body.addView(compactCardTitle(projection.countryName, 13));
         String sourceSummary;
         if (projection.hasDiscovery() && projection.hasOrganizedAlbums()) {
-            sourceSummary = "발견 " + projection.discoveryRecords.size() + "곳 · 위치 앨범 "
+            sourceSummary = "발견 " + projection.discoveryRecords.size() + "곳\n위치 앨범 "
                     + projection.organizedAlbums.size() + "개";
         } else if (projection.hasDiscovery()) {
             sourceSummary = "발견 기록 " + projection.discoveryRecords.size() + "곳";
         } else {
             sourceSummary = "위치 앨범 " + projection.organizedAlbums.size() + "개";
         }
-        body.addView(compactCardMetaSmall(sourceSummary));
+        TextView sourceSummaryView = compactCardMetaSmall(sourceSummary);
+        sourceSummaryView.setSingleLine(false);
+        sourceSummaryView.setMaxLines(2);
+        sourceSummaryView.setEllipsize(null);
+        body.addView(sourceSummaryView);
     }
 
     private String projectionCoverUri(OverseasCountryProjection projection) {
