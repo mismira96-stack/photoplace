@@ -53,6 +53,18 @@ country card
 현재는 이미 계산된 `homeAlbumSummaries`를 `DiscoverySnapshotController.repository(...)`에 재사용하여
 홈 진입 중 MediaStore 전체 조회가 중복되지 않는다.
 
+### 2026-09-06 홈 진입 지연 보완
+
+실기기에서 해외 기록 연결 후 홈 진입이 느려지는 현상을 확인했다. 원인은 live filter의 MediaStore 청크 조회와
+MemoryRepository 생성이 UI 흐름에서 동기 실행되던 점이었다.
+
+- 홈 첫 프레임에서는 화면 골격만 먼저 표시한다.
+- `loadRecentAlbumSummariesForUi()`, live filter, MemoryRepository 생성은 `worker`에서 실행한다.
+- 같은 계산 결과의 `MemoryRepository`를 발견 둘러보기 CTA와 해외 기록 projection에 공유한다.
+- 계산이 끝난 뒤 UI thread에서는 기존 섹션을 한 번에 바인딩한다.
+
+`testDebugUnitTest`, `assembleDebug`, 연결 단말 설치 및 앱 실행을 다시 확인했다.
+
 ## Gemini 확인 요청
 
 ### Blocker 여부
@@ -69,6 +81,8 @@ country card
 - 국가 카드의 통합 날짜/장소 상세 화면은 아직 연결하지 않는다.
 - Gallery 앨범 생성이나 파일 이동은 하지 않는다.
 - 동일 국가의 발견 장소와 기존 위치 앨범은 현재 카드 내부 source count가 합산될 수 있으므로 UX 검토가 필요하다.
+- 발견과 위치 앨범이 모두 있는 국가 카드는 현재 발견 목록으로 우선 진입한다. 위치 앨범 상세를 같은 카드에서
+  별도로 여는 통합 UX는 다음 단계로 남아 있다.
 
 ## 다음 단계
 

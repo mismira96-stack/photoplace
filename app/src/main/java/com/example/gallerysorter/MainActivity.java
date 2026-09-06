@@ -873,33 +873,43 @@ public class MainActivity extends Activity {
                 if (container.getParent() == null || MainActivity.this.resultScreenMode || MainActivity.this.recentPlacesScreenMode || MainActivity.this.recentPlaceDetailMode || MainActivity.this.overseasMemoryScreenMode) {
                     return;
                 }
-                container.removeAllViews();
-                List<StoredAlbumSummary> homeAlbumSummaries = MainActivity.this.loadRecentAlbumSummariesForUi();
-                homeAlbumSummaries = MainActivity.this.filterLiveStoredAlbumSummaries(homeAlbumSummaries);
-                MainActivity.this.addHomeMemoryBrowserEntry(container, homeAlbumSummaries);
-                List<MemoryRecord> homeDiscoveryRecords = Collections.emptyList();
-                try {
-                    // Reuse the already live-filtered album list; loading the full repository here
-                    // would query MediaStore a second time during the first home frame.
-                    homeDiscoveryRecords = MainActivity.this.discoverySnapshotController()
-                            .repository(homeAlbumSummaries)
-                            .discoveryMemories();
-                } catch (Exception unused) {
-                    // Keep the organized-album projection available if discovery is unreadable.
-                }
-                MainActivity.this.addOverseasMemoriesSection(container, homeDiscoveryRecords, homeAlbumSummaries);
-                MainActivity.this.addRecentPlacesSection(container, homeAlbumSummaries);
+                MainActivity.this.worker.execute(new Runnable() {
+                    @Override
+                    public void run() {
+                        List<StoredAlbumSummary> loadedAlbums = MainActivity.this.loadRecentAlbumSummariesForUi();
+                        final List<StoredAlbumSummary> liveAlbums = MainActivity.this.filterLiveStoredAlbumSummaries(loadedAlbums);
+                        MemoryRepository repository = null;
+                        try {
+                            repository = MainActivity.this.discoverySnapshotController().repository(liveAlbums);
+                        } catch (Exception unused) {
+                            // Keep organized albums available if discovery data is unreadable.
+                        }
+                        final MemoryRepository finalRepository = repository;
+                        final List<MemoryRecord> discoveryRecords = repository == null
+                                ? Collections.<MemoryRecord>emptyList()
+                                : repository.discoveryMemories();
+                        MainActivity.this.runOnUiThread(new Runnable() {
+                            @Override
+                            public void run() {
+                                if (container.getParent() == null || MainActivity.this.resultScreenMode || MainActivity.this.recentPlacesScreenMode || MainActivity.this.recentPlaceDetailMode || MainActivity.this.overseasMemoryScreenMode) {
+                                    return;
+                                }
+                                container.removeAllViews();
+                                MainActivity.this.addHomeMemoryBrowserEntry(container, finalRepository);
+                                MainActivity.this.addOverseasMemoriesSection(container, discoveryRecords, liveAlbums);
+                                MainActivity.this.addRecentPlacesSection(container, liveAlbums);
+                            }
+                        });
+                    }
+                });
             }
         });
     }
 
-    private void addHomeMemoryBrowserEntry(LinearLayout container, List<StoredAlbumSummary> homeAlbumSummaries) {
-        MemoryBrowserState state;
-        try {
-            state = discoverySnapshotController().loadBrowserState(homeAlbumSummaries);
-        } catch (Exception unused) {
-            return;
-        }
+    private void addHomeMemoryBrowserEntry(LinearLayout container, MemoryRepository repository) {
+        MemoryBrowserState state = repository == null
+                ? MemoryBrowserState.empty()
+                : MemoryBrowserState.fromRecords(repository.discoveryMemories());
         if (state == null || state.isEmpty()) {
             return;
         }
