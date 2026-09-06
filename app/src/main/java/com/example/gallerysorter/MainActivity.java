@@ -316,6 +316,9 @@ public class MainActivity extends Activity {
     protected void onResume() {
         super.onResume();
         SortNotificationHelper.clearCompleteNotification(this);
+        // Gallery changes can happen outside PhotoPlace while the activity is paused.
+        // Drop the short-lived MediaStore/history caches before rebuilding any UI.
+        invalidateRecentAlbumSummaryCache();
         if (handleBackgroundSortResultIfAvailable()) {
             refreshActivePlaceDetailAfterExternalChange();
             return;
@@ -5582,6 +5585,13 @@ public class MainActivity extends Activity {
     }
 
     private void showOverseasMemoryScreen(MemoryGroup group) {
+        MemoryGroup liveGroup = findLiveOverseasMemoryGroup(group);
+        if (liveGroup == null) {
+            showToast("해외 기록이 비어 있어요. 목록을 새로고침했어요.");
+            returnToMainScreen();
+            return;
+        }
+        group = liveGroup;
         this.resultScreenMode = true;
         this.recentPlacesScreenMode = false;
         this.recentPlaceDetailMode = false;
@@ -5619,6 +5629,20 @@ public class MainActivity extends Activity {
             addStoredAlbumRow(list, storedAlbumSummaryFromMemoryItem(item), true);
         }
         setContentViewWithBottomTabs(scrollView, -1);
+    }
+
+    private MemoryGroup findLiveOverseasMemoryGroup(MemoryGroup requestedGroup) {
+        if (requestedGroup == null) {
+            return null;
+        }
+        invalidateRecentAlbumSummaryCache();
+        List<StoredAlbumSummary> liveSummaries = filterLiveStoredAlbumSummaries(loadRecentAlbumSummariesForUi());
+        for (MemoryGroup liveGroup : OverseasMemoryGrouper.buildOverseasGroups(liveSummaries)) {
+            if (Objects.equals(liveGroup.title, requestedGroup.title)) {
+                return liveGroup;
+            }
+        }
+        return null;
     }
 
     private StoredAlbumSummary storedAlbumSummaryFromMemoryItem(MemoryItem item) {
