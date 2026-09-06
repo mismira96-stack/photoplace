@@ -1,14 +1,23 @@
 # PhotoPlace Overseas Home Projection Review
 
 작성일: 2026-09-06  
-대상: `OverseasCountryProjection` 홈 연결 및 discovery 진입 패치
+대상: `OverseasCountryProjection` 홈 연결, mixed-source 목록, 홈 성능 보완
+
+검토 대상 커밋:
+
+- `574fe02` 홈 해외 Memory projection 연결
+- `3bff7c6` 홈 projection/live-filter 백그라운드 이동
+- `5877a70` 국가 카드에서 discovery/organized 목록 함께 열기
+- `830edfa` organized Memory의 국가 식별 보강
+- `67f7c6b` 해외 카드 source summary 2줄 표시
 
 ## 변경 요약
 
 - 홈 `해외 기록`의 입력을 기존 `AlbumSummaryHistoryStore` 단독에서
   `OverseasCountryProjection` 기반으로 확장했다.
 - 발견 Memory가 있는 해외 국가는 Gallery 앨범을 만들지 않아도 홈 국가 카드에 표시된다.
-- 발견 Memory가 있는 국가 카드를 누르면 해당 국가명으로 `발견` 목록을 열어 장소 리스트를 보여준다.
+- 발견 Memory가 있는 국가 카드를 누르면 해당 국가명으로 Memory 목록을 열어 장소 리스트를 보여준다.
+- 국가 카드에서 진입한 목록은 discovery와 organized Memory를 함께 포함한다.
 - 발견 Memory가 없는 국가, 즉 기존 위치 앨범만 있는 국가는 기존 Gallery 상세 흐름을 유지한다.
 - 발견/정리 데이터는 projection 안에서 별도 source로 유지한다.
 - Gallery 파일, MediaStore row, DiscoverySnapshot, 날짜 메모는 변경하지 않는다.
@@ -23,13 +32,15 @@ MainActivity.loadHomeMemorySectionsAfterFirstDraw()
   -> home overseas country cards
 ```
 
-발견 국가 카드 클릭:
+국가 카드 클릭:
 
 ```text
 country card
   -> memoryBrowserSearchVisible = true
   -> memoryBrowserSearchQuery = countryName
-  -> showMemoryBrowserScreen()
+  -> showMemoryBrowserScreen(includeOrganizedSources = true)
+  -> MemoryRepository.memories()
+  -> 국가명 검색 결과에 discovery/organized 항목 함께 표시
 ```
 
 위치 앨범만 있는 국가 카드 클릭:
@@ -65,6 +76,17 @@ MemoryRepository 생성이 UI 흐름에서 동기 실행되던 점이었다.
 
 `testDebugUnitTest`, `assembleDebug`, 연결 단말 설치 및 앱 실행을 다시 확인했다.
 
+### 실기기에서 남은 성능 확인점
+
+홈 재진입의 무거운 MediaStore 계산은 worker로 이동했지만, 최초 앱 진입이 여전히 느리다면 다음 두 구간을
+분리해서 측정해야 한다.
+
+- `buildUi()` 자체의 동기 뷰 생성/레이아웃 측정 시간
+- worker 완료 후 해외 카드 썸네일과 섹션을 한 번에 바인딩하는 UI 시간
+
+따라서 최초 진입 지연은 “live-filter가 UI thread를 막는 문제”와 동일하다고 단정하지 않고, 단말에서
+첫 프레임 표시 시점과 projection 완료 시점을 각각 log/trace로 측정한다.
+
 ## Gemini 확인 요청
 
 ### Blocker 여부
@@ -78,7 +100,7 @@ MemoryRepository 생성이 UI 흐름에서 동기 실행되던 점이었다.
 ### 현재 의도된 제한
 
 - 아직 stable Memory ID 기준의 discovery/organized 완전 dedupe는 하지 않는다.
-- 국가 카드의 통합 날짜/장소 상세 화면은 아직 연결하지 않는다.
+- 국가 카드의 기존 해외 상세 화면에 discovery 섹션을 합친 통합 상세 화면은 아직 연결하지 않는다.
 - Gallery 앨범 생성이나 파일 이동은 하지 않는다.
 - 동일 국가의 발견 장소와 기존 위치 앨범은 현재 카드 내부 source count가 합산될 수 있으므로 UX 검토가 필요하다.
 - 발견과 위치 앨범이 모두 있는 국가 카드는 이제 `MemoryRepository.memories()` 기반의 국가 검색 목록으로 진입한다.
@@ -92,6 +114,6 @@ MemoryRepository 생성이 UI 흐름에서 동기 실행되던 점이었다.
    - discovery-only
    - organized-only
    - both-source
-2. 국가 카드 상세를 `날짜 -> 장소 -> 메모 -> 사진` Memory projection으로 연결
+2. 국가 카드 클릭을 기존 해외 상세 화면으로 바꾸고, 상세 안에 `새로 발견한 장소`와 `위치 앨범` 섹션을 함께 제공
 3. stable Memory ID와 Gallery organization link를 연결해 중복 없는 lifecycle projection 구현
 4. 이후 발견 기록의 MemoryCollection 선택/그룹 생성 UI 진행

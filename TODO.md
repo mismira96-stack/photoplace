@@ -310,6 +310,10 @@ Gallery 조직 상태와 Memory identity를 하나의 mutable state로 합치지
   - 2개 앨범의 사진만, 동영상 포함, 5개 앨범 대량, 파일명 충돌, 중간 중단, Gallery 외부 삭제 각각 확인.
   - 통합 후 Gallery/위치 앨범/발견 및 Memory detail의 thumbnail·검색·메모가 깨지지 않는지 확인한다.
 - [ ] 10k 이상 discovery refs에서 live-filter, 검색, 전역 CTA prepare 시간과 메모리를 측정한다.
+- [ ] 앱 최초 진입 성능을 구간별로 측정한다.
+  - 첫 프레임 표시 전 `buildUi()` 동기 작업
+  - 첫 프레임 이후 worker projection 계산
+  - 해외 카드/썸네일 바인딩 시간
 - [ ] 중단 후 처음부터 재분석하지 않는 checkpoint/이어하기를 별도 설계한다.
 
 #### P2 - Empty-state illustration system
