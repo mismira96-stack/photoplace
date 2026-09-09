@@ -128,6 +128,7 @@ public class MainActivity extends Activity {
     private static final int DETAIL_BACK_RECENT = 1;
     private static final int DETAIL_BACK_OVERSEAS = 2;
     private static final int DETAIL_BACK_RESULT = 3;
+    private static final int DETAIL_BACK_OVERSEAS_COUNTRY = 4;
     private static final String PREFS_NAME = "album_sorter";
     private static final String PREF_EXISTING_ALBUM_BACKFILL_DONE = "existing_album_backfill_v2_done";
     private static final String PREF_MOVE_VIDEOS = "move_videos";
@@ -202,6 +203,7 @@ public class MainActivity extends Activity {
     private boolean sourceFolderDialogLoading = false;
     private StoredAlbumSummary activePlaceDetailSummary = null;
     private MemoryGroup activeOverseasMemoryGroup = null;
+    private OverseasCountryProjection activeOverseasCountryProjection = null;
     private String activeMemoryKey = "";
     private int detailBackTarget = DETAIL_BACK_HOME;
     private Map<String, AlbumSummary> existingAlbumSummaryCache = null;
@@ -393,6 +395,10 @@ public class MainActivity extends Activity {
             showOverseasMemoryScreen(this.activeOverseasMemoryGroup);
             return;
         }
+        if (this.overseasMemoryScreenMode && this.activeOverseasCountryProjection != null) {
+            showOverseasCountryDetailScreen(this.activeOverseasCountryProjection);
+            return;
+        }
         if (this.recentPlacesScreenMode) {
             showRecentPlacesScreen();
             return;
@@ -419,7 +425,11 @@ public class MainActivity extends Activity {
             return;
         }
         if (this.memoryBrowserDetailMode) {
-            showMemoryBrowserScreen();
+            if (this.activeOverseasCountryProjection != null) {
+                showOverseasCountryDetailScreen(this.activeOverseasCountryProjection);
+            } else {
+                showMemoryBrowserScreen();
+            }
             return;
         }
         if (this.memoryBrowserScreenMode) {
@@ -596,6 +606,7 @@ public class MainActivity extends Activity {
         this.memoryBrowserDetailMode = false;
         this.activePlaceDetailSummary = null;
         this.activeOverseasMemoryGroup = null;
+        this.activeOverseasCountryProjection = null;
         this.activeMemoryKey = "";
         this.detailBackTarget = DETAIL_BACK_HOME;
         this.recentPlacesScrollView = null;
@@ -5598,6 +5609,8 @@ public class MainActivity extends Activity {
         this.detailBackTarget = DETAIL_BACK_HOME;
         if (target == DETAIL_BACK_OVERSEAS && this.activeOverseasMemoryGroup != null) {
             showOverseasMemoryScreen(this.activeOverseasMemoryGroup);
+        } else if (target == DETAIL_BACK_OVERSEAS_COUNTRY && this.activeOverseasCountryProjection != null) {
+            showOverseasCountryDetailScreen(this.activeOverseasCountryProjection);
         } else if (target == DETAIL_BACK_RECENT) {
             showRecentPlacesScreen();
         } else if (target == DETAIL_BACK_RESULT) {
@@ -5656,7 +5669,9 @@ public class MainActivity extends Activity {
         if (scrollView != null) {
             this.recentPlacesScrollY = scrollView.getScrollY();
         }
-        if (this.overseasMemoryScreenMode || this.activeOverseasMemoryGroup != null) {
+        if (this.activeOverseasCountryProjection != null) {
+            this.detailBackTarget = DETAIL_BACK_OVERSEAS_COUNTRY;
+        } else if (this.overseasMemoryScreenMode || this.activeOverseasMemoryGroup != null) {
             this.detailBackTarget = DETAIL_BACK_OVERSEAS;
         } else if (this.recentPlacesScreenMode) {
             this.detailBackTarget = DETAIL_BACK_RECENT;
@@ -6890,16 +6905,7 @@ public class MainActivity extends Activity {
         card.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                if (projection.hasDiscovery()) {
-                    memoryBrowserSearchVisible = true;
-                    memoryBrowserSearchQuery = projection.countryName;
-                    showMemoryBrowserScreen(true);
-                    return;
-                }
-                List<MemoryGroup> groups = OverseasMemoryGrouper.buildOverseasGroups(projection.organizedAlbums);
-                if (!groups.isEmpty()) {
-                    showOverseasMemoryScreen(groups.get(0));
-                }
+                showOverseasCountryDetailScreen(projection);
             }
         });
         LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(overseasMemoryHomeCardWidth(countryCount), -2);
@@ -6932,6 +6938,125 @@ public class MainActivity extends Activity {
         sourceSummaryView.setMaxLines(2);
         sourceSummaryView.setEllipsize(null);
         body.addView(sourceSummaryView);
+    }
+
+    private void showOverseasCountryDetailScreen(final OverseasCountryProjection projection) {
+        if (projection == null) {
+            return;
+        }
+        this.resultScreenMode = true;
+        this.recentPlacesScreenMode = false;
+        this.recentPlaceDetailMode = false;
+        this.overseasMemoryScreenMode = true;
+        this.memoryBrowserScreenMode = false;
+        this.memoryBrowserDetailMode = false;
+        this.activeOverseasMemoryGroup = null;
+        this.activeOverseasCountryProjection = projection;
+        this.activeMemoryKey = "";
+        this.activePlaceDetailSummary = null;
+
+        ScrollView scrollView = new ScrollView(this);
+        scrollView.setBackgroundColor(-197377);
+        LinearLayout root = new LinearLayout(this);
+        root.setOrientation(1);
+        root.setPadding(dp(18), dp(56), dp(18), dp(REQUEST_WRITE_VIDEOS));
+        scrollView.addView(root, scrollContentLayoutParams());
+        addListHeader(root, projection.countryName);
+
+        LinearLayout summary = new LinearLayout(this);
+        summary.setOrientation(0);
+        summary.setGravity(16);
+        summary.setPadding(dp(14), dp(12), dp(14), dp(12));
+        applyCardBackground(summary);
+        root.addView(summary, matchWidthWithBottom(dp(16)));
+        ImageView cover = new ImageView(this);
+        cover.setScaleType(ImageView.ScaleType.CENTER_CROP);
+        summary.addView(cover, new LinearLayout.LayoutParams(dp(78), dp(78)));
+        String coverUri = projectionCoverUri(projection);
+        if (!coverUri.isEmpty()) {
+            loadMemoryBrowserThumbnailInto(cover, coverUri, dp(160));
+        }
+        LinearLayout summaryText = new LinearLayout(this);
+        summaryText.setOrientation(1);
+        summaryText.setPadding(dp(12), 0, 0, 0);
+        summary.addView(summaryText, weightedParams(1));
+        summaryText.addView(compactCardTitle(projection.countryName + "의 기억", 17));
+        int totalItems = 0;
+        for (MemoryRecord record : projection.discoveryRecords) {
+            if (record != null) {
+                totalItems += record.itemCount;
+            }
+        }
+        for (StoredAlbumSummary album : projection.organizedAlbums) {
+            if (album != null) {
+                totalItems += album.itemCount;
+            }
+        }
+        summaryText.addView(compactCardCount("사진 " + totalItems + "장", 18));
+        summaryText.addView(compactCardMeta(projection.sourceCount() + "곳의 기록"));
+
+        if (projection.hasDiscovery()) {
+            root.addView(sectionTitle("새로 발견한 장소"), matchWidthWithBottom(dp(8)));
+            LinearLayout discoveryList = new LinearLayout(this);
+            discoveryList.setOrientation(1);
+            discoveryList.setPadding(dp(14), dp(4), dp(14), dp(4));
+            applyCardBackground(discoveryList);
+            root.addView(discoveryList, matchWidthWithBottom(dp(14)));
+            for (MemoryRecord record : projection.discoveryRecords) {
+                addOverseasDiscoveryRow(discoveryList, record);
+            }
+        }
+
+        if (projection.hasOrganizedAlbums()) {
+            root.addView(sectionTitle("정리된 위치 앨범"), matchWidthWithBottom(dp(8)));
+            LinearLayout albumList = new LinearLayout(this);
+            albumList.setOrientation(1);
+            albumList.setPadding(dp(14), dp(4), dp(14), dp(4));
+            applyCardBackground(albumList);
+            root.addView(albumList, matchWidthWithBottom(dp(14)));
+            for (StoredAlbumSummary album : projection.organizedAlbums) {
+                addStoredAlbumRow(albumList, album, true);
+            }
+        }
+        setContentViewWithBottomTabs(scrollView, -1);
+    }
+
+    private void addOverseasDiscoveryRow(LinearLayout parent, final MemoryRecord record) {
+        if (record == null) {
+            return;
+        }
+        final MemoryBrowserItem item = MemoryBrowserItem.from(record);
+        if (item == null) {
+            return;
+        }
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(0);
+        row.setGravity(16);
+        row.setPadding(0, dp(9), 0, dp(9));
+        row.setClickable(true);
+        row.setFocusable(true);
+        row.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                MainActivity.this.showMemoryBrowserDetailScreen(item.memoryKey);
+            }
+        });
+        parent.addView(row, matchWidth());
+        ImageView image = new ImageView(this);
+        image.setScaleType(ImageView.ScaleType.CENTER_CROP);
+        row.addView(image, squareParams(dp(58)));
+        loadMemoryBrowserThumbnailInto(image, item.coverUri, dp(58));
+        LinearLayout text = new LinearLayout(this);
+        text.setOrientation(1);
+        text.setPadding(dp(12), 0, dp(8), 0);
+        row.addView(text, weightedParams(1));
+        text.addView(compactCardTitle(item.title, 15));
+        text.addView(compactCardMeta(item.countText + " · " + item.dateText));
+        TextView arrow = new TextView(this);
+        arrow.setText("›");
+        arrow.setTextSize(24.0f);
+        arrow.setTextColor(-3418655);
+        row.addView(arrow);
     }
 
     private String projectionCoverUri(OverseasCountryProjection projection) {
@@ -7524,6 +7649,7 @@ public class MainActivity extends Activity {
         this.memoryBrowserDetailMode = false;
         this.activePlaceDetailSummary = null;
         this.activeOverseasMemoryGroup = null;
+        this.activeOverseasCountryProjection = null;
         this.activeMemoryKey = "";
         this.detailBackTarget = DETAIL_BACK_HOME;
         ScrollView scrollView = new ScrollView(this);
@@ -8346,6 +8472,7 @@ public class MainActivity extends Activity {
         this.memoryBrowserScreenMode = true;
         this.memoryBrowserDetailMode = false;
         this.activeMemoryKey = "";
+        this.activeOverseasCountryProjection = null;
 
         ScrollView scrollView = new ScrollView(this);
         scrollView.setBackgroundColor(-197377);
@@ -8621,7 +8748,11 @@ public class MainActivity extends Activity {
         addMemoryHeader(root, detail.item.title, new Runnable() {
             @Override
             public void run() {
-                MainActivity.this.showMemoryBrowserScreen(MainActivity.this.memoryBrowserShowsOrganizedSources);
+                if (MainActivity.this.activeOverseasCountryProjection != null) {
+                    MainActivity.this.showOverseasCountryDetailScreen(MainActivity.this.activeOverseasCountryProjection);
+                } else {
+                    MainActivity.this.showMemoryBrowserScreen(MainActivity.this.memoryBrowserShowsOrganizedSources);
+                }
             }
         });
 
@@ -8680,7 +8811,11 @@ public class MainActivity extends Activity {
         back.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                MainActivity.this.showMemoryBrowserScreen(MainActivity.this.memoryBrowserShowsOrganizedSources);
+                if (MainActivity.this.activeOverseasCountryProjection != null) {
+                    MainActivity.this.showOverseasCountryDetailScreen(MainActivity.this.activeOverseasCountryProjection);
+                } else {
+                    MainActivity.this.showMemoryBrowserScreen(MainActivity.this.memoryBrowserShowsOrganizedSources);
+                }
             }
         });
         styleActionButton(back, "다른 장소 보기", "grid", -1050881, -4203522, -14326805);

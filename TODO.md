@@ -1074,3 +1074,13 @@ Build a memory-based photo organization system that replaces folder hierarchy wi
   - Cache normalized place results and `LOCATION_NONE`, never merely hide items.
   - Cache hit must still rebuild Preview/Discovery counts and cards.
   - New, copied, moved, changed, GPS-added, or policy-version-changed media must miss the cache.
+
+## Overseas country detail Phase 3-B (first slice)
+
+- [x] Home overseas country cards open a dedicated country detail screen.
+- [x] Show `새로 발견한 장소` and `정리된 위치 앨범` as separate sections.
+- [x] Reuse existing Memory detail and Gallery album detail flows from each row.
+- [x] Preserve country detail as the back destination from both row types.
+- [ ] Add stable Memory ID / organization-link dedupe for a fully unified lifecycle.
+- [ ] Add country-level date -> place -> note -> photos detail projection.
+- [ ] Review mixed-source total photo count to avoid double counting after explicit links exist.
