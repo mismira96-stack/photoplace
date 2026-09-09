@@ -6916,7 +6916,7 @@ public class MainActivity extends Activity {
         LinearLayout body = new LinearLayout(this);
         body.setOrientation(1);
         body.setPadding(dp(10), dp(7), dp(9), dp(8));
-        card.addView(body, new LinearLayout.LayoutParams(-1, dp(62)));
+        card.addView(body, new LinearLayout.LayoutParams(-1, dp(76)));
         body.addView(compactCardTitle(projection.countryName, 13));
         String sourceSummary;
         if (projection.hasDiscovery() && projection.hasOrganizedAlbums()) {
