@@ -324,6 +324,9 @@ Gallery 조직 상태와 Memory identity를 하나의 mutable state로 합치지
   - 이전 홈 projection을 즉시 표시하는 fast-path cache 검토
   - projection 계산 중 빈 영역/placeholder 표시 검토
   - 성능 측정 전 대규모 XML/Java UI 리팩터링은 보류
+- [x] 홈 projection이 기존 앨범 backfill/분석 worker에 밀리지 않도록 전용 executor로 분리한다.
+- [x] 홈 summary 수집 중 EXIF/동기 Geocoder 보강을 차단한다.
+- [x] 첫 `onResume()`에서 불필요한 album cache 무효화를 건너뛴다.
 - [ ] 중단 후 처음부터 재분석하지 않는 checkpoint/이어하기를 별도 설계한다.
 
 #### P2 - Empty-state illustration system
