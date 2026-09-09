@@ -118,6 +118,7 @@ Organized Memory
   - 날짜/장소 통합 상세 화면은 후속 단계로 남긴다.
 - [ ] Discovery Memory와 기존 위치 앨범을 stable Memory ID 기준으로 완전 dedupe한다.
 - [ ] 국가 카드 클릭 후 `날짜 -> 장소 -> 메모 -> 사진` 통합 상세 화면을 연결한다.
+- [ ] Antigravity 종합 리뷰에서 홈 executor/Geocoder 차단/cache 보류/카드 고정 높이를 검증한다.
 
 이번 연결은 파일/MediaStore를 변경하지 않는 Phase 3-A UI projection이며,
 Gallery 조직 상태와 Memory identity를 하나의 mutable state로 합치지 않는다.
