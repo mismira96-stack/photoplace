@@ -229,6 +229,7 @@ public class MainActivity extends Activity {
         }
     };
     private boolean existingAlbumBackfillScheduled = false;
+    private boolean resumedOnce = false;
     private int recentPlacesScrollY = 0;
     private String recentPlacesSearchQuery = "";
     private boolean recentPlacesSearchVisible = false;
@@ -320,7 +321,11 @@ public class MainActivity extends Activity {
         SortNotificationHelper.clearCompleteNotification(this);
         // Gallery changes can happen outside PhotoPlace while the activity is paused.
         // Drop the short-lived MediaStore/history caches before rebuilding any UI.
-        invalidateRecentAlbumSummaryCache();
+        if (this.resumedOnce) {
+            invalidateRecentAlbumSummaryCache();
+        } else {
+            this.resumedOnce = true;
+        }
         if (handleBackgroundSortResultIfAvailable()) {
             refreshActivePlaceDetailAfterExternalChange();
             return;
@@ -3806,12 +3811,8 @@ public class MainActivity extends Activity {
                         if (albumMediaDateMillis > 0) {
                             albumSummary2.dateRange.include(new Date(albumMediaDateMillis));
                         }
-                        if ((albumSummary2.countryName == null || albumSummary2.countryName.isEmpty()) && Looper.myLooper() != Looper.getMainLooper()) {
-                            LocationLookupResult locationLookupResult = readExistingAlbumLocationMetadata(uriWithAppendedId, z2);
-                            if (locationLookupResult != null && !LOCATION_NONE.equals(locationLookupResult.folderKey)) {
-                                albumSummary2.includeLocationMetadata(locationLookupResult.countryCode, locationLookupResult.countryName, locationLookupResult.adminArea, locationLookupResult.addressLine);
-                            }
-                        }
+                        // Keep album summary rebuild lightweight. Country projection uses stored
+                        // metadata and album/path heuristics; EXIF/Geocoder enrichment is deferred.
                         if (albumSummary2.thumbnailUri == null || albumSummary2.thumbnailUri.isEmpty() || (z && albumMediaDateMillis >= albumSummary2.thumbnailDateMillis)) {
                             albumSummary2.thumbnailUri = uriWithAppendedId.toString();
                             albumSummary2.thumbnailDateMillis = albumMediaDateMillis;
@@ -6915,6 +6916,7 @@ public class MainActivity extends Activity {
         LinearLayout body = new LinearLayout(this);
         body.setOrientation(1);
         body.setPadding(dp(10), dp(7), dp(9), dp(8));
+        body.setMinimumHeight(dp(62));
         card.addView(body, matchWidth());
         body.addView(compactCardTitle(projection.countryName, 13));
         String sourceSummary;
