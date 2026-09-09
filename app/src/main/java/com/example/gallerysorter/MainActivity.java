@@ -9558,6 +9558,7 @@ public class MainActivity extends Activity {
         super.onDestroy();
         this.mainHandler.removeCallbacks(this.backgroundSortResultCheckRunnable);
         this.worker.shutdownNow();
+        this.homeProjectionWorker.shutdownNow();
         this.thumbnailWorker.shutdownNow();
     }
 

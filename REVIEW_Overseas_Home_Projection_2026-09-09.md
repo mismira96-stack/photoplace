@@ -110,3 +110,16 @@
 
 현재 변경은 기능 검증용 개발 체크포인트로는 안정적이다. 다만 홈 국가 카드가 검색 화면으로 우회하는 interim UX이므로,
 Antigravity 리뷰와 Phase 3-B 전용 상세 화면 구현 전에는 Play 릴리즈에 포함하지 않는다.
+
+## 8. 보완 리뷰 반영
+
+Antigravity 리뷰에서 확인된 `homeProjectionWorker` lifecycle 누수를 보완했다.
+
+- `MainActivity.onDestroy()`에서 `homeProjectionWorker.shutdownNow()` 호출 추가
+- 화면 재생성/종료 시 홈 projection executor가 남지 않도록 정리
+- 기존 `worker`, `thumbnailWorker` 종료 정책과 동일한 lifecycle로 통일
+
+검증:
+
+- `testDebugUnitTest` 통과
+- `assembleDebug` 통과
