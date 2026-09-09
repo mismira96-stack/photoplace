@@ -14,7 +14,23 @@ final class ImageAnalysisCacheSession {
         if (existingEntries != null) {
             for (MediaAnalysisEntry entry : existingEntries.values()) {
                 if (entry != null && !entry.signature.isEmpty()) {
-                    entries.put(entry.signature, entry);
+                    String normalizedSignature = MediaAnalysisSignature.normalize(entry.signature);
+                    MediaAnalysisEntry normalizedEntry = entry.signature.equals(normalizedSignature)
+                            ? entry
+                            : new MediaAnalysisEntry(
+                            normalizedSignature,
+                            entry.status,
+                            entry.takenAtMillis,
+                            entry.folderKey,
+                            entry.countryCode,
+                            entry.countryName,
+                            entry.adminArea,
+                            entry.addressLine,
+                            entry.policyVersion);
+                    if (!entries.containsKey(normalizedSignature)
+                            || entry.signature.equals(normalizedSignature)) {
+                        entries.put(normalizedSignature, normalizedEntry);
+                    }
                 }
             }
         }

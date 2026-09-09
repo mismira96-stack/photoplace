@@ -1075,6 +1075,11 @@ Build a memory-based photo organization system that replaces folder hierarchy wi
   - Cache hit must still rebuild Preview/Discovery counts and cards.
   - New, copied, moved, changed, GPS-added, or policy-version-changed media must miss the cache.
 
+- [x] Migrate legacy image-cache signatures with trailing source-folder slashes.
+  - Older cache entries such as `Pictures/Camera/` now normalize to `Pictures/Camera` when loaded.
+  - Existing cache data is preserved instead of forcing a full cache reset.
+  - Regression test added for legacy signature migration.
+
 ## Overseas country detail Phase 3-B (first slice)
 
 - [x] Home overseas country cards open a dedicated country detail screen.

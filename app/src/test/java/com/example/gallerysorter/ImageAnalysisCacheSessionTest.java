@@ -96,6 +96,18 @@ public class ImageAnalysisCacheSessionTest {
     }
 
     @Test
+    public void legacyTrailingSlashEntryIsMigratedToTheNormalizedSignature() {
+        String legacySignature = "i|content://media/1|IMG.jpg|100|90|80|Pictures/Camera/";
+        String normalizedSignature = "i|content://media/1|IMG.jpg|100|90|80|Pictures/Camera";
+        MediaAnalysisEntry entry = analyzedEntry(legacySignature);
+        ImageAnalysisCacheSession session = new ImageAnalysisCacheSession(
+                Collections.singletonMap(legacySignature, entry));
+
+        assertEquals("삿포로", session.cachedResult(normalizedSignature, false).folderKey);
+        assertEquals(normalizedSignature, session.entriesForSave().iterator().next().signature);
+    }
+
+    @Test
     public void stagedEntriesAreNotPersistedUntilTheCallerCommitsThem() throws Exception {
         MediaAnalysisStore store = new MediaAnalysisStore(temporaryFolder.newFolder("staging"));
         ImageAnalysisCacheSession session = new ImageAnalysisCacheSession(store.readAll());

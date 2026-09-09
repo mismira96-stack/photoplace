@@ -28,6 +28,16 @@ final class MediaAnalysisSignature {
         return build(uri, displayName, modifiedSeconds, addedSeconds, mediaTakenMillis, video, "");
     }
 
+    static String normalize(String signature) {
+        String value = safe(signature).trim();
+        int separator = value.lastIndexOf('|');
+        if (separator < 0) {
+            return value;
+        }
+        return value.substring(0, separator + 1)
+                + normalizeSourceFolderKey(value.substring(separator + 1));
+    }
+
     private static String safe(String value) {
         return value == null ? "" : value;
     }
