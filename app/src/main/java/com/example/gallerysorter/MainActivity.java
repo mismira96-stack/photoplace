@@ -169,6 +169,7 @@ public class MainActivity extends Activity {
     private LinearLayout unclassifiedPreviewRow;
     private View unclassifiedSectionCard;
     private final ExecutorService worker = Executors.newSingleThreadExecutor();
+    private final ExecutorService homeProjectionWorker = Executors.newSingleThreadExecutor();
     private final ExecutorService thumbnailWorker = Executors.newFixedThreadPool(2);
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private final LruCache<String, Bitmap> thumbnailCache = new LruCache<>(32);
@@ -874,7 +875,7 @@ public class MainActivity extends Activity {
                 if (container.getParent() == null || MainActivity.this.resultScreenMode || MainActivity.this.recentPlacesScreenMode || MainActivity.this.recentPlaceDetailMode || MainActivity.this.overseasMemoryScreenMode) {
                     return;
                 }
-                MainActivity.this.worker.execute(new Runnable() {
+                MainActivity.this.homeProjectionWorker.execute(new Runnable() {
                     @Override
                     public void run() {
                         List<StoredAlbumSummary> loadedAlbums = MainActivity.this.loadRecentAlbumSummariesForUi();
