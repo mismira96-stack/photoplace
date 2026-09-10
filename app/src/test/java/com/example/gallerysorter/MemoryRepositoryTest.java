@@ -44,7 +44,7 @@ public class MemoryRepositoryTest {
         assertEquals(1, record.videoCount);
         assertEquals(1785600000000L, record.startDateMillis);
         assertEquals(1785945600000L, record.endDateMillis);
-        assertEquals("content://media/external/images/media/101", record.coverUri);
+        assertEquals("content://media/external/images/media/102", record.coverUri);
         assertEquals(MemorySourceType.DISCOVERED_ONLY, record.sourceType);
         assertSame(group, record.discoveryGroup);
         assertNull(record.organizedAlbum);
