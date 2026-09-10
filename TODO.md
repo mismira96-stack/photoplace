@@ -1092,10 +1092,10 @@ Build a memory-based photo organization system that replaces folder hierarchy wi
 
 ## Home Memory entry (next P0)
 
-- [x] Show prominent discovery-place thumbnails on Home for discovery-only users.
+- [x] Merge discovery-place and location-album thumbnails into one Home `최근 발견한 장소` strip.
   - Include domestic and overseas Memory records, not only overseas projection or Gallery albums.
-  - Show representative thumbnails for the first few places and open each place directly.
-  - Keep `발견 기록 보기` as the primary entry without requiring Gallery album creation.
+  - Sort the mixed strip by the latest available discovery/album date.
+  - Use a lightweight `전체 보기` action instead of a duplicate large CTA.
 - [ ] Add a first-use empty state with `사진 속 장소 찾기` when no Memory has been discovered yet.
 
 ## Selective Gallery organization

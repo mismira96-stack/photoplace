@@ -913,16 +913,8 @@ public class MainActivity extends Activity {
                                     return;
                                 }
                                 container.removeAllViews();
-                                if (MainActivity.this.latestDiscoveryDateMillis(discoveryRecords)
-                                        >= MainActivity.this.latestAlbumDateMillis(liveAlbums)) {
-                                    MainActivity.this.addHomeMemoryBrowserEntry(container, discoveryRecords);
-                                    MainActivity.this.addOverseasMemoriesSection(container, discoveryRecords, liveAlbums);
-                                    MainActivity.this.addRecentPlacesSection(container, liveAlbums);
-                                } else {
-                                    MainActivity.this.addRecentPlacesSection(container, liveAlbums);
-                                    MainActivity.this.addOverseasMemoriesSection(container, discoveryRecords, liveAlbums);
-                                    MainActivity.this.addHomeMemoryBrowserEntry(container, discoveryRecords);
-                                }
+                                MainActivity.this.addHomeRecentPlacesSection(container, discoveryRecords, liveAlbums);
+                                MainActivity.this.addOverseasMemoriesSection(container, discoveryRecords, liveAlbums);
                             }
                         });
                     }
@@ -993,6 +985,92 @@ public class MainActivity extends Activity {
         title.setPadding(dp(9), dp(7), dp(7), 0);
         card.addView(title, matchWidth());
         TextView count = compactCardMetaSmall(item.countText);
+        count.setPadding(dp(9), dp(2), dp(7), dp(8));
+        card.addView(count, matchWidth());
+    }
+
+    private void addHomeRecentPlacesSection(LinearLayout container,
+                                            List<MemoryRecord> discoveryRecords,
+                                            List<StoredAlbumSummary> albums) {
+        int discoveryCount = discoveryRecords == null ? 0 : discoveryRecords.size();
+        int albumCount = albums == null ? 0 : albums.size();
+        if (discoveryCount == 0 && albumCount == 0) {
+            return;
+        }
+        LinearLayout section = new LinearLayout(this);
+        section.setOrientation(1);
+        LinearLayout header = new LinearLayout(this);
+        header.setOrientation(0);
+        header.setGravity(Gravity.CENTER_VERTICAL);
+        header.addView(sectionTitle("최근 발견한 장소"), weightedParams(1));
+        TextView all = compactCardMetaSmall("전체 보기");
+        all.setTypeface(Typeface.DEFAULT_BOLD);
+        all.setPadding(dp(8), dp(6), dp(2), dp(6));
+        all.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                if (discoveryCount > 0) {
+                    MainActivity.this.showMemoryBrowserScreen();
+                } else {
+                    MainActivity.this.showRecentPlacesScreen();
+                }
+            }
+        });
+        header.addView(all);
+        section.addView(header, matchWidthWithBottom(dp(6)));
+
+        HorizontalScrollView scroll = new HorizontalScrollView(this);
+        scroll.setHorizontalScrollBarEnabled(false);
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(0);
+        int discoveryIndex = 0;
+        int albumIndex = 0;
+        int visibleCount = Math.min(4, discoveryCount + albumCount);
+        for (int i = 0; i < visibleCount; i++) {
+            boolean useDiscovery = albumIndex >= albumCount
+                    || (discoveryIndex < discoveryCount
+                    && latestDiscoveryDateMillis(Collections.singletonList(discoveryRecords.get(discoveryIndex)))
+                    >= latestAlbumDateMillis(Collections.singletonList(albums.get(albumIndex))));
+            if (useDiscovery) {
+                addDiscoveryCompactCard(row, discoveryRecords.get(discoveryIndex), discoveryIndex == discoveryCount - 1 && albumIndex >= albumCount);
+                discoveryIndex++;
+            } else {
+                addAlbumCompactCard(row, albums.get(albumIndex), albumIndex == albumCount - 1);
+                albumIndex++;
+            }
+        }
+        scroll.addView(row);
+        section.addView(scroll, matchWidthWithBottom(dp(8)));
+        container.addView(section, matchWidthWithBottom(dp(8)));
+    }
+
+    private void addAlbumCompactCard(LinearLayout parent, final StoredAlbumSummary album, boolean last) {
+        if (album == null) {
+            return;
+        }
+        LinearLayout card = new LinearLayout(this);
+        card.setOrientation(1);
+        card.setClickable(true);
+        card.setFocusable(true);
+        card.setPadding(0, 0, 0, dp(8));
+        card.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                MainActivity.this.showRecentPlaceDetailScreen(album);
+            }
+        });
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(dp(124), -2);
+        params.setMargins(0, 0, last ? 0 : dp(8), 0);
+        parent.addView(card, params);
+        applyCardBackground(card);
+        ImageView image = new ImageView(this);
+        image.setScaleType(ImageView.ScaleType.CENTER_CROP);
+        card.addView(image, new LinearLayout.LayoutParams(-1, dp(92)));
+        loadMemoryBrowserThumbnailInto(image, album.thumbnailUri, dp(92));
+        TextView title = compactCardTitle(album.albumName, 13);
+        title.setPadding(dp(9), dp(7), dp(7), 0);
+        card.addView(title, matchWidth());
+        TextView count = compactCardMetaSmall("사진 " + Math.max(0, album.itemCount) + "장");
         count.setPadding(dp(9), dp(2), dp(7), dp(8));
         card.addView(count, matchWidth());
     }
