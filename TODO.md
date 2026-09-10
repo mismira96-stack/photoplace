@@ -1089,3 +1089,21 @@ Build a memory-based photo organization system that replaces folder hierarchy wi
 - [ ] Add stable Memory ID / organization-link dedupe for a fully unified lifecycle.
 - [ ] Add country-level date -> place -> note -> photos detail projection.
 - [ ] Review mixed-source total photo count to avoid double counting after explicit links exist.
+
+## Home Memory entry (next P0)
+
+- [x] Show a prominent `발견 기록` summary on Home for discovery-only users.
+  - Include domestic and overseas Memory records, not only overseas projection or Gallery albums.
+  - Show place count, photo count, and date range.
+  - Keep `발견 기록 보기` as the primary entry without requiring Gallery album creation.
+- [ ] Add a first-use empty state with `사진 속 장소 찾기` when no Memory has been discovered yet.
+
+## Selective Gallery organization
+
+- [ ] Make single-place organization the default action from a Memory detail screen.
+  - Create a Gallery location album only for the selected place.
+  - Preserve the place's Memory, date grouping, and date notes after organization.
+  - Reuse the existing whole-discovery organization pipeline instead of duplicating it.
+- [ ] Keep `발견한 장소 모두 위치 앨범으로 만들기` as an explicit secondary/bulk action.
+  - This remains available for users who intentionally want every discovered place organized.
+- [ ] Define mixed-state UI when some places are already organized and others remain discovery-only.

@@ -913,7 +913,7 @@ public class MainActivity extends Activity {
                                     return;
                                 }
                                 container.removeAllViews();
-                                MainActivity.this.addHomeMemoryBrowserEntry(container, finalRepository);
+                                MainActivity.this.addHomeMemoryBrowserEntry(container, discoveryRecords);
                                 MainActivity.this.addOverseasMemoriesSection(container, discoveryRecords, liveAlbums);
                                 MainActivity.this.addRecentPlacesSection(container, liveAlbums);
                             }
@@ -924,13 +924,15 @@ public class MainActivity extends Activity {
         });
     }
 
-    private void addHomeMemoryBrowserEntry(LinearLayout container, MemoryRepository repository) {
-        MemoryBrowserState state = repository == null
-                ? MemoryBrowserState.empty()
-                : MemoryBrowserState.fromRecords(repository.discoveryMemories());
+    private void addHomeMemoryBrowserEntry(LinearLayout container, List<MemoryRecord> discoveryRecords) {
+        MemoryBrowserState state = MemoryBrowserState.fromRecords(discoveryRecords);
         if (state == null || state.isEmpty()) {
             return;
         }
+        LinearLayout section = new LinearLayout(this);
+        section.setOrientation(1);
+        section.addView(sectionTitle("발견 기록"), matchWidthWithBottom(dp(8)));
+        section.addView(new MemoryBrowserSummaryRenderer(this).render(discoveryRecords), matchWidthWithBottom(dp(10)));
         Button button = new Button(this);
         button.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -938,8 +940,9 @@ public class MainActivity extends Activity {
                 MainActivity.this.showMemoryBrowserScreen();
             }
         });
-        styleActionButton(button, actionText("발견한 장소 둘러보기", "앨범을 만들지 않아도 앱 안에서 먼저 보기"), "grid", -1050881, -4203522, -14326805);
-        container.addView(button, matchWidthWithBottom(dp(14)));
+        styleActionButton(button, actionText("발견 기록 보기", "앨범을 만들지 않아도 앱 안에서 먼저 보기"), "grid", -1050881, -4203522, -14326805);
+        section.addView(button, matchWidthWithBottom(dp(14)));
+        container.addView(section, matchWidthWithBottom(dp(8)));
     }
 
     /* renamed from: lambda$buildUi$0$com-example-gallerysorter-MainActivity, reason: not valid java name */
