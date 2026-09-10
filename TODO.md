@@ -149,6 +149,15 @@ Gallery 조직 상태와 Memory identity를 하나의 mutable state로 합치지
 - [ ] 필요 시 visible cap을 제거하지 않고 lazy photo grid/paging으로 전환한다.
 - [ ] 분석 중단 후 이어하기를 위한 checkpoint와 foreground/background 복구 정책을 설계한다.
 
+### P1 - Memory 날짜 목록/사진 뷰어
+
+- [ ] Memory 상세에서 날짜를 선택하면 해당 날짜의 사진만 모아보는 화면을 제공한다.
+  - 기존 날짜 grouping과 48장 paging을 재사용한다.
+  - Gallery 앱으로 한 파일씩 튕기지 않고 PhotoPlace 안에서 썸네일 목록을 보여준다.
+- [ ] 날짜 목록의 썸네일을 누르면 같은 날짜 사진 사이를 좌우로 넘겨보는 앱 내 뷰어로 확장한다.
+  - 사진부터 시작하고, 동영상은 우선 기존 외부 플레이어 연결을 유지한다.
+- [ ] 날짜별 메모는 날짜 목록/사진 뷰어에서도 같은 stable Memory ID로 유지한다.
+
 ### P1 - 날짜별 Memory Note (다음 구현 우선순위)
 
 - [ ] **Phase 0 - stable memory key 계약을 먼저 확정한다.**
