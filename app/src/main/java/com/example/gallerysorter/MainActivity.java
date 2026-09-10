@@ -913,8 +913,8 @@ public class MainActivity extends Activity {
                                     return;
                                 }
                                 container.removeAllViews();
-                                MainActivity.this.addHomeRecentPlacesSection(container, discoveryRecords, liveAlbums);
                                 MainActivity.this.addOverseasMemoriesSection(container, discoveryRecords, liveAlbums);
+                                MainActivity.this.addHomeRecentPlacesSection(container, discoveryRecords, liveAlbums);
                             }
                         });
                     }
