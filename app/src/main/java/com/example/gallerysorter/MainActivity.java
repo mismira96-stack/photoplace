@@ -930,6 +930,16 @@ public class MainActivity extends Activity {
         }
         LinearLayout section = new LinearLayout(this);
         section.setOrientation(1);
+        final List<MemoryRecord> orderedDiscoveryRecords = new ArrayList<>();
+        if (discoveryRecords != null) {
+            orderedDiscoveryRecords.addAll(discoveryRecords);
+            Collections.sort(orderedDiscoveryRecords, new Comparator<MemoryRecord>() {
+                @Override
+                public int compare(MemoryRecord left, MemoryRecord right) {
+                    return Integer.compare(recentDiscoveryCount(right), recentDiscoveryCount(left));
+                }
+            });
+        }
         section.addView(sectionTitle("발견 기록"), matchWidthWithBottom(dp(8)));
         HorizontalScrollView placesScroll = new HorizontalScrollView(this);
         placesScroll.setHorizontalScrollBarEnabled(false);
@@ -1025,14 +1035,16 @@ public class MainActivity extends Activity {
         row.setOrientation(0);
         int discoveryIndex = 0;
         int albumIndex = 0;
-        int visibleCount = Math.min(4, discoveryCount + albumCount);
+        int visibleCount = Math.min(4, orderedDiscoveryRecords.size() + albumCount);
         for (int i = 0; i < visibleCount; i++) {
+            boolean hasNewDiscovery = discoveryIndex < orderedDiscoveryRecords.size()
+                    && recentDiscoveryCount(orderedDiscoveryRecords.get(discoveryIndex)) > 0;
             boolean useDiscovery = albumIndex >= albumCount
-                    || (discoveryIndex < discoveryCount
-                    && latestDiscoveryDateMillis(Collections.singletonList(discoveryRecords.get(discoveryIndex)))
-                    >= latestAlbumDateMillis(Collections.singletonList(albums.get(albumIndex))));
+                    || (discoveryIndex < orderedDiscoveryRecords.size()
+                    && (hasNewDiscovery || latestDiscoveryDateMillis(Collections.singletonList(orderedDiscoveryRecords.get(discoveryIndex)))
+                    >= latestAlbumDateMillis(Collections.singletonList(albums.get(albumIndex)))));
             if (useDiscovery) {
-                addDiscoveryCompactCard(row, discoveryRecords.get(discoveryIndex), discoveryIndex == discoveryCount - 1 && albumIndex >= albumCount);
+                addDiscoveryCompactCard(row, orderedDiscoveryRecords.get(discoveryIndex), discoveryIndex == orderedDiscoveryRecords.size() - 1 && albumIndex >= albumCount);
                 discoveryIndex++;
             } else {
                 addAlbumCompactCard(row, albums.get(albumIndex), albumIndex == albumCount - 1);
@@ -1042,6 +1054,20 @@ public class MainActivity extends Activity {
         scroll.addView(row);
         section.addView(scroll, matchWidthWithBottom(dp(8)));
         container.addView(section, matchWidthWithBottom(dp(8)));
+    }
+
+    private int recentDiscoveryCount(MemoryRecord record) {
+        if (record == null || record.discoveryGroup == null) {
+            return 0;
+        }
+        int count = 0;
+        long version = record.discoveryGroup.snapshotVersion;
+        for (DiscoveryPhotoRef ref : record.discoveryGroup.photoRefs) {
+            if (ref != null && ref.firstSeenSnapshotVersion == version) {
+                count++;
+            }
+        }
+        return count;
     }
 
     private void addAlbumCompactCard(LinearLayout parent, final StoredAlbumSummary album, boolean last) {
