@@ -913,9 +913,16 @@ public class MainActivity extends Activity {
                                     return;
                                 }
                                 container.removeAllViews();
-                                MainActivity.this.addHomeMemoryBrowserEntry(container, discoveryRecords);
-                                MainActivity.this.addOverseasMemoriesSection(container, discoveryRecords, liveAlbums);
-                                MainActivity.this.addRecentPlacesSection(container, liveAlbums);
+                                if (MainActivity.this.latestDiscoveryDateMillis(discoveryRecords)
+                                        >= MainActivity.this.latestAlbumDateMillis(liveAlbums)) {
+                                    MainActivity.this.addHomeMemoryBrowserEntry(container, discoveryRecords);
+                                    MainActivity.this.addOverseasMemoriesSection(container, discoveryRecords, liveAlbums);
+                                    MainActivity.this.addRecentPlacesSection(container, liveAlbums);
+                                } else {
+                                    MainActivity.this.addRecentPlacesSection(container, liveAlbums);
+                                    MainActivity.this.addOverseasMemoriesSection(container, discoveryRecords, liveAlbums);
+                                    MainActivity.this.addHomeMemoryBrowserEntry(container, discoveryRecords);
+                                }
                             }
                         });
                     }
@@ -932,7 +939,17 @@ public class MainActivity extends Activity {
         LinearLayout section = new LinearLayout(this);
         section.setOrientation(1);
         section.addView(sectionTitle("발견 기록"), matchWidthWithBottom(dp(8)));
-        section.addView(new MemoryBrowserSummaryRenderer(this).render(discoveryRecords), matchWidthWithBottom(dp(10)));
+        HorizontalScrollView placesScroll = new HorizontalScrollView(this);
+        placesScroll.setHorizontalScrollBarEnabled(false);
+        LinearLayout placesRow = new LinearLayout(this);
+        placesRow.setOrientation(0);
+        placesRow.setGravity(Gravity.CENTER_VERTICAL);
+        placesScroll.addView(placesRow);
+        int visibleCount = Math.min(4, discoveryRecords.size());
+        for (int i = 0; i < visibleCount; i++) {
+            addDiscoveryCompactCard(placesRow, discoveryRecords.get(i), i == visibleCount - 1);
+        }
+        section.addView(placesScroll, matchWidthWithBottom(dp(10)));
         Button button = new Button(this);
         button.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -943,6 +960,80 @@ public class MainActivity extends Activity {
         styleActionButton(button, actionText("발견 기록 보기", "앨범을 만들지 않아도 앱 안에서 먼저 보기"), "grid", -1050881, -4203522, -14326805);
         section.addView(button, matchWidthWithBottom(dp(14)));
         container.addView(section, matchWidthWithBottom(dp(8)));
+    }
+
+    private void addDiscoveryCompactCard(LinearLayout parent, final MemoryRecord record, boolean last) {
+        if (record == null) {
+            return;
+        }
+        final MemoryBrowserItem item = MemoryBrowserItem.from(record);
+        if (item == null) {
+            return;
+        }
+        LinearLayout card = new LinearLayout(this);
+        card.setOrientation(1);
+        card.setClickable(true);
+        card.setFocusable(true);
+        card.setPadding(0, 0, 0, dp(8));
+        card.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                MainActivity.this.showMemoryBrowserDetailScreen(item.memoryKey);
+            }
+        });
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(dp(124), -2);
+        params.setMargins(0, 0, last ? 0 : dp(8), 0);
+        parent.addView(card, params);
+        applyCardBackground(card);
+        ImageView image = new ImageView(this);
+        image.setScaleType(ImageView.ScaleType.CENTER_CROP);
+        card.addView(image, new LinearLayout.LayoutParams(-1, dp(92)));
+        loadMemoryBrowserThumbnailInto(image, item.coverUri, dp(92));
+        TextView title = compactCardTitle(item.title, 13);
+        title.setPadding(dp(9), dp(7), dp(7), 0);
+        card.addView(title, matchWidth());
+        TextView count = compactCardMetaSmall(item.countText);
+        count.setPadding(dp(9), dp(2), dp(7), dp(8));
+        card.addView(count, matchWidth());
+    }
+
+    private long latestDiscoveryDateMillis(List<MemoryRecord> records) {
+        long latest = 0L;
+        if (records == null) {
+            return latest;
+        }
+        for (MemoryRecord record : records) {
+            if (record != null) {
+                latest = Math.max(latest, Math.max(record.startDateMillis, record.endDateMillis));
+            }
+        }
+        return latest;
+    }
+
+    private long latestAlbumDateMillis(List<StoredAlbumSummary> albums) {
+        long latest = 0L;
+        if (albums == null) {
+            return latest;
+        }
+        for (StoredAlbumSummary album : albums) {
+            if (album == null) {
+                continue;
+            }
+            latest = Math.max(latest, album.createdAtMillis);
+            latest = Math.max(latest, parseHomeDateMillis(album.endDate));
+        }
+        return latest;
+    }
+
+    private long parseHomeDateMillis(String value) {
+        if (value == null || value.trim().isEmpty()) {
+            return 0L;
+        }
+        try {
+            return new SimpleDateFormat("yyyy-MM-dd", Locale.KOREA).parse(value.trim()).getTime();
+        } catch (Exception unused) {
+            return 0L;
+        }
     }
 
     /* renamed from: lambda$buildUi$0$com-example-gallerysorter-MainActivity, reason: not valid java name */
