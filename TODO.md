@@ -151,12 +151,14 @@ Gallery 조직 상태와 Memory identity를 하나의 mutable state로 합치지
 
 ### P1 - Memory 날짜 목록/사진 뷰어
 
-- [ ] Memory 상세에서 날짜를 선택하면 해당 날짜의 사진만 모아보는 화면을 제공한다.
-  - 기존 날짜 grouping과 48장 paging을 재사용한다.
-  - Gallery 앱으로 한 파일씩 튕기지 않고 PhotoPlace 안에서 썸네일 목록을 보여준다.
-- [ ] 날짜 목록의 썸네일을 누르면 같은 날짜 사진 사이를 좌우로 넘겨보는 앱 내 뷰어로 확장한다.
-  - 사진부터 시작하고, 동영상은 우선 기존 외부 플레이어 연결을 유지한다.
-- [ ] 날짜별 메모는 날짜 목록/사진 뷰어에서도 같은 stable Memory ID로 유지한다.
+- [ ] **MVP 범위 확정: 장소 + 날짜 section 전용 PhotoPlace 뷰어**
+  - Memory 상세의 썸네일을 누르면 현재 장소와 날짜의 전체 photo refs를 뷰어 입력으로 전달한다.
+  - 화면에 먼저 렌더된 48장만 viewer source로 사용하지 않는다. 날짜 전체 목록을 별도로 가져오거나 lazy load한다.
+  - 전체 화면에서 좌우 스와이프, 현재 번호/전체 수, Back 복귀만 제공한다.
+  - Back 시 원래 Memory 상세의 장소/날짜 맥락으로 돌아온다.
+  - `Gallery에서 열기`는 보조 액션으로 유지한다.
+- [ ] 날짜별 메모는 장소 + 날짜 stable Memory ID 기준으로 뷰어와 계속 공유한다.
+- [ ] 1차 MVP에서 제외: 동영상 내부 재생, 줌, 공유/삭제, 장소 전체 swipe, 날짜 jump navigation.
 
 ### P1 - 날짜별 Memory Note (다음 구현 우선순위)
 
