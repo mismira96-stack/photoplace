@@ -930,16 +930,6 @@ public class MainActivity extends Activity {
         }
         LinearLayout section = new LinearLayout(this);
         section.setOrientation(1);
-        final List<MemoryRecord> orderedDiscoveryRecords = new ArrayList<>();
-        if (discoveryRecords != null) {
-            orderedDiscoveryRecords.addAll(discoveryRecords);
-            Collections.sort(orderedDiscoveryRecords, new Comparator<MemoryRecord>() {
-                @Override
-                public int compare(MemoryRecord left, MemoryRecord right) {
-                    return Integer.compare(recentDiscoveryCount(right), recentDiscoveryCount(left));
-                }
-            });
-        }
         section.addView(sectionTitle("발견 기록"), matchWidthWithBottom(dp(8)));
         HorizontalScrollView placesScroll = new HorizontalScrollView(this);
         placesScroll.setHorizontalScrollBarEnabled(false);
@@ -1006,6 +996,16 @@ public class MainActivity extends Activity {
         int albumCount = albums == null ? 0 : albums.size();
         if (discoveryCount == 0 && albumCount == 0) {
             return;
+        }
+        final List<MemoryRecord> orderedDiscoveryRecords = new ArrayList<>();
+        if (discoveryRecords != null) {
+            orderedDiscoveryRecords.addAll(discoveryRecords);
+            Collections.sort(orderedDiscoveryRecords, new Comparator<MemoryRecord>() {
+                @Override
+                public int compare(MemoryRecord left, MemoryRecord right) {
+                    return Integer.compare(recentDiscoveryCount(right), recentDiscoveryCount(left));
+                }
+            });
         }
         LinearLayout section = new LinearLayout(this);
         section.setOrientation(1);
