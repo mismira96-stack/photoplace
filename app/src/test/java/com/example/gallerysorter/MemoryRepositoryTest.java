@@ -57,6 +57,34 @@ public class MemoryRepositoryTest {
     }
 
     @Test
+    public void discoveryCoverPrefersPhotoWhenStoredCoverIsVideo() {
+        List<DiscoveryPhotoRef> refs = Arrays.asList(
+                photoRef("content://media/external/video/media/4170", MediaKind.VIDEO),
+                photoRef("content://media/external/images/media/6814", MediaKind.PHOTO));
+        DiscoveryMemoryGroup group = new DiscoveryMemoryGroup(
+                "discovery:송파구",
+                "송파구",
+                "송파구",
+                "KR",
+                "대한민국",
+                "서울특별시",
+                "서울특별시 송파구",
+                2,
+                1,
+                1,
+                1753593616000L,
+                1775102288000L,
+                "content://media/external/video/media/4170",
+                refs,
+                0,
+                3L);
+
+        MemoryRecord record = MemoryRepository.fromDiscoveryGroup(group);
+
+        assertEquals("content://media/external/images/media/6814", record.coverUri);
+    }
+
+    @Test
     public void organizedAlbumBecomesOrganizedAlbumMemoryRecord() {
         StoredAlbumSummary summary = organizedAlbum(
                 "삿포로에서",

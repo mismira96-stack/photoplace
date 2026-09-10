@@ -115,7 +115,7 @@ final class MemoryRepository {
                 group.videoCount,
                 group.startDateMillis,
                 group.endDateMillis,
-                group.coverUri,
+                discoveryCoverUri(group),
                 MemorySourceType.DISCOVERED_ONLY,
                 group,
                 null,
@@ -171,6 +171,23 @@ final class MemoryRepository {
                 hasGalleryAlbum,
                 false,
                 false);
+    }
+
+    private static String discoveryCoverUri(DiscoveryMemoryGroup group) {
+        if (group == null) {
+            return "";
+        }
+        String fallback = group.coverUri;
+        if (group.photoRefs == null) {
+            return fallback;
+        }
+        for (DiscoveryPhotoRef ref : group.photoRefs) {
+            if (ref != null && !ref.stale && ref.mediaKind != MediaKind.VIDEO
+                    && ref.sourceUri != null && !ref.sourceUri.trim().isEmpty()) {
+                return ref.sourceUri;
+            }
+        }
+        return fallback;
     }
 
     private static MemoryRecord merge(MemoryRecord existing, MemoryRecord incoming) {
