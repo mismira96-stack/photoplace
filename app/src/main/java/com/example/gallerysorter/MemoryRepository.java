@@ -181,13 +181,16 @@ final class MemoryRepository {
         if (group.photoRefs == null) {
             return fallback;
         }
+        DiscoveryPhotoRef newestPhoto = null;
         for (DiscoveryPhotoRef ref : group.photoRefs) {
             if (ref != null && !ref.stale && ref.mediaKind != MediaKind.VIDEO
                     && ref.sourceUri != null && !ref.sourceUri.trim().isEmpty()) {
-                return ref.sourceUri;
+                if (newestPhoto == null || ref.takenAtMillis > newestPhoto.takenAtMillis) {
+                    newestPhoto = ref;
+                }
             }
         }
-        return fallback;
+        return newestPhoto == null ? fallback : newestPhoto.sourceUri;
     }
 
     private static MemoryRecord merge(MemoryRecord existing, MemoryRecord incoming) {

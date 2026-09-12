@@ -60,7 +60,8 @@ public class MemoryRepositoryTest {
     public void discoveryCoverPrefersPhotoWhenStoredCoverIsVideo() {
         List<DiscoveryPhotoRef> refs = Arrays.asList(
                 photoRef("content://media/external/video/media/4170", MediaKind.VIDEO),
-                photoRef("content://media/external/images/media/6814", MediaKind.PHOTO));
+                photoRef("content://media/external/images/media/6814", MediaKind.PHOTO, 1753593616000L),
+                photoRef("content://media/external/images/media/230343", MediaKind.PHOTO, 1789194132000L));
         DiscoveryMemoryGroup group = new DiscoveryMemoryGroup(
                 "discovery:송파구",
                 "송파구",
@@ -81,7 +82,7 @@ public class MemoryRepositoryTest {
 
         MemoryRecord record = MemoryRepository.fromDiscoveryGroup(group);
 
-        assertEquals("content://media/external/images/media/6814", record.coverUri);
+        assertEquals("content://media/external/images/media/230343", record.coverUri);
     }
 
     @Test
@@ -477,13 +478,17 @@ public class MemoryRepositoryTest {
     }
 
     private static DiscoveryPhotoRef photoRef(String uri, MediaKind kind) {
+        return photoRef(uri, kind, 1785600000000L);
+    }
+
+    private static DiscoveryPhotoRef photoRef(String uri, MediaKind kind, long takenAtMillis) {
         return new DiscoveryPhotoRef(
                 uri,
                 DiscoveryPhotoRef.UNKNOWN_ID,
                 kind,
                 kind == MediaKind.VIDEO ? "video/mp4" : "image/jpeg",
                 "item",
-                1785600000000L,
+                takenAtMillis,
                 "삿포로",
                 "삿포로",
                 "JP",
