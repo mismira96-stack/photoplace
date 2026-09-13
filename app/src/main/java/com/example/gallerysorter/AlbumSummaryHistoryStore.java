@@ -58,11 +58,24 @@ final class AlbumSummaryHistoryStore {
 
     void appendSession(int sortedItemCount, int skippedItemCount, int failedItemCount,
                        Map<String, AlbumSummary> summaries) throws Exception {
+        appendSession("", sortedItemCount, skippedItemCount, failedItemCount, summaries);
+    }
+
+    void appendSession(String requestId, int sortedItemCount, int skippedItemCount,
+                       int failedItemCount, Map<String, AlbumSummary> summaries) throws Exception {
         long now = System.currentTimeMillis();
         JSONObject root = readRoot();
         JSONArray previousSessions = root.optJSONArray("sessions");
+        if (containsRequestId(previousSessions, requestId)) {
+            return;
+        }
         JSONArray sessions = new JSONArray();
-        sessions.put(buildSessionJson(now, sortedItemCount, skippedItemCount, failedItemCount, summaries));
+        JSONObject session = buildSessionJson(now, sortedItemCount, skippedItemCount,
+                failedItemCount, summaries);
+        if (requestId != null && !requestId.trim().isEmpty()) {
+            session.put("requestId", requestId.trim());
+        }
+        sessions.put(session);
         if (previousSessions != null) {
             int keepCount = Math.min(previousSessions.length(), MAX_SESSIONS - 1);
             for (int i = 0; i < keepCount; i++) {
@@ -74,6 +87,20 @@ final class AlbumSummaryHistoryStore {
         root.put("updatedAtMillis", now);
         root.put("sessions", sessions);
         writeRoot(root);
+    }
+
+    static boolean containsRequestId(JSONArray sessions, String requestId) {
+        String id = requestId == null ? "" : requestId.trim();
+        if (id.isEmpty() || sessions == null) {
+            return false;
+        }
+        for (int index = 0; index < sessions.length(); index++) {
+            JSONObject session = sessions.optJSONObject(index);
+            if (session != null && id.equals(session.optString("requestId", ""))) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private void writeRoot(JSONObject root) throws Exception {

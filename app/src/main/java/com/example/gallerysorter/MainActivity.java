@@ -213,6 +213,7 @@ public class MainActivity extends Activity {
     private NoLocationCache noLocationCache = null;
     private MediaAnalysisStore mediaAnalysisStore = null;
     private MemoryIdentityRegistryStore memoryIdentityRegistryStore = null;
+    private MemoryOrganizationLinkStore memoryOrganizationLinkStore = null;
     private MemoryDateNoteStore memoryDateNoteStore = null;
     private AlbumSummaryHistoryStore albumSummaryHistoryStore = null;
     private MemoryPersonalizationStore memoryPersonalizationStore = null;
@@ -2033,7 +2034,7 @@ public class MainActivity extends Activity {
                 @Override
                 public void run() {
                     try {
-                        MainActivity.this.m40lambda$runCopy$22$comexamplegallerysorterMainActivity(result.sortedUris, list, result.copiedCount, result.skippedCount, result.failedCount, result.canceled);
+                        MainActivity.this.m40lambda$runCopy$22$comexamplegallerysorterMainActivity(result.sortedUris, list, result.copiedCount, result.skippedCount, result.failedCount, result.canceled, null);
                     } catch (Throwable e) {
                         MainActivity.this.handleCopyCompletionError(e, result.copiedCount, result.skippedCount, result.failedCount, result.canceled);
                     }
@@ -2096,7 +2097,7 @@ public class MainActivity extends Activity {
             @Override // java.lang.Runnable
             public final void run() {
                 try {
-                    MainActivity.this.m40lambda$runCopy$22$comexamplegallerysorterMainActivity(arrayList, MainActivity.this.previewItems, i6, i7, i8, z2);
+                    MainActivity.this.m40lambda$runCopy$22$comexamplegallerysorterMainActivity(arrayList, MainActivity.this.previewItems, i6, i7, i8, z2, null);
                 } catch (Throwable e) {
                     MainActivity.this.handleCopyCompletionError(e, i6, i7, i8, z2);
                 }
@@ -2112,11 +2113,12 @@ public class MainActivity extends Activity {
     }
 
     /* renamed from: lambda$runCopy$22$com-example-gallerysorter-MainActivity, reason: not valid java name */
-    /* synthetic */ void m40lambda$runCopy$22$comexamplegallerysorterMainActivity(List list, List photoItems, int i, int i2, int i3, boolean z) throws JSONException {
+    /* synthetic */ void m40lambda$runCopy$22$comexamplegallerysorterMainActivity(List list, List photoItems, int i, int i2, int i3, boolean z, OrganizationRequest organizationRequest) throws JSONException {
         rememberRecentlySortedItems(list);
         markItemsAsSorted(list);
         List historyItems = (photoItems == null || photoItems.isEmpty()) ? this.previewItems : photoItems;
-        saveAlbumSummaryHistory(historyItems, list, i, i2, i3);
+        saveAlbumSummaryHistory(historyItems, list, i, i2, i3,
+                organizationRequest == null ? "" : organizationRequest.requestId);
         int iCountRecentlySortedItems = countRecentlySortedItems(historyItems);
         int iCountNoLocationItems = countNoLocationItems(historyItems);
         countAlreadySortedItems(historyItems);
@@ -2162,17 +2164,47 @@ public class MainActivity extends Activity {
         if (snapshot.isEmpty()) {
             return false;
         }
+        if (!persistOrganizationResult(snapshot)) {
+            this.mainHandler.postDelayed(this.backgroundSortResultCheckRunnable, 2000L);
+            return true;
+        }
         resultStore.clear();
         this.backgroundSortMode = false;
         this.mainHandler.removeCallbacks(this.backgroundSortResultCheckRunnable);
         this.copiedOriginalUris.clear();
         this.copiedOriginalUris.addAll(snapshot.copiedOriginalUris);
         try {
-            m40lambda$runCopy$22$comexamplegallerysorterMainActivity(snapshot.sortedUris, snapshot.sortedItems, snapshot.copiedCount, snapshot.skippedCount, snapshot.failedCount, snapshot.canceled);
+            m40lambda$runCopy$22$comexamplegallerysorterMainActivity(snapshot.sortedUris, snapshot.sortedItems, snapshot.copiedCount, snapshot.skippedCount, snapshot.failedCount, snapshot.canceled, snapshot.organizationRequest);
         } catch (Throwable e) {
             handleCopyCompletionError(e, snapshot.copiedCount, snapshot.skippedCount, snapshot.failedCount, snapshot.canceled);
         }
         return true;
+    }
+
+    private boolean persistOrganizationResult(SortResultStore.Snapshot snapshot) {
+        OrganizationRequest request = snapshot == null ? null : snapshot.organizationRequest;
+        if (request == null || snapshot.copiedCount <= 0) {
+            return true;
+        }
+        OrganizationLink link = OrganizationLinkFromSortResult.create(
+                request, snapshot, System.currentTimeMillis());
+        if (link == null) {
+            return false;
+        }
+        if (!saveAlbumSummaryHistory(snapshot.sortedItems, snapshot.sortedUris,
+                snapshot.copiedCount, snapshot.skippedCount, snapshot.failedCount,
+                request.requestId)) {
+            return false;
+        }
+        String pathAlias = "path:" + link.relativePath;
+        boolean aliasRegistered = memoryIdentityRegistryStore().registerAlias(
+                request.subjectId, pathAlias);
+        if (!aliasRegistered && memoryIdentityRegistryStore().findStableId(pathAlias).isEmpty()) {
+            return false;
+        }
+        MemoryOrganizationLinkStore.CommitResult result = memoryOrganizationLinkStore().commit(link);
+        return result == MemoryOrganizationLinkStore.CommitResult.ADDED
+                || result == MemoryOrganizationLinkStore.CommitResult.ALREADY_COMMITTED;
     }
 
     private void handleCopyCompletionError(Throwable th, int i, int i2, int i3, boolean z) {
@@ -3027,6 +3059,13 @@ public class MainActivity extends Activity {
             this.memoryIdentityRegistryStore = new MemoryIdentityRegistryStore(this);
         }
         return this.memoryIdentityRegistryStore;
+    }
+
+    private MemoryOrganizationLinkStore memoryOrganizationLinkStore() {
+        if (this.memoryOrganizationLinkStore == null) {
+            this.memoryOrganizationLinkStore = new MemoryOrganizationLinkStore(this);
+        }
+        return this.memoryOrganizationLinkStore;
     }
 
     private MemoryDateNoteStore memoryDateNoteStore() {
@@ -4098,9 +4137,10 @@ public class MainActivity extends Activity {
         invalidateRecentAlbumSummaryCache();
     }
 
-    private void saveAlbumSummaryHistory(List<PhotoItem> list, List<Uri> list2, int i, int i2, int i3) throws JSONException {
+    private boolean saveAlbumSummaryHistory(List<PhotoItem> list, List<Uri> list2,
+                                           int i, int i2, int i3, String requestId) {
         if (list == null || list.isEmpty() || list2 == null || list2.isEmpty()) {
-            return;
+            return true;
         }
         HashSet hashSet = new HashSet();
         for (Uri uri : list2) {
@@ -4109,7 +4149,7 @@ public class MainActivity extends Activity {
             }
         }
         if (hashSet.isEmpty()) {
-            return;
+            return true;
         }
         Map<String, AlbumSummary> linkedHashMap = new LinkedHashMap<>();
         for (PhotoItem photoItem : list) {
@@ -4126,13 +4166,15 @@ public class MainActivity extends Activity {
             }
         }
         if (linkedHashMap.isEmpty()) {
-            return;
+            return true;
         }
         try {
-            this.albumSummaryHistoryStore.appendSession(i, i2, i3, linkedHashMap);
+            this.albumSummaryHistoryStore.appendSession(requestId, i, i2, i3, linkedHashMap);
             invalidateRecentAlbumSummaryCache();
+            return true;
         } catch (Exception e) {
             this.logText.setText("정리 기록 저장 실패: " + e.getMessage());
+            return false;
         }
     }
 
