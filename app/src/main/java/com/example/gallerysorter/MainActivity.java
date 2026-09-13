@@ -204,6 +204,7 @@ public class MainActivity extends Activity {
     private String memoryOrganizationAlbumName = "";
     private String memoryOrganizationCoverUri = "";
     private String memoryOrganizationDateRange = "";
+    private String memoryOrganizationMediaCountText = "";
     private int memoryOrganizationCopiedCount = 0;
     private int memoryOrganizationFailedCount = 0;
     private int lastSortFailedCount = 0;
@@ -1765,8 +1766,9 @@ public class MainActivity extends Activity {
         linearLayout2.addView(textView2);
     }
 
-    private boolean needsVideoWritePermission() {
-        return Build.VERSION.SDK_INT >= 30 && shouldMoveVideos() && !this.videoWritePermissionGranted && !collectMovableVideoUris().isEmpty();
+    private boolean needsVideoWritePermission(boolean moveVideos) {
+        return Build.VERSION.SDK_INT >= 30 && moveVideos && !this.videoWritePermissionGranted
+                && !collectMovableVideoUris().isEmpty();
     }
 
     private List<Uri> collectMovableVideoUris() {
@@ -2001,7 +2003,9 @@ public class MainActivity extends Activity {
             showToast("먼저 정리 시작을 눌러 항목을 확인해 주세요.");
             return;
         }
-        if (needsVideoWritePermission()) {
+        final boolean moveVideos = OrganizationMediaPolicy.shouldMoveVideos(
+                organizationRequest, shouldMoveVideos());
+        if (needsVideoWritePermission(moveVideos)) {
             this.pendingOrganizationRequestForPermission = organizationRequest;
             requestVideoWritePermission();
             return;
@@ -2015,7 +2019,7 @@ public class MainActivity extends Activity {
         this.pendingTrashOriginalUris.clear();
         savePendingOriginalCleanup();
         this.recentlySortedUriKeys.clear();
-        final boolean zShouldMoveVideos = shouldMoveVideos();
+        final boolean zShouldMoveVideos = moveVideos;
         setStatus("정리 중", String.valueOf(countCopyableItems(this.previewItems)), String.valueOf(countNoLocationItems(this.previewItems)), String.valueOf(countAlreadySortedItems(this.previewItems)));
         setWorking(true, "앨범으로 정리하는 중...", true);
         final ArrayList arrayList = new ArrayList(this.previewItems);
@@ -2224,6 +2228,8 @@ public class MainActivity extends Activity {
             this.memoryOrganizationCoverUri = firstMemoryOrganizationCoverUri(
                     historyItems, organizationRequest.relativePath);
             this.memoryOrganizationCopiedCount = Math.max(0, i);
+            this.memoryOrganizationMediaCountText = memoryOrganizationMediaCountText(
+                    historyItems, organizationRequest.relativePath);
             this.memoryOrganizationFailedCount = Math.max(0, i3);
             this.memoryOrganizationDateRange = memoryOrganizationDateRange(
                     historyItems, organizationRequest.relativePath);
@@ -2301,20 +2307,14 @@ public class MainActivity extends Activity {
         if (link == null) {
             return OrganizationPersistenceResult.PERMANENT_FAILURE;
         }
-        String pathAlias = "path:" + link.relativePath;
-        boolean aliasRegistered = memoryIdentityRegistryStore().registerAlias(
-                request.subjectId, pathAlias);
-        // Never steal an alias owned by another Memory. The exact request link remains authoritative.
-        if (!aliasRegistered && memoryIdentityRegistryStore().findStableId(pathAlias).isEmpty()) {
-            return OrganizationPersistenceResult.RETRYABLE_FAILURE;
-        }
-        MemoryOrganizationLinkStore.CommitResult result = memoryOrganizationLinkStore().commit(link);
-        if (result == MemoryOrganizationLinkStore.CommitResult.ADDED
-                || result == MemoryOrganizationLinkStore.CommitResult.ALREADY_COMMITTED) {
+        MemoryOrganizationLinkPersistence.Result result = MemoryOrganizationLinkPersistence.persist(
+                memoryIdentityRegistryStore(), memoryOrganizationLinkStore(), link);
+        if (result == MemoryOrganizationLinkPersistence.Result.PERSISTED
+                || result == MemoryOrganizationLinkPersistence.Result.ALREADY_PERSISTED) {
             return OrganizationPersistenceResult.PERSISTED;
         }
-        if (result == MemoryOrganizationLinkStore.CommitResult.CONFLICT
-                || result == MemoryOrganizationLinkStore.CommitResult.INVALID) {
+        if (result == MemoryOrganizationLinkPersistence.Result.CONFLICT
+                || result == MemoryOrganizationLinkPersistence.Result.INVALID) {
             return OrganizationPersistenceResult.PERMANENT_FAILURE;
         }
         return OrganizationPersistenceResult.RETRYABLE_FAILURE;
@@ -8837,7 +8837,7 @@ public class MainActivity extends Activity {
                                          SingleAlbumCompletionResolver.Summary completion) {
         MemoryOrganizationCompletionRenderer renderer = createMemoryOrganizationCompletionRenderer();
         parent.addView(renderer.render(completion.albumName, completion.itemCount,
-                this.lastSortFailedCount, false, true, completion.coverUri,
+                this.lastSortFailedCount, false, false, false, completion.mediaCountText(), completion.coverUri,
                 completion.dateRange, "홈으로 돌아가기",
                 new MemoryOrganizationCompletionRenderer.Listener() {
                     @Override
@@ -9152,12 +9152,17 @@ public class MainActivity extends Activity {
             showMemoryBrowserDetailScreen(liveRecord == null ? this.activeMemoryKey : liveRecord.memoryKey);
             return;
         }
-        if (preparation.actionableCount(shouldMoveVideos()) <= 0) {
-            if (preparation.duplicateCount > 0) {
-                showToast("새로 정리할 항목이 없어요. 이미 있는 위치 앨범을 확인해 주세요.");
+        if (preparation.actionableCount(false) <= 0) {
+            int excludedVideoCount = preparation.excludedVideoCount(false);
+            if (preparation.duplicateCount > 0 && excludedVideoCount > 0) {
+                showToast("새 사진은 기존 앨범에서 확인됐어요. 동영상은 Memory 연결 준비 후 정리할 수 있어요.");
+                showMemoryBrowserDetailScreen(liveRecord == null
+                        ? this.activeMemoryKey : liveRecord.memoryKey);
+            } else if (preparation.duplicateCount > 0) {
+                showToast("새 파일은 만들지 않았어요. 기존 앨범은 위치 앨범에서 확인해 주세요.");
                 navigateToTopLevelTab(2);
-            } else if (preparation.excludedVideoCount(shouldMoveVideos()) > 0) {
-                showToast("동영상 정리가 꺼져 있어 앨범을 만들 항목이 없어요.");
+            } else if (excludedVideoCount > 0) {
+                showToast("Memory 사진은 정리하지 않았어요. 동영상은 Memory 화면 연결을 준비한 뒤 정리할 수 있어요.");
                 showMemoryBrowserDetailScreen(liveRecord == null
                         ? this.activeMemoryKey : liveRecord.memoryKey);
             } else {
@@ -9169,7 +9174,7 @@ public class MainActivity extends Activity {
         }
         new DiscoveryOrganizeConfirmDialog(this).showSinglePlace(
                 preparation,
-                shouldMoveVideos(),
+                false,
                 new DiscoveryOrganizeConfirmDialog.Listener() {
                     @Override
                     public void onConfirmed() {
@@ -9237,7 +9242,17 @@ public class MainActivity extends Activity {
             return;
         }
         if (countCopyableItems(this.previewItems) <= 0) {
-            showToast("모두 기존 위치 앨범에 정리되어 있어요.");
+            int duplicateCount = countAlreadySortedItems(this.previewItems);
+            int excludedVideoCount = preparation.excludedVideoCount(shouldMoveVideos());
+            if (duplicateCount > 0 && excludedVideoCount == 0) {
+                showToast("모두 기존 위치 앨범에 정리되어 있어요.");
+            } else if (duplicateCount == 0 && excludedVideoCount > 0) {
+                showToast("동영상 정리가 꺼져 있어 새 앨범을 만들 항목이 없어요.");
+            } else if (duplicateCount > 0) {
+                showToast("새 사진은 이미 정리되어 있고, 동영상은 설정에 따라 제외됐어요.");
+            } else {
+                showToast("새로 정리할 항목이 없어요.");
+            }
             navigateToTopLevelTab(2);
             return;
         }
@@ -9488,7 +9503,9 @@ public class MainActivity extends Activity {
                 this.memoryOrganizationCopiedCount,
                 this.memoryOrganizationFailedCount,
                 this.memoryOrganizationCanceled,
+                true,
                 this.memoryOrganizationLinkSaved,
+                this.memoryOrganizationMediaCountText,
                 this.memoryOrganizationCoverUri,
                 this.memoryOrganizationDateRange,
                 "기억으로 돌아가기",
@@ -9549,6 +9566,28 @@ public class MainActivity extends Activity {
         return "날짜 정보 없음".equals(formatted)
                 ? ""
                 : formatted.replace('-', '.');
+    }
+
+    private String memoryOrganizationMediaCountText(List items, String targetPath) {
+        int photos = 0;
+        int videos = 0;
+        if (items != null) {
+            for (Object value : items) {
+                if (!(value instanceof PhotoItem)) {
+                    continue;
+                }
+                PhotoItem item = (PhotoItem) value;
+                if (!item.noLocation && wasRecentlySorted(item)
+                        && sameRelativePath(item.targetRelativePath, targetPath)) {
+                    if (item.video) {
+                        videos++;
+                    } else {
+                        photos++;
+                    }
+                }
+            }
+        }
+        return SingleAlbumCompletionResolver.formatMediaCount(photos, videos);
     }
 
     private void returnToMemoryAfterOrganization() {

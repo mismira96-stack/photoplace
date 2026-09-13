@@ -22,8 +22,17 @@ public class SingleAlbumCompletionResolverTest {
 
         assertEquals("예술의전당에서", summary.albumName);
         assertEquals(2, summary.itemCount);
+        assertEquals(1, summary.photoCount);
+        assertEquals(1, summary.videoCount);
+        assertEquals("사진 1장 · 동영상 1개", summary.mediaCountText());
         assertEquals("2023.12.24 ~ 2024.05.12", summary.dateRange);
         assertEquals("content://photo/1", summary.coverUri);
+    }
+
+    @Test
+    public void formatsPhotoOnlyAndVideoOnlyCounts() {
+        assertEquals("사진 32장", SingleAlbumCompletionResolver.formatMediaCount(32, 0));
+        assertEquals("동영상 4개", SingleAlbumCompletionResolver.formatMediaCount(0, 4));
     }
 
     @Test

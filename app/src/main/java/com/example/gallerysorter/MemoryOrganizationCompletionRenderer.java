@@ -42,7 +42,8 @@ final class MemoryOrganizationCompletionRenderer {
     }
 
     LinearLayout render(String albumName, int copiedCount, int failedCount,
-                        boolean canceled, boolean linkSaved, String coverUri,
+                        boolean canceled, boolean memoryLinkExpected, boolean linkSaved,
+                        String mediaCountText, String coverUri,
                         String dateRange, String returnLabel,
                         Listener listener) {
         LinearLayout content = new LinearLayout(context);
@@ -55,7 +56,8 @@ final class MemoryOrganizationCompletionRenderer {
         hero.setBackground(tintedCardBackground(0xFFF9F9FC, 0xFFE7E9EF));
         content.addView(hero, matchWidth());
 
-        boolean complete = copiedCount > 0 && failedCount == 0 && !canceled && linkSaved;
+        boolean complete = OrganizationCompletionPolicy.isComplete(copiedCount, failedCount,
+                canceled, memoryLinkExpected, linkSaved);
         TextView mark = new TextView(context);
         mark.setText(complete ? "✓" : "!");
         mark.setTextSize(28);
@@ -69,7 +71,8 @@ final class MemoryOrganizationCompletionRenderer {
         hero.addView(mark, new LinearLayout.LayoutParams(dp(58), dp(58)));
 
         TextView title = new TextView(context);
-        title.setText(titleText(albumName, copiedCount, failedCount, canceled, linkSaved));
+        title.setText(titleText(albumName, copiedCount, failedCount, canceled,
+                memoryLinkExpected, linkSaved));
         title.setTextSize(19);
         title.setTypeface(Typeface.DEFAULT_BOLD);
         title.setTextColor(0xFF1B2438);
@@ -78,7 +81,8 @@ final class MemoryOrganizationCompletionRenderer {
         hero.addView(title, matchWidth());
 
         TextView count = new TextView(context);
-        String summary = "사진·동영상 " + Math.max(0, copiedCount) + "개";
+        String summary = mediaCountText == null || mediaCountText.trim().isEmpty()
+                ? "미디어 " + Math.max(0, copiedCount) + "개" : mediaCountText;
         if (dateRange != null && !dateRange.trim().isEmpty()) {
             summary += " · " + dateRange;
         }
@@ -100,7 +104,8 @@ final class MemoryOrganizationCompletionRenderer {
         hero.addView(albums, new LinearLayout.LayoutParams(-1, dp(48)));
 
         TextView keepOriginals = new TextView(context);
-        keepOriginals.setText(statusText(copiedCount, failedCount, canceled, linkSaved));
+        keepOriginals.setText(statusText(copiedCount, failedCount, canceled,
+                memoryLinkExpected, linkSaved));
         keepOriginals.setTextSize(13);
         keepOriginals.setTextColor(0xFF737F95);
         keepOriginals.setPadding(dp(4), dp(10), dp(4), 0);
@@ -149,7 +154,7 @@ final class MemoryOrganizationCompletionRenderer {
             albumText.addView(albumNameView, matchWidth());
 
             TextView albumCount = new TextView(context);
-            albumCount.setText("사진·동영상 " + Math.max(0, copiedCount) + "개 · 방금 생성됨");
+            albumCount.setText(summary + " · 방금 생성됨");
             albumCount.setTextSize(13);
             albumCount.setTextColor(0xFF737F95);
             albumCount.setPadding(0, dp(4), 0, 0);
@@ -177,7 +182,7 @@ final class MemoryOrganizationCompletionRenderer {
     }
 
     private String titleText(String albumName, int copiedCount, int failedCount,
-                              boolean canceled, boolean linkSaved) {
+                              boolean canceled, boolean memoryLinkExpected, boolean linkSaved) {
         String name = displayAlbumName(albumName);
         if (copiedCount <= 0) {
             return "새로 정리된 항목이 없어요";
@@ -188,7 +193,7 @@ final class MemoryOrganizationCompletionRenderer {
         if (failedCount > 0) {
             return name + " 앨범 일부를 정리했어요";
         }
-        if (!linkSaved) {
+        if (memoryLinkExpected && !linkSaved) {
             return name + " 앨범은 만들었지만 기억 연결이 저장되지 않았어요";
         }
         String placeName = name.endsWith("에서")
@@ -196,18 +201,20 @@ final class MemoryOrganizationCompletionRenderer {
         return placeName + " 위치 앨범을 만들었어요";
     }
 
-    private String statusText(int copiedCount, int failedCount, boolean canceled, boolean linkSaved) {
+    private String statusText(int copiedCount, int failedCount, boolean canceled,
+                              boolean memoryLinkExpected, boolean linkSaved) {
         if (canceled) {
-            return linkSaved
+            return !memoryLinkExpected || linkSaved
                     ? "정리된 항목은 유지됩니다. 다시 실행하면 남은 항목을 정리할 수 있어요."
                     : "일부 앨범은 만들어졌지만 Memory 연결을 저장하지 못했어요. 원본 사진은 그대로 보관돼요.";
         }
         if (failedCount > 0) {
-            return linkSaved
+            return !memoryLinkExpected || linkSaved
                     ? "일부 항목을 정리하지 못했어요. 원본 사진은 그대로 보관돼요."
                     : "일부 항목을 정리하지 못했고 Memory 연결도 저장되지 않았어요. 원본 사진은 그대로 보관돼요.";
         }
-        if (!linkSaved && copiedCount > 0) {
+        if (OrganizationCompletionPolicy.shouldWarnAboutMemoryLink(
+                copiedCount, memoryLinkExpected, linkSaved)) {
             return "앨범은 만들어졌지만 Memory 연결을 저장하지 못했어요. 원본 사진은 그대로 보관돼요.";
         }
         return copiedCount > 0

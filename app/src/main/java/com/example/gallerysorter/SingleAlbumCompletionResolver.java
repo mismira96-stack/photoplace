@@ -26,14 +26,23 @@ final class SingleAlbumCompletionResolver {
     static final class Summary {
         final String albumName;
         final int itemCount;
+        final int photoCount;
+        final int videoCount;
         final String dateRange;
         final String coverUri;
 
-        Summary(String albumName, int itemCount, String dateRange, String coverUri) {
+        Summary(String albumName, int itemCount, int photoCount, int videoCount,
+                String dateRange, String coverUri) {
             this.albumName = albumName;
             this.itemCount = itemCount;
+            this.photoCount = photoCount;
+            this.videoCount = videoCount;
             this.dateRange = dateRange;
             this.coverUri = coverUri;
+        }
+
+        String mediaCountText() {
+            return formatMediaCount(photoCount, videoCount);
         }
     }
 
@@ -45,6 +54,8 @@ final class SingleAlbumCompletionResolver {
         Date start = null;
         Date end = null;
         int count = 0;
+        int photoCount = 0;
+        int videoCount = 0;
 
         if (items == null) {
             return null;
@@ -60,6 +71,11 @@ final class SingleAlbumCompletionResolver {
                 return null;
             }
             count++;
+            if (item.video) {
+                videoCount++;
+            } else {
+                photoCount++;
+            }
             if (!item.uri.isEmpty()) {
                 if (item.video && fallbackCoverUri.isEmpty()) {
                     fallbackCoverUri = item.uri;
@@ -80,8 +96,23 @@ final class SingleAlbumCompletionResolver {
             return null;
         }
         String dateRange = formatDateRange(start, end);
-        return new Summary(albumName, count, dateRange,
+        return new Summary(albumName, count, photoCount, videoCount, dateRange,
                 coverUri.isEmpty() ? fallbackCoverUri : coverUri);
+    }
+
+    static String formatMediaCount(int photoCount, int videoCount) {
+        int photos = Math.max(0, photoCount);
+        int videos = Math.max(0, videoCount);
+        if (photos > 0 && videos == 0) {
+            return "사진 " + photos + "장";
+        }
+        if (videos > 0 && photos == 0) {
+            return "동영상 " + videos + "개";
+        }
+        if (photos > 0) {
+            return "사진 " + photos + "장 · 동영상 " + videos + "개";
+        }
+        return "미디어 0개";
     }
 
     private String formatDateRange(Date start, Date end) {

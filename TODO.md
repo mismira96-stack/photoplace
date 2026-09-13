@@ -16,11 +16,12 @@
 - [ ] 기존 `AlbumSummaryHistoryStore` 기록의 OrganizationLink backfill 정책을 결정한다. 이름만으로 Memory를 자동 연결하지 않는다.
 - [x] 선택적 `OrganizationRequest`의 requestId/subject identity를 sort input -> Worker -> sort result JSON으로 전달한다. 기존 요청은 metadata 없이 동작한다.
 - [x] 완료 결과를 idempotent하게 소비하고, 확인된 성공만 OrganizationLink, `path:<relativePath>` alias, 앨범 정리 이력에 반영한다. 결과 JSON은 persistence 성공 뒤에만 소비하며, 영구 검증 실패는 결과 화면으로 탈출하고 저장 재시도는 최대 3회로 제한한다.
-  - Worker 완료 시각을 link에 보존하고, 이미 저장한 앨범 이력의 중복 호출을 피한다. alias 충돌은 기존 stable ID를 덮어쓰지 않고 exact link를 우선한다.
+  - Worker 완료 시각을 link에 보존하고, 이미 저장한 앨범 이력의 중복 호출을 피한다. 같은 Memory/path 링크 재요청은 멱등 처리하고, alias 또는 active exact path가 다른 Memory 소유면 두 번째 usable link를 거부한다. 등록된 exact link가 있지만 output이 사라진 경우에는 다른 동명 경로로 대체하지 않는다.
 - [x] `MemoryRepository`가 stable ID alias와 최신 usable OrganizationLink의 exact 경로를 우선해 발견 Memory와 Gallery output을 연결한다. exact link가 가리키는 앨범이 현재 없으면 다른 동명 앨범으로 heuristic merge하지 않는다. exact link가 없는 레거시 데이터에만 기존 matching fallback을 유지한다.
 - [ ] 기존 전체 장소 일괄 앨범 생성도 결과별 Memory lifecycle을 연결할지 결정하고 구현한다.
   - 현재 bulk 경로는 `discoveryMemories()`를 대상으로 하고, 단일 Memory `OrganizationRequest`/stable ID link를 전달하지 않는다.
-  - 기존 `Pictures/...` 경로와 파일명을 기준으로 중복 항목을 건너뛴다. 현재 `복사 가능 0개`면 원인이 전부 중복인지와 무관하게 기존 앨범 안내 후 위치 앨범 탭으로 이동할 수 있어 문구/분기를 확인한다.
+  - 기존 `Pictures/...` 경로와 파일명을 기준으로 중복 항목을 건너뛴다. 파일명(대소문자 무시, `(n)` 접미사 정규화)만으로 동일 미디어를 추정하므로 오탐 가능성이 있다. 향후 파일 크기/촬영시각/미디어 종류 등 보강 여부를 검토한다.
+  - `복사 가능 0개` 안내는 전체 중복, 설정상 동영상 제외, 혼합 상황을 구분한다. 그래도 duplicate-only는 과거 정리/재설치 이후에도 exact Memory link를 만들지 않는다. 안정적인 미디어 동일성 확인이 없어 자동 연결은 보류한다.
   - bulk를 유지하는 동안 여러 장소의 부분 성공/실패를 각각 해당 Memory의 OrganizationLink에 연결할 정책과 테스트가 필요하다. 단순히 전체 결과 한 건을 여러 Memory에 연결하지 않는다.
 - [ ] 공용 Memory media resolver를 구현해 usable exact OrganizationLink가 있으면 해당 Gallery output을 우선 source로 사용하고, 없으면 live Discovery refs를 사용한다. 두 source를 무조건 합쳐 중복 표시하지 않는다.
   - 현재 Memory 상세는 Discovery refs만 렌더링한다. 단일 장소 앨범 생성 후 결과 화면의 원본 휴지통 이동을 실행하면 발견 사진이 상세에서 사라질 수 있다.
@@ -34,11 +35,13 @@
 
 - [x] Memory 상세에 `이 장소만 위치 앨범으로 만들기` 액션을 연결한다.
 - [x] 실행 직전에 해당 Memory의 live media를 다시 조회하고 기존 `DiscoveryAlbumOrganizer -> SortInputStore -> SortWorker -> SortResultStore` 경로를 재사용한다.
-- [x] 확인 화면의 신규 처리 수를 동영상 설정에 맞춰 계산하고, 이미 있음/접근 불가/설정으로 제외되는 동영상 수와 사진 복사·동영상 이동 정책을 안내한다.
+- [x] 확인 화면의 신규 처리 수를 작업 정책에 맞춰 계산하고, 이미 있음/접근 불가/제외되는 동영상 수와 사진 복사·동영상 처리 정책을 안내한다. 단일 Memory에서는 resolver 전까지 동영상을 제외한다.
+- [x] 단일 Memory 정리에서는 shared Memory media resolver 전까지 동영상 이동을 보류한다. 기존 bulk의 동영상 정책은 이번 변경에서 바꾸지 않는다.
 - [x] 선택한 Memory의 stable ID를 Worker request/result까지 전달해 확인된 결과만 OrganizationLink로 연결한다. 권한 확인 흐름에서도 요청 identity를 유지한다.
 - [x] 한 장소 정리 후 전용 완료 화면에서 같은 Memory로 돌아오거나 위치 앨범을 열 수 있게 한다. 원본 휴지통 이동은 Memory media resolver 검증 전까지 노출하지 않는다.
 - [x] 단일 장소 완료 화면을 장소명/기간/정리 결과 중심으로 다듬고, 생성 앨범 행과 주요 CTA를 분리한다. 보라색은 주요 액션에 한정하고 성공/주의 색상은 의미에 맞게 사용한다.
   - 위치가 확인된 Memory의 완료 화면에는 항상 0인 `위치 정보 없음` 통계를 노출하지 않는다. 정리 수와 기간은 요약/앨범 행에만 표시한다.
+- [x] 공용 완료 renderer에서 Gallery 정리 성공과 Memory link 저장 성공을 분리한다. Home 단일 앨범 결과는 Memory link를 주장하지 않고, 단일 Memory 결과만 실제 link 저장 여부를 표시한다. 사진/동영상 수를 미디어 종류에 맞게 표기한다.
 - [ ] Resolver 구현 후 실기기에서 한 장소만 생성되는지, Gallery output source로 중복 없이 표시되는지, 원본 휴지통 이동 뒤에도 Memory 사진/날짜 메모가 유지되는지, 위치 앨범/해외 상세 진입과 실패·취소·재실행을 검증한다.
   - 단일 앨범 완료 UI는 Memory 상세와 기존 정리 결과 경로가 공통 renderer를 사용한다. 최신 APK를 데이터 보존 설치했고 앱 실행까지 확인했다. 결과 화면은 새 앨범을 추가 생성하지 않고 재검증할 방법을 확인 중이다.
 - 기존 전체 장소 일괄 앨범 생성은 명시적 secondary/bulk action으로 유지한다. 기존 기능은 제거하지 않는다.
