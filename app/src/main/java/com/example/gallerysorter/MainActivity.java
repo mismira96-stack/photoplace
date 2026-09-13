@@ -1986,9 +1986,14 @@ public class MainActivity extends Activity {
     }
 
     private boolean startBackgroundSortWorker(List<PhotoItem> items, boolean shouldMoveVideos) {
+        return startBackgroundSortWorker(items, shouldMoveVideos, null);
+    }
+
+    private boolean startBackgroundSortWorker(List<PhotoItem> items, boolean shouldMoveVideos,
+                                              OrganizationRequest organizationRequest) {
         try {
             new SortResultStore(this).clear();
-            new SortInputStore(this).write(items, shouldMoveVideos);
+            new SortInputStore(this).write(items, shouldMoveVideos, organizationRequest);
             OneTimeWorkRequest request = new OneTimeWorkRequest.Builder(SortWorker.class).build();
             WorkManager.getInstance(this).enqueueUniqueWork(SortWorker.WORK_NAME, ExistingWorkPolicy.REPLACE, request);
             this.backgroundSortMode = true;

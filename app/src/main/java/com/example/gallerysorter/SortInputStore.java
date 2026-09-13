@@ -21,6 +21,14 @@ final class SortInputStore {
     }
 
     void write(List<PhotoItem> items, boolean shouldMoveVideos) throws Exception {
+        write(items, shouldMoveVideos, null);
+    }
+
+    void write(List<PhotoItem> items, boolean shouldMoveVideos,
+               OrganizationRequest organizationRequest) throws Exception {
+        if (organizationRequest != null && !organizationRequest.isValid()) {
+            throw new IllegalArgumentException("Invalid organization request");
+        }
         JSONObject root = new JSONObject();
         root.put("schemaVersion", 1);
         root.put("createdAtMillis", System.currentTimeMillis());
@@ -34,6 +42,9 @@ final class SortInputStore {
             }
         }
         root.put("items", array);
+        if (organizationRequest != null) {
+            root.put("organizationRequest", organizationRequest.toJson());
+        }
         try (FileOutputStream output = context.openFileOutput(FILE_NAME, 0)) {
             output.write(root.toString(2).getBytes(StandardCharsets.UTF_8));
         }
@@ -61,7 +72,14 @@ final class SortInputStore {
                     }
                 }
             }
-            return new Snapshot(root.optBoolean("shouldMoveVideos", true), root.optLong("createdAtMillis", 0L), items);
+            OrganizationRequest organizationRequest = root.has("organizationRequest")
+                    ? OrganizationRequest.fromJson(root.optJSONObject("organizationRequest"))
+                    : null;
+            if (root.has("organizationRequest") && organizationRequest == null) {
+                return Snapshot.empty();
+            }
+            return new Snapshot(root.optBoolean("shouldMoveVideos", true),
+                    root.optLong("createdAtMillis", 0L), items, organizationRequest);
         } catch (Exception unused) {
             return Snapshot.empty();
         }
@@ -75,15 +93,18 @@ final class SortInputStore {
         final boolean shouldMoveVideos;
         final long createdAtMillis;
         final List<PhotoItem> items;
+        final OrganizationRequest organizationRequest;
 
-        Snapshot(boolean shouldMoveVideos, long createdAtMillis, List<PhotoItem> items) {
+        Snapshot(boolean shouldMoveVideos, long createdAtMillis, List<PhotoItem> items,
+                 OrganizationRequest organizationRequest) {
             this.shouldMoveVideos = shouldMoveVideos;
             this.createdAtMillis = createdAtMillis;
             this.items = items == null ? new ArrayList<PhotoItem>() : items;
+            this.organizationRequest = organizationRequest;
         }
 
         static Snapshot empty() {
-            return new Snapshot(true, 0L, new ArrayList<PhotoItem>());
+            return new Snapshot(true, 0L, new ArrayList<PhotoItem>(), null);
         }
     }
 }

@@ -51,7 +51,7 @@ public class SortWorker extends Worker {
         });
         SortJobResult result = sortJob.run(input.items, input.shouldMoveVideos);
         try {
-            new SortResultStore(context).write(result);
+            new SortResultStore(context).write(result, input.organizationRequest);
             inputStore.clear();
         } catch (Exception unused) {
             SortProgressStore.finish(context);

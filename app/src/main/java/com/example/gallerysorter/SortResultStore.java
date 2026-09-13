@@ -23,6 +23,13 @@ final class SortResultStore {
     }
 
     void write(SortJobResult result) throws Exception {
+        write(result, null);
+    }
+
+    void write(SortJobResult result, OrganizationRequest organizationRequest) throws Exception {
+        if (organizationRequest != null && !organizationRequest.isValid()) {
+            throw new IllegalArgumentException("Invalid organization request");
+        }
         JSONObject root = new JSONObject();
         root.put("schemaVersion", 1);
         root.put("completedAtMillis", System.currentTimeMillis());
@@ -34,6 +41,9 @@ final class SortResultStore {
         root.put("sortedItems", itemArray(result == null ? null : result.sortedItems));
         root.put("copiedOriginalUris", uriArray(result == null ? null : result.copiedOriginalUris));
         root.put("log", result == null || result.log == null ? "" : result.log.toString());
+        if (organizationRequest != null) {
+            root.put("organizationRequest", organizationRequest.toJson());
+        }
         try (FileOutputStream output = context.openFileOutput(FILE_NAME, 0)) {
             output.write(root.toString(2).getBytes(StandardCharsets.UTF_8));
         }
@@ -51,6 +61,12 @@ final class SortResultStore {
                 return Snapshot.empty();
             }
             JSONObject root = new JSONObject(builder.toString());
+            OrganizationRequest organizationRequest = root.has("organizationRequest")
+                    ? OrganizationRequest.fromJson(root.optJSONObject("organizationRequest"))
+                    : null;
+            if (root.has("organizationRequest") && organizationRequest == null) {
+                return Snapshot.empty();
+            }
             return new Snapshot(
                     root.optLong("completedAtMillis", 0L),
                     root.optInt("copiedCount", 0),
@@ -60,7 +76,8 @@ final class SortResultStore {
                     uriList(root.optJSONArray("sortedUris")),
                     itemList(root.optJSONArray("sortedItems")),
                     uriList(root.optJSONArray("copiedOriginalUris")),
-                    root.optString("log", ""));
+                    root.optString("log", ""),
+                    organizationRequest);
         } catch (Exception unused) {
             return Snapshot.empty();
         }
@@ -135,8 +152,11 @@ final class SortResultStore {
         final List<PhotoItem> sortedItems;
         final List<Uri> copiedOriginalUris;
         final String log;
+        final OrganizationRequest organizationRequest;
 
-        Snapshot(long completedAtMillis, int copiedCount, int skippedCount, int failedCount, boolean canceled, List<Uri> sortedUris, List<PhotoItem> sortedItems, List<Uri> copiedOriginalUris, String log) {
+        Snapshot(long completedAtMillis, int copiedCount, int skippedCount, int failedCount,
+                 boolean canceled, List<Uri> sortedUris, List<PhotoItem> sortedItems,
+                 List<Uri> copiedOriginalUris, String log, OrganizationRequest organizationRequest) {
             this.completedAtMillis = completedAtMillis;
             this.copiedCount = copiedCount;
             this.skippedCount = skippedCount;
@@ -146,6 +166,7 @@ final class SortResultStore {
             this.sortedItems = sortedItems == null ? new ArrayList<PhotoItem>() : sortedItems;
             this.copiedOriginalUris = copiedOriginalUris == null ? new ArrayList<Uri>() : copiedOriginalUris;
             this.log = log == null ? "" : log;
+            this.organizationRequest = organizationRequest;
         }
 
         boolean isEmpty() {
@@ -153,7 +174,8 @@ final class SortResultStore {
         }
 
         static Snapshot empty() {
-            return new Snapshot(0L, 0, 0, 0, false, new ArrayList<Uri>(), new ArrayList<PhotoItem>(), new ArrayList<Uri>(), "");
+            return new Snapshot(0L, 0, 0, 0, false, new ArrayList<Uri>(),
+                    new ArrayList<PhotoItem>(), new ArrayList<Uri>(), "", null);
         }
     }
 }

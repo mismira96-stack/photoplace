@@ -14,8 +14,8 @@
   - 원자 JSON 저장, requestId replay/conflict 처리, subject별 output history, `MISSING` 상태 및 backup 복구/fail-safe 테스트를 추가했다 (`MemoryOrganizationLinkStore`).
   - replay 시 생성 시각에 영향받지 않으며, 최신 usable link 조회와 Gallery 경로 정규화를 제공한다.
 - [ ] 기존 `AlbumSummaryHistoryStore` 기록의 OrganizationLink backfill 정책을 결정한다. 이름만으로 Memory를 자동 연결하지 않는다.
-- [ ] 정리 Worker의 request/result에 `requestId`와 subject identity를 연결해 재시작·중복 결과 처리에도 완료 처리가 idempotent하도록 한다.
-- [ ] Worker가 확인한 실제 성공 결과 이후에만 OrganizationLink, `path:<relativePath>` alias, 앨범 정리 이력을 반영한다.
+- [x] 선택적 `OrganizationRequest`의 requestId/subject identity를 sort input -> Worker -> sort result JSON으로 전달한다. 기존 요청은 metadata 없이 동작한다.
+- [ ] 완료 결과를 idempotent하게 소비하고, 확인된 성공만 OrganizationLink, `path:<relativePath>` alias, 앨범 정리 이력에 반영한다.
 - [ ] `MemoryRepository`가 exact OrganizationLink를 우선 사용해 발견 Memory와 Gallery output을 stable ID로 연결하게 한다. 기존 이름/경로 heuristic은 legacy fallback으로만 유지한다.
 - [ ] 공용 Memory media resolver가 live Discovery refs 또는 정확히 연결된 Gallery output에서 미디어를 읽도록 준비한다.
   - 외부 Gallery 삭제/변경은 Memory, 날짜별 메모, Collection을 삭제하지 않는다.
