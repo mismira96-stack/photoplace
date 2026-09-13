@@ -2,6 +2,7 @@ package com.example.gallerysorter;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 import org.junit.Rule;
@@ -54,6 +55,58 @@ public class MemoryOrganizationLinkStoreTest {
         assertEquals(MemoryOrganizationLinkStore.CommitResult.ALREADY_COMMITTED, store.commit(replay));
         assertEquals(MemoryOrganizationLinkStore.CommitResult.CONFLICT, store.commit(conflict));
         assertEquals(1, store.readAll().size());
+    }
+
+    @Test
+    public void replayIgnoresCreatedAtAndNormalizesRelativePath() throws Exception {
+        MemoryOrganizationLinkStore store = new MemoryOrganizationLinkStore(
+                temporaryFolder.newFolder("replay-metadata"));
+        OrganizationLink original = link("link-1", "request-1", "mem_place", "Pictures/Place/",
+                OrganizationLink.Status.SUCCESS, 4, 0, 0);
+        OrganizationLink replay = new OrganizationLink(
+                "new-link-id", OrganizationLink.SubjectType.MEMORY, "mem_place", "request-1",
+                "Place", "Pictures\\Place", 999L, OrganizationLink.Status.SUCCESS, 4, 0, 0);
+
+        assertEquals(MemoryOrganizationLinkStore.CommitResult.ADDED, store.commit(original));
+        assertEquals(MemoryOrganizationLinkStore.CommitResult.ALREADY_COMMITTED, store.commit(replay));
+        assertEquals("Pictures/Place/", replay.relativePath);
+    }
+
+    @Test
+    public void findsLatestUsableOutputAndIgnoresMissingHistory() throws Exception {
+        MemoryOrganizationLinkStore store = new MemoryOrganizationLinkStore(
+                temporaryFolder.newFolder("latest-output"));
+        OrganizationLink oldOutput = link("link-1", "request-1", "mem_place", "Pictures/Old/",
+                OrganizationLink.Status.SUCCESS, 4, 0, 0);
+        OrganizationLink newerMissing = new OrganizationLink(
+                "link-2", OrganizationLink.SubjectType.MEMORY, "mem_place", "request-2",
+                "Missing", "Pictures/Missing/", 300L, OrganizationLink.Status.MISSING, 2, 0, 0);
+        OrganizationLink latestOutput = new OrganizationLink(
+                "link-3", OrganizationLink.SubjectType.MEMORY, "mem_place", "request-3",
+                "Latest", "Pictures/Latest/", 200L, OrganizationLink.Status.PARTIAL, 2, 0, 1);
+        store.commit(oldOutput);
+        store.commit(newerMissing);
+        store.commit(latestOutput);
+
+        assertEquals("link-3", store.findLatestUsableLink(
+                OrganizationLink.SubjectType.MEMORY, "mem_place").linkId);
+        assertEquals("link-3", store.findByRequestId("request-3").linkId);
+        assertNull(store.findByRequestId("unknown"));
+        assertNull(store.findLatestUsableLink(
+                OrganizationLink.SubjectType.MEMORY, "mem_unknown"));
+    }
+
+    @Test
+    public void rejectsInvalidCandidatesAndLinkIdConflicts() throws Exception {
+        MemoryOrganizationLinkStore store = new MemoryOrganizationLinkStore(
+                temporaryFolder.newFolder("validation"));
+        assertEquals(MemoryOrganizationLinkStore.CommitResult.INVALID, store.commit(null));
+        assertEquals(MemoryOrganizationLinkStore.CommitResult.ADDED,
+                store.commit(link("link-1", "request-1", "mem_place", "Pictures/Place/",
+                        OrganizationLink.Status.SUCCESS, 4, 0, 0)));
+        assertEquals(MemoryOrganizationLinkStore.CommitResult.CONFLICT,
+                store.commit(link("link-1", "request-2", "mem_place", "Pictures/Other/",
+                        OrganizationLink.Status.SUCCESS, 1, 0, 0)));
     }
 
     @Test

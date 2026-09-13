@@ -63,9 +63,20 @@ public class OrganizationLinkTest {
     @Test
     public void invalidIdentityStatusAndCountsAreRejected() throws Exception {
         assertNull(OrganizationLink.fromJson(json("MEMORY", "group_wrong", "SUCCESS", 0)));
+        assertNull(OrganizationLink.fromJson(json("MEMORY", "mem_", "SUCCESS", 0)));
         assertNull(OrganizationLink.fromJson(json("COLLECTION", "mem_wrong", "SUCCESS", 0)));
+        assertNull(OrganizationLink.fromJson(json("COLLECTION", "group_", "SUCCESS", 0)));
         assertNull(OrganizationLink.fromJson(json("MEMORY", "mem_ok", "UNKNOWN", 0)));
         assertNull(OrganizationLink.fromJson(json("MEMORY", "mem_ok", "SUCCESS", -1)));
+    }
+
+    @Test
+    public void relativePathUsesCanonicalSlashAndTrailingSeparator() {
+        OrganizationLink link = new OrganizationLink(
+                "link-3", OrganizationLink.SubjectType.MEMORY, "mem_place", "request-3",
+                "Place", "Pictures\\Place///", 123L, OrganizationLink.Status.SUCCESS, 1, 0, 0);
+
+        assertEquals("Pictures/Place/", link.relativePath);
     }
 
     private static JSONObject json(String type, String subjectId, String status, int copiedCount)

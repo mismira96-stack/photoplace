@@ -43,7 +43,7 @@ final class OrganizationLink {
         this.subjectId = clean(subjectId);
         this.requestId = clean(requestId);
         this.albumName = clean(albumName);
-        this.relativePath = clean(relativePath);
+        this.relativePath = normalizeRelativePath(relativePath);
         this.organizedAtMillis = organizedAtMillis;
         this.status = status;
         this.copiedCount = copiedCount;
@@ -109,8 +109,17 @@ final class OrganizationLink {
 
     private static boolean hasSubjectPrefix(SubjectType type, String id) {
         return type == SubjectType.MEMORY
-                ? id.startsWith("mem_")
-                : type == SubjectType.COLLECTION && id.startsWith("group_");
+                ? id.startsWith("mem_") && id.length() > "mem_".length()
+                : type == SubjectType.COLLECTION
+                && id.startsWith("group_") && id.length() > "group_".length();
+    }
+
+    private static String normalizeRelativePath(String value) {
+        String path = clean(value).replace('\\', '/');
+        while (path.endsWith("/")) {
+            path = path.substring(0, path.length() - 1);
+        }
+        return path.isEmpty() ? "" : path + "/";
     }
 
     private static String clean(String value) {

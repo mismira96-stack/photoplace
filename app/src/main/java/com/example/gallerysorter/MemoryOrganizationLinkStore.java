@@ -73,13 +73,20 @@ final class MemoryOrganizationLinkStore {
     }
 
     synchronized boolean hasUsableOutput(OrganizationLink.SubjectType subjectType, String subjectId) {
+        return findLatestUsableLink(subjectType, subjectId) != null;
+    }
+
+    synchronized OrganizationLink findLatestUsableLink(OrganizationLink.SubjectType subjectType,
+                                                        String subjectId) {
+        OrganizationLink latest = null;
         for (OrganizationLink link : linksForSubject(subjectType, subjectId)) {
-            if (link.status == OrganizationLink.Status.SUCCESS
-                    || link.status == OrganizationLink.Status.PARTIAL) {
-                return true;
+            if ((link.status == OrganizationLink.Status.SUCCESS
+                    || link.status == OrganizationLink.Status.PARTIAL)
+                    && (latest == null || link.organizedAtMillis >= latest.organizedAtMillis)) {
+                latest = link;
             }
         }
-        return false;
+        return latest;
     }
 
     synchronized CommitResult commit(OrganizationLink candidate) {
@@ -253,8 +260,8 @@ final class MemoryOrganizationLinkStore {
             }
             throw new IllegalStateException("Could not write organization links");
         }
-        if (backup.exists() && !backup.delete()) {
-            throw new IllegalStateException("Could not clear committed organization link backup");
+        if (backup.exists()) {
+            backup.delete();
         }
     }
 
@@ -282,7 +289,6 @@ final class MemoryOrganizationLinkStore {
                 && first.requestId.equals(second.requestId)
                 && first.albumName.equals(second.albumName)
                 && first.relativePath.equals(second.relativePath)
-                && first.organizedAtMillis == second.organizedAtMillis
                 && first.copiedCount == second.copiedCount
                 && first.skippedCount == second.skippedCount
                 && first.failedCount == second.failedCount;

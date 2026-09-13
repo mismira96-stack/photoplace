@@ -12,6 +12,7 @@
   - `relativePath`/앨범명은 Gallery output의 last-known metadata이며 Memory identity로 사용하지 않는다.
   - 불변 모델, subject/status/count 검증, JSON 직렬화 테스트를 추가했다 (`OrganizationLink`).
   - 원자 JSON 저장, requestId replay/conflict 처리, subject별 output history, `MISSING` 상태 및 backup 복구/fail-safe 테스트를 추가했다 (`MemoryOrganizationLinkStore`).
+  - replay 시 생성 시각에 영향받지 않으며, 최신 usable link 조회와 Gallery 경로 정규화를 제공한다.
 - [ ] 기존 `AlbumSummaryHistoryStore` 기록의 OrganizationLink backfill 정책을 결정한다. 이름만으로 Memory를 자동 연결하지 않는다.
 - [ ] 정리 Worker의 request/result에 `requestId`와 subject identity를 연결해 재시작·중복 결과 처리에도 완료 처리가 idempotent하도록 한다.
 - [ ] Worker가 확인한 실제 성공 결과 이후에만 OrganizationLink, `path:<relativePath>` alias, 앨범 정리 이력을 반영한다.
