@@ -11,4 +11,9 @@ final class OrganizationMediaPolicy {
         }
         return userPreference;
     }
+
+    /** Discovery refs must remain available to Memory until Gallery-output resolution exists. */
+    static boolean shouldMoveDiscoveryVideos(boolean userPreference) {
+        return false;
+    }
 }

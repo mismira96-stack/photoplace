@@ -13,12 +13,17 @@ final class DiscoveryAlbumItemAdapter {
     }
 
     static List<PhotoItem> toPhotoItems(List<DiscoveryAlbumOrganizer.PreparedItem> preparedItems) {
+        return toPhotoItems(preparedItems, true);
+    }
+
+    static List<PhotoItem> toPhotoItems(List<DiscoveryAlbumOrganizer.PreparedItem> preparedItems,
+                                        boolean includeVideos) {
         if (preparedItems == null || preparedItems.isEmpty()) {
             return Collections.emptyList();
         }
         ArrayList<PhotoItem> items = new ArrayList<>();
         for (DiscoveryAlbumOrganizer.PreparedItem item : preparedItems) {
-            if (item == null || item.sourceUri == null || item.sourceUri.trim().isEmpty()) {
+            if (!shouldInclude(item, includeVideos)) {
                 continue;
             }
             items.add(new PhotoItem(
@@ -38,5 +43,12 @@ final class DiscoveryAlbumItemAdapter {
                     item.addressLine));
         }
         return items;
+    }
+
+    static boolean shouldInclude(DiscoveryAlbumOrganizer.PreparedItem item, boolean includeVideos) {
+        return item != null
+                && item.sourceUri != null
+                && !item.sourceUri.trim().isEmpty()
+                && (!item.video || includeVideos);
     }
 }

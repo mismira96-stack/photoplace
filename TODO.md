@@ -4,6 +4,15 @@
 
 이 문서에서 현재 실제 실행 순서를 정의하는 유일한 섹션이다. 완료된 기능과 과거 계획은 실행 항목으로 반복하지 않는다.
 
+### 다음 세션 최우선 — Memory 내부 Photo Viewer, 출시 목표
+
+- [ ] Memory 썸네일 탭 시 chooser/외부 Gallery 대신 PhotoPlace 내부 뷰어를 기본으로 연다. 단일 탭에서 갑자기 기존 앨범으로 이동하거나 파일을 정리하지 않는다.
+- [ ] 뷰어 연결 전 공용 Memory media resolver를 구현한다. usable exact `OrganizationLink`가 있으면 그 Gallery output을 우선 source로 사용하고, 없으면 live Discovery refs를 사용한다. 두 source를 무조건 합쳐 중복 표시하지 않는다.
+- [ ] 뷰어 source는 현재 화면에 렌더된 48장에 한정하지 않고 해당 stable Memory + 날짜의 전체 미디어로 만든다. 선택한 사진부터 시작해 같은 장소·날짜 안에서 좌우 swipe, 위치/전체 개수, Back 후 상세 위치 복귀를 지원한다.
+- [ ] 날짜별 메모 소유권과 Collection의 `날짜 -> 장소 -> 메모 -> 사진` 구조를 유지한다. 사진은 내부에서 탐색하고 동영상은 기존 외부 player 흐름을 유지한다. `Gallery에서 열기`는 보조 액션이다.
+- [ ] resolver/viewer 단위 테스트와 기존 메모·Collection 회귀 테스트를 통과시킨 뒤, 기존 미디어만으로 실기기에서 사진 연속 탐색/Back/동영상/메모 유지/Collection detail을 확인한다. 개인 라이브러리에 테스트 앨범을 추가하거나 원본을 휴지통으로 보내지 않는다.
+- [ ] 위 실기기 확인과 Antigravity 최종 리뷰가 끝나면 출시 준비로 진행한다. 출시 전까지 발견 미디어의 동영상 이동과 원본 휴지통 이동은 resolver 정책을 넘지 않게 유지한다.
+
 ### P1. Stable Memory lifecycle과 Gallery output 연결
 
 - [x] generic `OrganizationLink` 모델과 영속 저장소를 구현한다.
@@ -24,8 +33,9 @@
   - `복사 가능 0개` 안내는 전체 중복, 설정상 동영상 제외, 혼합 상황을 구분한다. 그래도 duplicate-only는 과거 정리/재설치 이후에도 exact Memory link를 만들지 않는다. 안정적인 미디어 동일성 확인이 없어 자동 연결은 보류한다.
   - bulk를 유지하는 동안 여러 장소의 부분 성공/실패를 각각 해당 Memory의 OrganizationLink에 연결할 정책과 테스트가 필요하다. 단순히 전체 결과 한 건을 여러 Memory에 연결하지 않는다.
 - [ ] 공용 Memory media resolver를 구현해 usable exact OrganizationLink가 있으면 해당 Gallery output을 우선 source로 사용하고, 없으면 live Discovery refs를 사용한다. 두 source를 무조건 합쳐 중복 표시하지 않는다.
-  - 현재 Memory 상세는 Discovery refs만 렌더링한다. 단일 장소 앨범 생성 후 결과 화면의 원본 휴지통 이동을 실행하면 발견 사진이 상세에서 사라질 수 있다.
-  - Resolver가 exact linked output을 Memory 상세의 날짜 그룹으로 읽고 stable ID + date 메모를 유지하기 전까지, 단일 Memory 정리 후 원본 휴지통 이동은 테스트/출시 승인하지 않는다.
+  - 현재 Memory 상세는 Discovery refs만 렌더링한다. 발견 기록의 bulk 정리에서 동영상이 Gallery로 이동하면 발견 상세에서 사라질 수 있음이 실기기에서 확인됐다.
+  - Resolver가 exact linked output의 사진·동영상을 Memory 날짜 그룹으로 읽고 stable ID + date 메모를 유지하기 전까지, 발견 Memory 미디어 이동 및 원본 휴지통 이동은 허용하지 않는다. 현재 발견 정리 경로에서 동영상 이동을 차단했다.
+  - 이미 이전 실행에서 Gallery로 이동된 동영상은 이 차단만으로 Discovery에 복구되지 않는다. Resolver에서 exact linked output을 읽어야 다시 Memory에 표시된다.
   - 외부 Gallery 삭제/변경은 Memory, 날짜별 메모, Collection을 삭제하지 않는다. linked output이 사라지면 live Discovery refs로 fallback한다.
   - partial/cancel/failure에서 확인된 성공 항목만 반영하고 실패분은 재시도 가능한 상태로 남긴다.
 
@@ -36,7 +46,8 @@
 - [x] Memory 상세에 `이 장소만 위치 앨범으로 만들기` 액션을 연결한다.
 - [x] 실행 직전에 해당 Memory의 live media를 다시 조회하고 기존 `DiscoveryAlbumOrganizer -> SortInputStore -> SortWorker -> SortResultStore` 경로를 재사용한다.
 - [x] 확인 화면의 신규 처리 수를 작업 정책에 맞춰 계산하고, 이미 있음/접근 불가/제외되는 동영상 수와 사진 복사·동영상 처리 정책을 안내한다. 단일 Memory에서는 resolver 전까지 동영상을 제외한다.
-- [x] 단일 Memory 정리에서는 shared Memory media resolver 전까지 동영상 이동을 보류한다. 기존 bulk의 동영상 정책은 이번 변경에서 바꾸지 않는다.
+- [x] 발견 Memory 정리의 단일/전체 경로 모두 shared Memory media resolver 전까지 동영상 이동을 보류한다. 일반 폴더 정리의 동영상 설정은 유지한다.
+- [x] Discovery worker 입력 어댑터가 영상 제외 정책을 실제로 적용하는지 순수 JVM 회귀 테스트로 고정한다.
 - [x] 선택한 Memory의 stable ID를 Worker request/result까지 전달해 확인된 결과만 OrganizationLink로 연결한다. 권한 확인 흐름에서도 요청 identity를 유지한다.
 - [x] 한 장소 정리 후 전용 완료 화면에서 같은 Memory로 돌아오거나 위치 앨범을 열 수 있게 한다. 원본 휴지통 이동은 Memory media resolver 검증 전까지 노출하지 않는다.
 - [x] 단일 장소 완료 화면을 장소명/기간/정리 결과 중심으로 다듬고, 생성 앨범 행과 주요 CTA를 분리한다. 보라색은 주요 액션에 한정하고 성공/주의 색상은 의미에 맞게 사용한다.
@@ -48,16 +59,20 @@
 
 ### P1. Memory Collection UI
 
-- [ ] 발견 장소 다중 선택 → 2개 이상 선택 → 이름 입력 → 기존 `MemoryCollectionStore` 저장 흐름을 연결한다.
-- [ ] Memory 선택 시 `MemoryIdentityRegistryStore`에서 stable ID를 resolve/create하고, 하나의 Memory는 활성 Collection 하나에만 속하게 한다.
-- [ ] `내 기억 모음` 목록, Collection 상세, 이름 변경, 해제(dissolve), 앱 재시작 후 복원을 제공한다.
-- [ ] 상세는 `날짜 -> 장소 -> 해당 장소/날짜 메모 -> 사진` 계층을 유지한다. 기존 단일 장소의 날짜 메모를 합치거나 이동하지 않는다.
+- [x] 발견 장소 다중 선택 → 2개 이상 선택 → 이름 입력 → 기존 `MemoryCollectionStore` 저장 흐름을 연결한다. (2026-09-13 UI slice; APK 설치/실행 완료, 기능 smoke 미완료)
+- [x] Collection 카드, 선택 화면, 상세 화면의 뷰 구성은 각각 `MemoryCollectionCardRenderer`, `MemoryCollectionSelectionRenderer`, `MemoryCollectionDetailRenderer`로 분리한다. `MainActivity`에는 데이터 준비·상태 전환·기존 앱 흐름 연결만 둔다.
+- [x] Memory 선택 시 `MemoryIdentityRegistryStore`에서 stable ID를 resolve/create하고, 하나의 Memory는 활성 Collection 하나에만 속하게 한다. 중복 소속은 선택 UI와 store 양쪽에서 거부한다.
+- [x] `내 기억 모음` 목록, Collection 상세, 이름 변경, 해제(dissolve), 저장소 기반 재진입 복원을 연결한다. 화면 회전 시 현재 상세/선택 화면도 복원한다. 실기기 재시작 smoke test는 남아 있다.
+- [x] 상세는 `날짜 -> 장소 -> 해당 장소/날짜 메모 -> 사진` 계층을 유지한다. 기존 단일 장소의 날짜 메모를 합치거나 이동하지 않는다.
+- [x] 선택 화면을 썸네일·장소명·사진 수·날짜·원형 선택 상태가 드러나는 카드형 UI로 다듬었다. 선택 강조는 옅은 보라색 배경/테두리와 체크 아이콘으로 한정한다.
 - [ ] Collection 멤버가 Gallery에 정리된 뒤에도 OrganizationLink를 통해 Gallery 미디어를 열 수 있게 하고, 둘 다 없으면 멤버/메모를 unavailable 상태로 보존한다.
-- [ ] 원본 장소는 계속 검색·개별 진입 가능하게 둔다. drag-and-drop 및 Collection-to-Gallery 앨범 생성은 이 MVP에서 제외한다.
+- [x] 기본 발견 목록에서는 모음 멤버를 모음 카드로 접고, 검색에서는 원래 장소를 계속 찾고 개별 진입할 수 있게 한다. drag-and-drop 및 Collection-to-Gallery 앨범 생성은 이 MVP에서 제외한다.
+- [x] 발견 브라우저에서 Collection badge와 최대 3개 장소명 + `외 N곳`, 약한 강조의 `기억 모으기` CTA, 축약된 `위치 앨범 만들기` 액션 및 `발견한 장소` 섹션 제목을 적용한다. 기본 장소 목록의 멤버 접기/검색 노출 정책은 유지하며 아직 동작 화면이 없는 `전체 보기` 액션은 추가하지 않는다.
+- [ ] Release gate: Collection detail은 현재 live Discovery refs를 표시한다. Gallery에만 남은 정리 미디어를 포함하려면 exact `OrganizationLink` 기반 shared Memory media resolver가 먼저 필요하다. 실기기 생성/검색/해제/재시작 검증 전에는 출시 판단을 하지 않는다.
 
 ### P1. 날짜/장소 범위 PhotoPlace Photo Viewer
 
-- [ ] 날짜 섹션의 썸네일을 누르면 해당 place + date의 전체 미디어 목록을 source로 내부 뷰어를 연다. 현재 렌더된 48장만 source-of-truth로 쓰지 않는다.
+- [ ] 날짜 섹션의 썸네일을 누르면 chooser/외부 Gallery 대신 PhotoPlace 내부 뷰어를 기본으로 열고, 해당 stable Memory + date의 resolver 결과 전체 미디어 목록을 source로 사용한다. 현재 렌더된 48장만 source-of-truth로 쓰지 않는다.
 - [ ] 선택한 사진부터 시작하고 좌우 swipe, 현재 위치/전체 개수, Back 후 기존 상세 위치 복귀를 제공한다.
 - [ ] 사진은 내부에서 탐색한다. 동영상 내부 재생은 제외하고 기존 외부 player 흐름을 유지한다.
 - [ ] Gallery에서 열기는 보조 액션으로 유지한다. 줌, 공유, 삭제, 편집, 전체 장소 swipe, 날짜 jump navigation은 MVP에서 제외한다.
@@ -80,8 +95,13 @@
 - 기존 `NoLocationCache` 회귀를 반복하지 않도록, 대체 설계·무효화 테스트가 갖춰지기 전에는 재활성화하지 않는다.
 - 앱 재설치 후 Memory 재구성, 사용자 메모/Collection backup-export.
 - PhotoPlace가 관찰했던 미디어의 외부 사라짐 이력과 별도 cleanup 앱을 위한 명시적 export/import. PhotoPlace와 외부 앱은 통합하지 않는다.
-- Collection 전체를 단일 Gallery 앨범으로 만들기, 실제 위치 앨범 물리 통합, drag-and-drop grouping.
-- Gallery 앨범 생성 확장 전 사용자 흐름을 검토한다: 여러 장소를 먼저 가상 Collection으로 모은 뒤 원할 때 하나의 Gallery 앨범으로 출력할 수 있게 할지 평가한다. 단일 장소 앨범 생성은 선택 기능으로 유지하고, 그룹 생성만으로 물리 앨범을 자동 생성하지 않는다.
+- **기억 모음 하나를 사용자가 원할 때 단일 Gallery 앨범으로 출력하는 기능을 우선 검토한다.** 일본 여행 사진을 실제로 써본 결과, 여러 장소를 개별 위치 앨범으로 나누는 것보다 여행 기억 모음 하나를 Gallery 앨범으로 만드는 편이 더 필요할 수 있다는 사용자 피드백이 있었다.
+  - 기본 흐름은 `장소 Memory 선택 -> PhotoPlace 기억 모음 생성 -> 원할 때 모음 전체를 Gallery 앨범으로 출력`으로 둔다. Collection 생성만으로 Gallery 앨범을 자동 생성하지 않는다.
+  - 이 기능은 실제 Gallery 폴더를 합치는 기존 앨범 물리 통합과 구분한다. 사용자가 만든 Collection을 하나의 새 Gallery output으로 내보내는 기능이다.
+  - 구현은 exact `OrganizationLink` 기반 공용 Memory media resolver 이후에 진행한다. Collection 멤버별 Discovery/organized output을 함께 해석하고, 미디어 정체성 기준 중복 제거, 이미 정리된 앨범의 처리(복사/이동), 영상 정책, 권한 취소 및 부분 성공/실패를 먼저 설계한다.
+  - `subjectType = COLLECTION`, `subjectId = group_<UUID>` OrganizationLink를 사용해 성공한 output만 연결하고, 날짜 메모와 원래 장소 Memory는 그대로 보존한다.
+  - 일본처럼 여러 장소가 한 여행에 속하는 경우 이 기능을 개별 장소 앨범 추가 개선보다 우선 검토한다. 단일 장소 앨범 생성은 계속 명시적인 선택 기능으로 둔다.
+- 실제 위치 앨범 여러 개를 물리적으로 하나로 합치는 기능과 drag-and-drop grouping은 별도 backlog로 유지한다. Collection-to-Gallery output과 혼동하지 않는다.
 - Tag/semantic search 확장과 AI 기능. 현재 core architecture나 실행 지시로 취급하지 않는다.
 - 기존 `AlbumSummaryHistoryStore` 기록을 OrganizationLink로 연결하는 migration/backfill 방식과 외부 Gallery 이름 변경 감지 정책은 별도 검토한다.
 

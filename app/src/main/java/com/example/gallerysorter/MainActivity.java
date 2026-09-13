@@ -115,7 +115,7 @@ public class MainActivity extends Activity {
     private static final String LOCATION_NONE = "위치없음";
     private static final int MAX_MAIN_RESULT_GROUPS = 3;
     private static final int MAX_NO_LOCATION_RESULT_ROWS = 60;
-    private static final int MAX_RESULT_DETAIL_THUMBNAILS = 48;
+    static final int MAX_RESULT_DETAIL_THUMBNAILS = 48;
     private static final int MAX_RESULT_SCREEN_GROUPS = 24;
     private static final int MAX_ORGANIZATION_RESULT_PERSISTENCE_ATTEMPTS = 3;
     private static final int MAX_VALID_TAKEN_YEAR = 2035;
@@ -196,6 +196,8 @@ public class MainActivity extends Activity {
     private boolean overseasMemoryScreenMode = false;
     private boolean memoryBrowserScreenMode = false;
     private boolean memoryBrowserDetailMode = false;
+    private boolean memoryCollectionSelectionMode = false;
+    private boolean memoryCollectionDetailMode = false;
     private boolean memoryBrowserSearchVisible = false;
     private String memoryBrowserSearchQuery = "";
     private boolean memoryBrowserShowsOrganizedSources;
@@ -220,6 +222,8 @@ public class MainActivity extends Activity {
     private MemoryGroup activeOverseasMemoryGroup = null;
     private OverseasCountryProjection activeOverseasCountryProjection = null;
     private String activeMemoryKey = "";
+    private String activeMemoryCollectionId = "";
+    private final Set<String> selectedMemoryCollectionKeys = new HashSet<>();
     private int detailBackTarget = DETAIL_BACK_HOME;
     private Map<String, AlbumSummary> existingAlbumSummaryCache = null;
     private long existingAlbumSummaryCacheMillis = 0L;
@@ -230,6 +234,7 @@ public class MainActivity extends Activity {
     private MemoryIdentityRegistryStore memoryIdentityRegistryStore = null;
     private MemoryOrganizationLinkStore memoryOrganizationLinkStore = null;
     private MemoryDateNoteStore memoryDateNoteStore = null;
+    private MemoryCollectionStore memoryCollectionStore = null;
     private AlbumSummaryHistoryStore albumSummaryHistoryStore = null;
     private MemoryPersonalizationStore memoryPersonalizationStore = null;
     private DiscoverySnapshotController discoverySnapshotController = null;
@@ -399,6 +404,14 @@ public class MainActivity extends Activity {
             showMemoryOrganizationCompletionScreen();
             return;
         }
+        if (this.memoryCollectionDetailMode && !this.activeMemoryCollectionId.isEmpty()) {
+            showMemoryCollectionDetailScreen(this.activeMemoryCollectionId);
+            return;
+        }
+        if (this.memoryCollectionSelectionMode) {
+            showMemoryCollectionSelectionScreen();
+            return;
+        }
         if (this.memoryBrowserDetailMode && !this.activeMemoryKey.isEmpty()) {
             showMemoryBrowserDetailScreen(this.activeMemoryKey);
             return;
@@ -446,6 +459,11 @@ public class MainActivity extends Activity {
         }
         if (this.memoryOrganizationCompletionMode) {
             returnToMemoryAfterOrganization();
+            return;
+        }
+        if (this.memoryCollectionSelectionMode || this.memoryCollectionDetailMode) {
+            this.selectedMemoryCollectionKeys.clear();
+            showMemoryBrowserScreen(this.memoryBrowserShowsOrganizedSources);
             return;
         }
         if (this.memoryBrowserDetailMode) {
@@ -3195,6 +3213,13 @@ public class MainActivity extends Activity {
         return this.memoryDateNoteStore;
     }
 
+    private MemoryCollectionStore memoryCollectionStore() {
+        if (this.memoryCollectionStore == null) {
+            this.memoryCollectionStore = new MemoryCollectionStore(this);
+        }
+        return this.memoryCollectionStore;
+    }
+
     private ExifReadResult readExifData(Uri uri) {
         if (System.currentTimeMillis() >= 0) {
             return this.mediaMetadataReader.readExifData(uri);
@@ -5309,7 +5334,7 @@ public class MainActivity extends Activity {
         return str.trim().replace("/", "_").replace("\\", "_").replace(":", "_").replace("*", "_").replace("?", "_").replace("\"", "_").replace("<", "_").replace(">", "_").replace("|", "_");
     }
 
-    private LinearLayout.LayoutParams matchWidth() {
+    LinearLayout.LayoutParams matchWidth() {
         return new LinearLayout.LayoutParams(-1, -2);
     }
 
@@ -5389,7 +5414,7 @@ public class MainActivity extends Activity {
         return Math.min((int) (currentWindowWidthPx() * 0.9d), dp(480));
     }
 
-    private ScrollView.LayoutParams scrollContentLayoutParams() {
+    ScrollView.LayoutParams scrollContentLayoutParams() {
         ScrollView.LayoutParams layoutParams = new ScrollView.LayoutParams(-1, -2);
         int wideContentWidth = wideContentWidthPx();
         if (wideContentWidth > 0) {
@@ -6690,7 +6715,7 @@ public class MainActivity extends Activity {
         return textView;
     }
 
-    private TextView bodyText(String str) {
+    TextView bodyText(String str) {
         TextView textView = new TextView(this);
         textView.setText(str);
         textView.setTextSize(14.0f);
@@ -7937,7 +7962,7 @@ public class MainActivity extends Activity {
         return Math.max(i4, 1);
     }
 
-    private Drawable thumbnailPlaceholder() {
+    Drawable thumbnailPlaceholder() {
         GradientDrawable gradientDrawable = new GradientDrawable();
         gradientDrawable.setColor(-1050881);
         gradientDrawable.setCornerRadius(dp(11));
@@ -7945,7 +7970,7 @@ public class MainActivity extends Activity {
         return gradientDrawable;
     }
 
-    private TextView sectionTitle(String str) {
+    TextView sectionTitle(String str) {
         TextView textView = new TextView(this);
         textView.setText(str);
         textView.setTextSize(16.0f);
@@ -8261,6 +8286,10 @@ public class MainActivity extends Activity {
         if (target == this.currentTopLevelTab && !this.resultScreenMode && !this.recentPlaceDetailMode && !this.overseasMemoryScreenMode && !this.memoryBrowserScreenMode && !this.memoryBrowserDetailMode) {
             return;
         }
+        this.memoryCollectionSelectionMode = false;
+        this.memoryCollectionDetailMode = false;
+        this.activeMemoryCollectionId = "";
+        this.selectedMemoryCollectionKeys.clear();
         if (target == 0) {
             this.topLevelBackStack.clear();
             showTopLevelTab(0);
@@ -8287,7 +8316,7 @@ public class MainActivity extends Activity {
         }
     }
 
-    private void setContentViewWithBottomTabs(ScrollView scrollView, int i) {
+    void setContentViewWithBottomTabs(ScrollView scrollView, int i) {
         if (i >= 0 && i <= 3) {
             this.currentTopLevelTab = i;
         }
@@ -8414,7 +8443,7 @@ public class MainActivity extends Activity {
         button.setStateListAnimator(null);
     }
 
-    private void stylePurpleCtaButton(Button button, CharSequence charSequence) {
+    void stylePurpleCtaButton(Button button, CharSequence charSequence) {
         button.setText(charSequence);
         button.setTextSize(16.0f);
         button.setAllCaps(false);
@@ -8522,7 +8551,7 @@ public class MainActivity extends Activity {
         button.setStateListAnimator(null);
     }
 
-    private void styleSubtleActionButton(Button button, String str) {
+    void styleSubtleActionButton(Button button, String str) {
         button.setText(str);
         button.setTextSize(13.0f);
         button.setAllCaps(false);
@@ -8612,13 +8641,13 @@ public class MainActivity extends Activity {
         return layerDrawable;
     }
 
-    private LinearLayout.LayoutParams matchWidthWithBottom(int i) {
+    LinearLayout.LayoutParams matchWidthWithBottom(int i) {
         LinearLayout.LayoutParams layoutParamsMatchWidth = matchWidth();
         layoutParamsMatchWidth.setMargins(0, 0, 0, i);
         return layoutParamsMatchWidth;
     }
 
-    private void applyCardBackground(View view) {
+    void applyCardBackground(View view) {
         GradientDrawable gradientDrawable = new GradientDrawable();
         gradientDrawable.setColor(getColor(R.color.surface));
         gradientDrawable.setCornerRadius(dp(24));
@@ -8928,6 +8957,9 @@ public class MainActivity extends Activity {
         this.overseasMemoryScreenMode = false;
         this.memoryBrowserScreenMode = true;
         this.memoryBrowserDetailMode = false;
+        this.memoryCollectionSelectionMode = false;
+        this.memoryCollectionDetailMode = false;
+        this.activeMemoryCollectionId = "";
         this.activeMemoryKey = "";
         this.activeOverseasCountryProjection = null;
 
@@ -8935,7 +8967,7 @@ public class MainActivity extends Activity {
         scrollView.setBackgroundColor(-197377);
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(1);
-        root.setPadding(dp(18), dp(56), dp(18), dp(REQUEST_WRITE_VIDEOS));
+        root.setPadding(dp(16), dp(48), dp(16), dp(REQUEST_WRITE_VIDEOS));
         final MemoryBrowserGridRenderer renderer = new MemoryBrowserGridRenderer(
                 this,
                 new MemoryBrowserGridRenderer.Listener() {
@@ -8985,23 +9017,46 @@ public class MainActivity extends Activity {
                                 columnCount);
                     }
                 });
-        root.addView(searchHeader.header(this.memoryBrowserSearchVisible, !state.isEmpty()), matchWidthWithBottom(dp(18)));
+        root.addView(searchHeader.header(this.memoryBrowserSearchVisible, !state.isEmpty()), matchWidthWithBottom(dp(10)));
         addWorkingBanner(root);
 
         if (!state.isEmpty() && !includeOrganizedSources) {
-            root.addView(new MemoryBrowserSummaryRenderer(this).render(discoveryRecords), matchWidthWithBottom(dp(14)));
+            root.addView(new MemoryBrowserSummaryRenderer(this).render(discoveryRecords), matchWidthWithBottom(dp(10)));
         }
 
-        if (!state.isEmpty()) {
+        if (this.memoryBrowserSearchVisible) {
+            EditText searchInput = searchHeader.input(this.memoryBrowserSearchQuery);
+            root.addView(searchInput, matchWidthWithBottom(dp(10)));
+            searchInput.requestFocus();
+        }
+
+        String query = this.memoryBrowserSearchQuery == null ? "" : this.memoryBrowserSearchQuery.trim();
+        List<MemoryCollection> collections = memoryCollectionStore().readAll();
+        if (query.isEmpty() && (!collections.isEmpty() || !state.isEmpty())) {
+            addMemoryCollectionCards(root, collections, discoveryRecords);
+        }
+
+        if (!query.isEmpty()) {
+            Button collectSearch = new MemoryCollectionCardRenderer(this, null).createSelectionButton();
+            collectSearch.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View view) {
+                    MainActivity.this.beginMemoryCollectionSelection();
+                }
+            });
+            root.addView(collectSearch, matchWidthWithBottom(dp(8)));
+        }
+
+        if (!query.isEmpty() && !state.isEmpty()) {
             Button organize = new Button(this);
-            organize.setContentDescription("발견한 장소를 위치 앨범으로 만들기");
+            organize.setContentDescription("발견한 장소의 위치 앨범 만들기");
             organize.setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View view) {
                     MainActivity.this.showDiscoveryOrganizeConfirmation();
                 }
             });
-            styleSubtleActionButton(organize, "발견한 장소를 위치 앨범으로 만들기");
+            styleSubtleActionButton(organize, "위치 앨범 만들기");
             organize.setGravity(Gravity.CENTER_VERTICAL);
             organize.setPadding(dp(16), dp(8), dp(16), dp(8));
             organize.setCompoundDrawablePadding(dp(8));
@@ -9010,13 +9065,7 @@ public class MainActivity extends Activity {
                     null,
                     null,
                     null);
-            root.addView(organize, matchWidthWithBottom(dp(20)));
-        }
-
-        if (this.memoryBrowserSearchVisible) {
-            EditText searchInput = searchHeader.input(this.memoryBrowserSearchQuery);
-            root.addView(searchInput, matchWidthWithBottom(dp(14)));
-            searchInput.requestFocus();
+            root.addView(organize, matchWidthWithBottom(dp(12)));
         }
 
         if (state.isEmpty()) {
@@ -9043,7 +9092,7 @@ public class MainActivity extends Activity {
                     });
             root.addView(emptyRenderer.render(), matchWidthWithBottom(dp(14)));
         } else {
-            root.addView(resultsContainer, matchWidthWithBottom(dp(14)));
+            root.addView(resultsContainer, matchWidthWithBottom(dp(10)));
             renderMemoryBrowserSearchResults(
                     resultsContainer,
                     renderer,
@@ -9059,6 +9108,190 @@ public class MainActivity extends Activity {
         if (!this.isWorking && !this.copyCompletedMode && !this.copyStoppedMode) {
             this.previewItems.clear();
         }
+    }
+
+    private void addMemoryCollectionCards(LinearLayout root,
+                                         List<MemoryCollection> collections,
+                                         List<MemoryRecord> records) {
+        new MemoryCollectionCardRenderer(this,
+                new MemoryCollectionCardRenderer.Listener() {
+                    @Override
+                    public void onCollectionSelected(String collectionId) {
+                        showMemoryCollectionDetailScreen(collectionId);
+                    }
+
+                    @Override
+                    public void onCreateCollectionRequested() {
+                        beginMemoryCollectionSelection();
+                    }
+                }).render(root, collections, records, memoryIdentityRegistryStore().readAliasesSnapshot());
+    }
+
+    private void beginMemoryCollectionSelection() {
+        this.selectedMemoryCollectionKeys.clear();
+        showMemoryCollectionSelectionScreen();
+    }
+
+    private void showMemoryCollectionSelectionScreen() {
+        final List<MemoryRecord> records;
+        try {
+            records = loadMemoryRepository().discoveryMemories();
+        } catch (Exception unused) {
+            showToast("발견한 장소를 불러오지 못했어요.");
+            return;
+        }
+        ArrayList<MemoryRecord> selectableRecords = new ArrayList<>();
+        for (MemoryRecord record : records) {
+            if (record != null && record.discoveryGroup != null
+                    && record.discoveryGroup.itemCount > record.discoveryGroup.staleCount) {
+                selectableRecords.add(record);
+            }
+        }
+        if (selectableRecords.size() < MemoryCollection.MIN_MEMBER_COUNT) {
+            showToast("기억 모음에는 장소가 2곳 이상 필요해요.");
+            return;
+        }
+        Set<String> currentKeys = new HashSet<>();
+        for (MemoryRecord record : selectableRecords) {
+            currentKeys.add(record.memoryKey);
+        }
+        this.selectedMemoryCollectionKeys.retainAll(currentKeys);
+        this.memoryCollectionSelectionMode = true;
+        this.memoryCollectionDetailMode = false;
+        this.memoryBrowserScreenMode = false;
+        this.memoryBrowserDetailMode = false;
+        this.activeMemoryCollectionId = "";
+        Set<String> groupedIds = MemoryCollectionMembership.stableIds(memoryCollectionStore().readAll());
+        new MemoryCollectionSelectionRenderer(this,
+                new MemoryCollectionSelectionRenderer.Listener() {
+                    @Override
+                    public void onBack() {
+                        showMemoryBrowserScreen(memoryBrowserShowsOrganizedSources);
+                    }
+
+                    @Override
+                    public void onCreateRequested() {
+                        promptMemoryCollectionTitle(selectableRecords);
+                    }
+                }).render(selectableRecords,
+                groupedIds,
+                memoryIdentityRegistryStore().readAliasesSnapshot(),
+                this.selectedMemoryCollectionKeys);
+    }
+
+    private void promptMemoryCollectionTitle(final List<MemoryRecord> records) {
+        ArrayList<String> selectedNames = new ArrayList<>();
+        for (MemoryRecord record : records) {
+            if (record != null && this.selectedMemoryCollectionKeys.contains(record.memoryKey)) {
+                MemoryBrowserItem item = MemoryBrowserItem.from(record);
+                if (item != null) {
+                    selectedNames.add(item.title);
+                }
+            }
+        }
+        showSingleLineMemoryEditor(
+                "기억 모음 이름",
+                "선택한 장소를 하나의 기억 모음으로 묶어요.\n" + TextUtils.join(" · ", selectedNames),
+                "",
+                "이름",
+                "예: 2026 삿포로 여행",
+                false,
+                new MemoryNoteEditorAction() {
+                    @Override
+                    public void save(String value) {
+                        String title = value == null ? "" : value.trim();
+                        if (title.isEmpty()) {
+                            showToast("기억 모음 이름을 입력해 주세요.");
+                            return;
+                        }
+                        ArrayList<MemoryCollection.Member> members = new ArrayList<>();
+                        for (MemoryRecord record : records) {
+                            if (record == null || !selectedMemoryCollectionKeys.contains(record.memoryKey)) {
+                                continue;
+                            }
+                            String stableId = memoryIdentityRegistryStore().resolveOrCreate(record.memoryKey);
+                            if (stableId.isEmpty()) {
+                                showToast("장소 기억을 저장하지 못했어요.");
+                                return;
+                            }
+                            members.add(new MemoryCollection.Member(stableId, record.memoryKey));
+                        }
+                        MemoryCollection created = memoryCollectionStore().create(title, members, System.currentTimeMillis());
+                        if (created == null) {
+                            showToast("기억 모음을 저장하지 못했어요. 이미 다른 모음에 포함된 장소가 있는지 확인해 주세요.");
+                            return;
+                        }
+                        MainActivity.this.selectedMemoryCollectionKeys.clear();
+                        MainActivity.this.showMemoryBrowserScreen(MainActivity.this.memoryBrowserShowsOrganizedSources);
+                        MainActivity.this.showToast("기억 모음을 만들었어요.");
+                    }
+                });
+    }
+
+    private void showMemoryCollectionDetailScreen(final String collectionId) {
+        MemoryCollection collection = null;
+        for (MemoryCollection value : memoryCollectionStore().readAll()) {
+            if (value != null && value.collectionId.equals(collectionId)) {
+                collection = value;
+                break;
+            }
+        }
+        if (collection == null) {
+            showToast("기억 모음을 찾지 못했어요.");
+            showMemoryBrowserScreen(this.memoryBrowserShowsOrganizedSources);
+            return;
+        }
+        final MemoryCollection activeCollection = collection;
+        final GroupMemoryDetail detail;
+        try {
+            detail = new MemoryCollectionResolver(memoryIdentityRegistryStore(), memoryDateNoteStore())
+                    .resolve(activeCollection, loadMemoryRepository().discoveryMemories());
+        } catch (Exception unused) {
+            showToast("기억 모음을 불러오지 못했어요.");
+            return;
+        }
+        this.memoryCollectionDetailMode = true;
+        this.memoryCollectionSelectionMode = false;
+        this.memoryBrowserScreenMode = false;
+        this.memoryBrowserDetailMode = false;
+        this.activeMemoryCollectionId = collectionId;
+        new MemoryCollectionDetailRenderer(this,
+                new MemoryCollectionDetailRenderer.Listener() {
+                    @Override
+                    public void onBack() {
+                        showMemoryBrowserScreen(memoryBrowserShowsOrganizedSources);
+                    }
+
+                    @Override
+                    public void onRenameRequested() {
+                        showSingleLineMemoryEditor(
+                                "기억 모음 이름",
+                                "모음 이름을 바꿔도 장소와 날짜 메모는 그대로 유지돼요.",
+                                activeCollection.title,
+                                "이름",
+                                "기억 모음 이름",
+                                false,
+                                new MemoryNoteEditorAction() {
+                                    @Override
+                                    public void save(String value) {
+                                        if (memoryCollectionStore().rename(collectionId, value, System.currentTimeMillis())) {
+                                            showMemoryCollectionDetailScreen(collectionId);
+                                        } else {
+                                            showToast("이름을 저장하지 못했어요.");
+                                        }
+                                    }
+                                });
+                    }
+
+                    @Override
+                    public void onDissolveConfirmed() {
+                        if (memoryCollectionStore().dissolve(collectionId)) {
+                            showMemoryBrowserScreen(memoryBrowserShowsOrganizedSources);
+                        } else {
+                            showToast("기억 모음을 해제하지 못했어요.");
+                        }
+                    }
+                }).render(activeCollection, detail);
     }
 
     private void showDiscoveryOrganizeConfirmation() {
@@ -9081,7 +9314,7 @@ public class MainActivity extends Activity {
         }
         new DiscoveryOrganizeConfirmDialog(this).show(
                 records,
-                shouldMoveVideos(),
+                OrganizationMediaPolicy.shouldMoveDiscoveryVideos(shouldMoveVideos()),
                 new DiscoveryOrganizeConfirmDialog.Listener() {
                     @Override
                     public void onConfirmed() {
@@ -9235,21 +9468,32 @@ public class MainActivity extends Activity {
             return;
         }
         this.previewItems.clear();
-        this.previewItems.addAll(DiscoveryAlbumItemAdapter.toPhotoItems(preparation.items));
+        this.previewItems.addAll(DiscoveryAlbumItemAdapter.toPhotoItems(
+                preparation.items,
+                OrganizationMediaPolicy.shouldMoveDiscoveryVideos(shouldMoveVideos())));
         if (this.previewItems.isEmpty()) {
-            showToast("위치 앨범으로 만들 수 있는 사진이 없어요.");
-            showMemoryBrowserScreen();
+            if (preparation.excludedVideoCount(false) > 0) {
+                showToast("동영상은 Memory 화면에서 계속 볼 수 있도록 이번 정리에서 제외했어요.");
+            } else {
+                showToast("위치 앨범으로 만들 수 있는 사진이 없어요.");
+            }
+            if (organizationSubjectId != null && !organizationSubjectId.trim().isEmpty()) {
+                showMemoryBrowserDetailScreen(this.activeMemoryKey);
+            } else {
+                showMemoryBrowserScreen();
+            }
             return;
         }
         if (countCopyableItems(this.previewItems) <= 0) {
             int duplicateCount = countAlreadySortedItems(this.previewItems);
-            int excludedVideoCount = preparation.excludedVideoCount(shouldMoveVideos());
+            int excludedVideoCount = preparation.excludedVideoCount(
+                    OrganizationMediaPolicy.shouldMoveDiscoveryVideos(shouldMoveVideos()));
             if (duplicateCount > 0 && excludedVideoCount == 0) {
                 showToast("모두 기존 위치 앨범에 정리되어 있어요.");
             } else if (duplicateCount == 0 && excludedVideoCount > 0) {
-                showToast("동영상 정리가 꺼져 있어 새 앨범을 만들 항목이 없어요.");
+                showToast("동영상은 Memory 화면 연결 준비 후 정리할 수 있어요.");
             } else if (duplicateCount > 0) {
-                showToast("새 사진은 이미 정리되어 있고, 동영상은 설정에 따라 제외됐어요.");
+                showToast("새 사진은 이미 정리되어 있어요. 동영상은 Memory 화면 연결 준비 후 정리할 수 있어요.");
             } else {
                 showToast("새로 정리할 항목이 없어요.");
             }
@@ -9311,14 +9555,57 @@ public class MainActivity extends Activity {
         }
         container.removeAllViews();
         String query = this.memoryBrowserSearchQuery;
-        MemoryBrowserState filtered = MemoryBrowserState.fromRecords(
-                MemoryBrowserSearch.filter(discoveryRecords, query));
         boolean searching = query != null && !query.trim().isEmpty();
+        List<MemoryRecord> matches = MemoryBrowserSearch.filter(discoveryRecords, query);
+        if (!searching) {
+            matches = hideCollectedMemoryRecords(matches);
+        }
+        MemoryBrowserState filtered = MemoryBrowserState.fromRecords(matches);
+        if (!searching && !filtered.items.isEmpty()) {
+            addMemoryBrowserSectionHeader(container, "발견한 장소");
+        }
         container.addView(renderer.renderResults(
                 filtered.items,
                 availableGridWidth,
                 columnCount,
                 searching), matchWidth());
+    }
+
+    private void addMemoryBrowserSectionHeader(LinearLayout container, String titleText) {
+        LinearLayout header = new LinearLayout(this);
+        header.setOrientation(LinearLayout.HORIZONTAL);
+        header.setGravity(Gravity.CENTER_VERTICAL);
+        header.addView(sectionTitle(titleText), new LinearLayout.LayoutParams(0, -2, 1.0f));
+
+        TextView organize = bodyText("위치 앨범 만들기");
+        organize.setTextSize(12.0f);
+        organize.setTextColor(-14326805);
+        organize.setGravity(Gravity.CENTER_VERTICAL);
+        organize.setCompoundDrawablePadding(dp(4));
+        organize.setCompoundDrawables(
+                new IconBubbleDrawable("folder", -14326805, 0, dp(16)), null, null, null);
+        organize.setContentDescription("발견한 장소의 위치 앨범 만들기");
+        organize.setClickable(true);
+        organize.setFocusable(true);
+        organize.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                showDiscoveryOrganizeConfirmation();
+            }
+        });
+        header.addView(organize, new LinearLayout.LayoutParams(-2, -2));
+        container.addView(header, matchWidthWithBottom(dp(8)));
+    }
+
+    private List<MemoryRecord> hideCollectedMemoryRecords(List<MemoryRecord> records) {
+        if (records == null || records.isEmpty()) {
+            return Collections.emptyList();
+        }
+        List<MemoryCollection> collections = memoryCollectionStore().readAll();
+        return MemoryCollectionMembership.ungroupedRecords(
+                records,
+                MemoryCollectionMembership.stableIds(collections),
+                memoryIdentityRegistryStore().readAliasesSnapshot());
     }
 
     private void showMemoryBrowserDetailScreen(String memoryKey) {
@@ -9360,7 +9647,7 @@ public class MainActivity extends Activity {
                     MainActivity.this.showMemoryBrowserScreen(MainActivity.this.memoryBrowserShowsOrganizedSources);
                 }
             }
-        });
+        }, detail.canOrganize ? createMemoryAlbumHeaderAction(detail) : null);
         addWorkingBanner(root);
 
         LinearLayout summary = new LinearLayout(this);
@@ -9377,18 +9664,7 @@ public class MainActivity extends Activity {
         summary.addView(count, matchWidth());
 
         if (detail.canOrganize) {
-            Button organizeThisPlace = new Button(this);
-            organizeThisPlace.setOnClickListener(new View.OnClickListener() {
-                @Override
-                public void onClick(View view) {
-                    MainActivity.this.showSingleMemoryOrganizeConfirmation(
-                            detail.item.memoryKey, detail.record);
-                }
-            });
-            stylePurpleCtaButton(organizeThisPlace, "이 장소만 위치 앨범으로 만들기");
-            LinearLayout.LayoutParams organizeParams = fullWidthButtonParams(0, dp(52));
-            organizeParams.topMargin = dp(14);
-            summary.addView(organizeThisPlace, organizeParams);
+            summary.setPadding(dp(16), dp(12), dp(16), dp(12));
         }
 
         if (!detail.sourceUris.isEmpty()) {
@@ -9445,7 +9721,12 @@ public class MainActivity extends Activity {
         setContentViewWithBottomTabs(scrollView, 1);
     }
 
-    private void addMemoryHeader(LinearLayout root, String titleText, final Runnable backAction) {
+    void addMemoryHeader(LinearLayout root, String titleText, final Runnable backAction) {
+        addMemoryHeader(root, titleText, backAction, null);
+    }
+
+    private void addMemoryHeader(LinearLayout root, String titleText, final Runnable backAction,
+                                 View trailingAction) {
         LinearLayout header = new LinearLayout(this);
         header.setOrientation(0);
         header.setGravity(16);
@@ -9471,7 +9752,39 @@ public class MainActivity extends Activity {
         title.setTextColor(-15656921);
         title.setSingleLine(true);
         title.setEllipsize(TextUtils.TruncateAt.END);
-        header.addView(title, weightedParams(1));
+        header.addView(title, new LinearLayout.LayoutParams(0, -2, 1.0f));
+        if (trailingAction != null) {
+            LinearLayout.LayoutParams actionParams = new LinearLayout.LayoutParams(-2, dp(40));
+            actionParams.setMargins(dp(8), 0, 0, 0);
+            header.addView(trailingAction, actionParams);
+        }
+    }
+
+    private View createMemoryAlbumHeaderAction(final MemoryBrowserDetail detail) {
+        TextView action = bodyText("앨범 만들기");
+        action.setTextSize(12.0f);
+        action.setTypeface(Typeface.DEFAULT_BOLD);
+        action.setTextColor(-10193781);
+        action.setGravity(Gravity.CENTER);
+        action.setPadding(dp(8), 0, dp(8), 0);
+        action.setCompoundDrawablePadding(dp(4));
+        action.setCompoundDrawables(
+                new IconBubbleDrawable("folder", -14326805, 0, dp(16)), null, null, null);
+        action.setContentDescription("이 장소만 위치 앨범으로 만들기");
+        action.setClickable(true);
+        action.setFocusable(true);
+        GradientDrawable background = new GradientDrawable();
+        background.setColor(Color.WHITE);
+        background.setCornerRadius(dp(12));
+        background.setStroke(dp(1), Color.rgb(231, 233, 239));
+        action.setBackground(background);
+        action.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                showSingleMemoryOrganizeConfirmation(detail.item.memoryKey, detail.record);
+            }
+        });
+        return action;
     }
 
     private void showMemoryOrganizationCompletionScreen() {
@@ -9612,7 +9925,7 @@ public class MainActivity extends Activity {
         return "";
     }
 
-    private void loadMemoryBrowserThumbnailInto(ImageView imageView, String uriValue, int size) {
+    void loadMemoryBrowserThumbnailInto(ImageView imageView, String uriValue, int size) {
         if (uriValue == null || uriValue.trim().isEmpty()) {
             imageView.setImageDrawable(thumbnailPlaceholder());
             return;
@@ -9664,7 +9977,7 @@ public class MainActivity extends Activity {
         return page.itemCount;
     }
 
-    private void updateMemoryPhotoMoreButton(Button button, int remainingCount) {
+    void updateMemoryPhotoMoreButton(Button button, int remainingCount) {
         styleSubtleActionButton(button, "사진 더 보기 (" + Math.max(0, remainingCount) + "장 남음)");
         button.setContentDescription("사진 " + Math.max(0, remainingCount) + "장 더 보기");
     }
@@ -9778,7 +10091,7 @@ public class MainActivity extends Activity {
                 });
     }
 
-    private void addMemoryPhotoGrid(LinearLayout parent, List<MemoryPhotoItem> photos, int startIndex, int count) {
+    void addMemoryPhotoGrid(LinearLayout parent, List<MemoryPhotoItem> photos, int startIndex, int count) {
         int index = Math.max(0, startIndex);
         int max = Math.min(photos == null ? 0 : photos.size(), index + Math.max(0, count));
         while (index < max) {
@@ -10191,7 +10504,7 @@ public class MainActivity extends Activity {
         openMediaUri(photoItem.uri, str);
     }
 
-    private int dp(int i) {
+    int dp(int i) {
         return Math.round(i * getResources().getDisplayMetrics().density);
     }
 

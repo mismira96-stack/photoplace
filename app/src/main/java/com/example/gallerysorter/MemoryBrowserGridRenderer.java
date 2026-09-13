@@ -58,9 +58,9 @@ final class MemoryBrowserGridRenderer {
         }
 
         columns = Math.max(2, Math.min(3, columns));
-        int gap = dp(12);
+        int gap = dp(9);
         int cardWidth = Math.max(dp(132), (availableWidthPx - (gap * (columns - 1))) / columns);
-        int imageHeight = columns == 3 ? dp(150) : dp(158);
+        int imageHeight = columns == 3 ? dp(144) : dp(150);
 
         LinearLayout row = null;
         for (int index = 0; index < items.size(); index++) {
@@ -131,7 +131,7 @@ final class MemoryBrowserGridRenderer {
 
         LinearLayout caption = new LinearLayout(context);
         caption.setOrientation(LinearLayout.VERTICAL);
-        caption.setPadding(dp(12), dp(8), dp(10), dp(10));
+        caption.setPadding(dp(10), dp(7), dp(8), dp(8));
         card.addView(caption, new LinearLayout.LayoutParams(-1, -2));
 
         LinearLayout titleRow = new LinearLayout(context);
@@ -154,12 +154,12 @@ final class MemoryBrowserGridRenderer {
         }
 
         TextView count = text(item.countText, 15.0f, Color.rgb(104, 82, 226), true);
-        count.setPadding(0, dp(4), 0, 0);
+        count.setPadding(0, dp(3), 0, 0);
         caption.addView(count, new LinearLayout.LayoutParams(-1, -2));
 
         TextView date = text(item.cardDateText, 11.5f, Color.rgb(104, 113, 132), false);
         singleLine(date);
-        date.setPadding(0, dp(2), 0, 0);
+        date.setPadding(0, dp(1), 0, 0);
         caption.addView(date, new LinearLayout.LayoutParams(-1, -2));
         if (item.recentAddedCount > 0) {
             TextView added = text("이번에 +" + item.recentAddedCount + "장", 11.5f, Color.rgb(104, 82, 226), true);
