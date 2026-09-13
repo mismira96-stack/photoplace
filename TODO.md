@@ -15,20 +15,31 @@
   - replay 시 생성 시각에 영향받지 않으며, 최신 usable link 조회와 Gallery 경로 정규화를 제공한다.
 - [ ] 기존 `AlbumSummaryHistoryStore` 기록의 OrganizationLink backfill 정책을 결정한다. 이름만으로 Memory를 자동 연결하지 않는다.
 - [x] 선택적 `OrganizationRequest`의 requestId/subject identity를 sort input -> Worker -> sort result JSON으로 전달한다. 기존 요청은 metadata 없이 동작한다.
-- [x] 완료 결과를 idempotent하게 소비하고, 확인된 성공만 OrganizationLink, `path:<relativePath>` alias, 앨범 정리 이력에 반영한다. 결과 JSON은 persistence 성공 뒤에만 소비한다.
-- [ ] `MemoryRepository`가 exact OrganizationLink를 우선 사용해 발견 Memory와 Gallery output을 stable ID로 연결하게 한다. 기존 이름/경로 heuristic은 legacy fallback으로만 유지한다.
-- [ ] 공용 Memory media resolver가 live Discovery refs 또는 정확히 연결된 Gallery output에서 미디어를 읽도록 준비한다.
-  - 외부 Gallery 삭제/변경은 Memory, 날짜별 메모, Collection을 삭제하지 않는다.
+- [x] 완료 결과를 idempotent하게 소비하고, 확인된 성공만 OrganizationLink, `path:<relativePath>` alias, 앨범 정리 이력에 반영한다. 결과 JSON은 persistence 성공 뒤에만 소비하며, 영구 검증 실패는 결과 화면으로 탈출하고 저장 재시도는 최대 3회로 제한한다.
+  - Worker 완료 시각을 link에 보존하고, 이미 저장한 앨범 이력의 중복 호출을 피한다. alias 충돌은 기존 stable ID를 덮어쓰지 않고 exact link를 우선한다.
+- [x] `MemoryRepository`가 stable ID alias와 최신 usable OrganizationLink의 exact 경로를 우선해 발견 Memory와 Gallery output을 연결한다. exact link가 가리키는 앨범이 현재 없으면 다른 동명 앨범으로 heuristic merge하지 않는다. exact link가 없는 레거시 데이터에만 기존 matching fallback을 유지한다.
+- [ ] 기존 전체 장소 일괄 앨범 생성도 결과별 Memory lifecycle을 연결할지 결정하고 구현한다.
+  - 현재 bulk 경로는 `discoveryMemories()`를 대상으로 하고, 단일 Memory `OrganizationRequest`/stable ID link를 전달하지 않는다.
+  - 기존 `Pictures/...` 경로와 파일명을 기준으로 중복 항목을 건너뛴다. 현재 `복사 가능 0개`면 원인이 전부 중복인지와 무관하게 기존 앨범 안내 후 위치 앨범 탭으로 이동할 수 있어 문구/분기를 확인한다.
+  - bulk를 유지하는 동안 여러 장소의 부분 성공/실패를 각각 해당 Memory의 OrganizationLink에 연결할 정책과 테스트가 필요하다. 단순히 전체 결과 한 건을 여러 Memory에 연결하지 않는다.
+- [ ] 공용 Memory media resolver를 구현해 usable exact OrganizationLink가 있으면 해당 Gallery output을 우선 source로 사용하고, 없으면 live Discovery refs를 사용한다. 두 source를 무조건 합쳐 중복 표시하지 않는다.
+  - 현재 Memory 상세는 Discovery refs만 렌더링한다. 단일 장소 앨범 생성 후 결과 화면의 원본 휴지통 이동을 실행하면 발견 사진이 상세에서 사라질 수 있다.
+  - Resolver가 exact linked output을 Memory 상세의 날짜 그룹으로 읽고 stable ID + date 메모를 유지하기 전까지, 단일 Memory 정리 후 원본 휴지통 이동은 테스트/출시 승인하지 않는다.
+  - 외부 Gallery 삭제/변경은 Memory, 날짜별 메모, Collection을 삭제하지 않는다. linked output이 사라지면 live Discovery refs로 fallback한다.
   - partial/cancel/failure에서 확인된 성공 항목만 반영하고 실패분은 재시도 가능한 상태로 남긴다.
 
 기준 문서: [MEMORY_COLLECTION_AND_SELECTIVE_ORGANIZATION_DESIGN_2026-09-12.md](MEMORY_COLLECTION_AND_SELECTIVE_ORGANIZATION_DESIGN_2026-09-12.md)
 
 ### P1. 특정 Memory 하나만 위치 앨범으로 만들기
 
-- [ ] Memory 상세에 `이 장소를 위치 앨범으로 만들기`를 primary organize action으로 연결한다.
-- [ ] 실행 직전에 해당 Memory의 live media만 다시 조회하고, 기존 `DiscoveryAlbumOrganizer -> SortInputStore -> SortWorker -> SortResultStore` 경로를 재사용한다.
-- [ ] 확인 화면에 대상 장소, 사진/동영상 수, 중복·제외 수와 실제 사진 복사/동영상 이동 정책을 정확히 표시한다.
-- [ ] 완료 후에도 같은 stable Memory, 날짜 grouping, 날짜별 메모, Collection membership를 유지하고 Discovery / 위치 앨범 / 해외 상세에서 재진입을 검증한다.
+- [x] Memory 상세에 `이 장소만 위치 앨범으로 만들기` 액션을 연결한다.
+- [x] 실행 직전에 해당 Memory의 live media를 다시 조회하고 기존 `DiscoveryAlbumOrganizer -> SortInputStore -> SortWorker -> SortResultStore` 경로를 재사용한다.
+- [x] 확인 화면의 신규 처리 수를 동영상 설정에 맞춰 계산하고, 이미 있음/접근 불가/설정으로 제외되는 동영상 수와 사진 복사·동영상 이동 정책을 안내한다.
+- [x] 선택한 Memory의 stable ID를 Worker request/result까지 전달해 확인된 결과만 OrganizationLink로 연결한다. 권한 확인 흐름에서도 요청 identity를 유지한다.
+- [x] 한 장소 정리 후 전용 완료 화면에서 같은 Memory로 돌아오거나 위치 앨범을 열 수 있게 한다. 원본 휴지통 이동은 Memory media resolver 검증 전까지 노출하지 않는다.
+- [x] 단일 장소 완료 화면을 장소명/기간/정리 결과 중심으로 다듬고, 생성 앨범 행과 주요 CTA를 분리한다. 보라색은 주요 액션에 한정하고 성공/주의 색상은 의미에 맞게 사용한다.
+- [ ] Resolver 구현 후 실기기에서 한 장소만 생성되는지, Gallery output source로 중복 없이 표시되는지, 원본 휴지통 이동 뒤에도 Memory 사진/날짜 메모가 유지되는지, 위치 앨범/해외 상세 진입과 실패·취소·재실행을 검증한다.
+  - 단일 앨범 완료 UI는 Memory 상세와 기존 정리 결과 경로가 공통 renderer를 사용한다. 최신 APK를 데이터 보존 설치했고 앱 실행까지 확인했다. 결과 화면은 새 앨범을 추가 생성하지 않고 재검증할 방법을 확인 중이다.
 - 기존 전체 장소 일괄 앨범 생성은 명시적 secondary/bulk action으로 유지한다. 기존 기능은 제거하지 않는다.
 
 ### P1. Memory Collection UI
@@ -66,6 +77,7 @@
 - 앱 재설치 후 Memory 재구성, 사용자 메모/Collection backup-export.
 - PhotoPlace가 관찰했던 미디어의 외부 사라짐 이력과 별도 cleanup 앱을 위한 명시적 export/import. PhotoPlace와 외부 앱은 통합하지 않는다.
 - Collection 전체를 단일 Gallery 앨범으로 만들기, 실제 위치 앨범 물리 통합, drag-and-drop grouping.
+- Gallery 앨범 생성 확장 전 사용자 흐름을 검토한다: 여러 장소를 먼저 가상 Collection으로 모은 뒤 원할 때 하나의 Gallery 앨범으로 출력할 수 있게 할지 평가한다. 단일 장소 앨범 생성은 선택 기능으로 유지하고, 그룹 생성만으로 물리 앨범을 자동 생성하지 않는다.
 - Tag/semantic search 확장과 AI 기능. 현재 core architecture나 실행 지시로 취급하지 않는다.
 - 기존 `AlbumSummaryHistoryStore` 기록을 OrganizationLink로 연결하는 migration/backfill 방식과 외부 Gallery 이름 변경 감지 정책은 별도 검토한다.
 

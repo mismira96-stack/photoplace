@@ -7,6 +7,7 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 /**
  * Read-only facade for memory browsing. It adapts discovery-only groups and organized albums into
@@ -18,20 +19,43 @@ final class MemoryRepository {
 
     private final DiscoverySnapshot discoverySnapshot;
     private final List<StoredAlbumSummary> organizedAlbums;
+    private final Map<String, String> stableIdByAlias;
+    private final List<OrganizationLink> organizationLinks;
 
     MemoryRepository(DiscoverySnapshot discoverySnapshot, List<StoredAlbumSummary> organizedAlbums) {
+        this(discoverySnapshot, organizedAlbums, Collections.<String, String>emptyMap(),
+                Collections.<OrganizationLink>emptyList());
+    }
+
+    MemoryRepository(DiscoverySnapshot discoverySnapshot,
+                     List<StoredAlbumSummary> organizedAlbums,
+                     Map<String, String> stableIdByAlias,
+                     List<OrganizationLink> organizationLinks) {
         this.discoverySnapshot = discoverySnapshot;
         this.organizedAlbums = immutableCopy(organizedAlbums);
+        this.stableIdByAlias = stableIdByAlias == null
+                ? Collections.<String, String>emptyMap()
+                : Collections.unmodifiableMap(new LinkedHashMap<>(stableIdByAlias));
+        this.organizationLinks = organizationLinks == null
+                ? Collections.<OrganizationLink>emptyList()
+                : Collections.unmodifiableList(new ArrayList<>(organizationLinks));
     }
 
     List<MemoryRecord> memories() {
         LinkedHashMap<String, MemoryRecord> records = new LinkedHashMap<>();
         LinkedHashMap<String, List<MemoryRecord>> organizedByPlaceKey = new LinkedHashMap<>();
+        LinkedHashMap<String, MemoryRecord> organizedByPath = new LinkedHashMap<>();
+        Map<String, OrganizationLink> latestLinksByMemoryId = latestUsableLinksByMemoryId();
         for (StoredAlbumSummary summary : organizedAlbums) {
             MemoryRecord record = fromOrganizedAlbum(summary);
             if (record != null) {
                 records.put(record.memoryKey, record);
                 addByPlaceIdentity(organizedByPlaceKey, record);
+                String path = normalizedRelativePath(record.organizedAlbum == null
+                        ? "" : record.organizedAlbum.relativePath);
+                if (!path.isEmpty()) {
+                    organizedByPath.put(path, record);
+                }
             }
         }
         if (discoverySnapshot != null) {
@@ -41,8 +65,15 @@ final class MemoryRepository {
                     continue;
                 }
                 MemoryRecord existing = records.get(discoveryRecord.memoryKey);
+                String stableMemoryId = stableIdByAlias.get(discoveryRecord.memoryKey);
+                OrganizationLink exactLink = latestLinksByMemoryId.get(stableMemoryId);
+                if (exactLink != null) {
+                    existing = organizedByPath.get(normalizedRelativePath(exactLink.relativePath));
+                }
                 if (existing == null) {
-                    existing = findCompatibleOrganizedRecord(organizedByPlaceKey, discoveryRecord);
+                    if (exactLink == null) {
+                        existing = findCompatibleOrganizedRecord(organizedByPlaceKey, discoveryRecord);
+                    }
                 }
                 if (existing == null) {
                     records.put(discoveryRecord.memoryKey, discoveryRecord);
@@ -52,6 +83,31 @@ final class MemoryRepository {
             }
         }
         return Collections.unmodifiableList(new ArrayList<>(records.values()));
+    }
+
+    private Map<String, OrganizationLink> latestUsableLinksByMemoryId() {
+        LinkedHashMap<String, OrganizationLink> latest = new LinkedHashMap<>();
+        for (OrganizationLink link : organizationLinks) {
+            if (link == null || !link.isValid()
+                    || link.subjectType != OrganizationLink.SubjectType.MEMORY
+                    || (link.status != OrganizationLink.Status.SUCCESS
+                    && link.status != OrganizationLink.Status.PARTIAL)) {
+                continue;
+            }
+            OrganizationLink current = latest.get(link.subjectId);
+            if (current == null || link.organizedAtMillis >= current.organizedAtMillis) {
+                latest.put(link.subjectId, link);
+            }
+        }
+        return latest;
+    }
+
+    private static String normalizedRelativePath(String value) {
+        String path = clean(value).replace('\\', '/');
+        while (path.endsWith("/")) {
+            path = path.substring(0, path.length() - 1);
+        }
+        return path;
     }
 
     List<MemoryRecord> discoveryMemories() {

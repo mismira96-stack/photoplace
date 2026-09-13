@@ -40,6 +40,15 @@ public class OrganizationLinkFromSortResultTest {
                 request(), result(1, 0, 0, false, "Pictures/Other/"), 500L));
     }
 
+    @Test
+    public void acceptsEquivalentPathSeparatorsAndPreservesWorkerCompletionTime() {
+        OrganizationLink link = OrganizationLinkFromSortResult.create(
+                request(), result(1, 0, 0, false, "Pictures\\Place"), 400L);
+
+        assertEquals(OrganizationLink.Status.SUCCESS, link.status);
+        assertEquals(400L, link.organizedAtMillis);
+    }
+
     private static OrganizationRequest request() {
         return new OrganizationRequest("request-1", OrganizationLink.SubjectType.MEMORY,
                 "mem_place", "Place", "Pictures/Place/");

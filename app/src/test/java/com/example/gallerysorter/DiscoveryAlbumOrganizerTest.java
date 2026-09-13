@@ -47,6 +47,34 @@ public class DiscoveryAlbumOrganizerTest {
     }
 
     @Test
+    public void actionableCountRespectsVideoPreferenceAndDuplicateDetection() throws Exception {
+        MemoryRecord record = MemoryRepository.fromDiscoveryGroup(group(
+                "삿포로",
+                Arrays.asList(
+                        ref("301", "IMG_301.jpg", MediaKind.PHOTO),
+                        ref("302", "VID_302.mp4", MediaKind.VIDEO),
+                        ref("303", "IMG_303.jpg", MediaKind.PHOTO))));
+        DiscoveryAlbumOrganizer.Preparation result = DiscoveryAlbumOrganizer.prepare(
+                Collections.singletonList(record),
+                new DiscoveryAlbumOrganizer.AlbumLookup() {
+                    @Override
+                    public String resolveTargetRelativePath(String placeName, String proposedRelativePath) {
+                        return proposedRelativePath;
+                    }
+
+                    @Override
+                    public DiscoveryAlbumOrganizer.Match find(String path, String name, boolean video) {
+                        return new DiscoveryAlbumOrganizer.Match(true, "IMG_303.jpg".equals(name));
+                    }
+                });
+
+        assertEquals(1, result.actionableCount(false));
+        assertEquals(2, result.actionableCount(true));
+        assertEquals(1, result.excludedVideoCount(false));
+        assertEquals(0, result.excludedVideoCount(true));
+    }
+
+    @Test
     public void duplicateSignatureTreatsCopySuffixAsSameFile() {
         assertEquals(
                 MediaStoreAlbumLookup.fileSignature("IMG_100.jpg"),

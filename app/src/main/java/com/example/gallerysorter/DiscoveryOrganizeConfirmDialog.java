@@ -29,6 +29,24 @@ final class DiscoveryOrganizeConfirmDialog {
     }
 
     void show(List<MemoryRecord> records, boolean moveVideos, final Listener listener) {
+        show(records, moveVideos, false, listener);
+    }
+
+    void showSinglePlace(DiscoveryAlbumOrganizer.Preparation preparation,
+                         boolean moveVideos,
+                         final Listener listener) {
+        show(java.util.Collections.<MemoryRecord>emptyList(), moveVideos, true,
+                preparation, listener);
+    }
+
+    private void show(List<MemoryRecord> records, boolean moveVideos, boolean singlePlace,
+                      final Listener listener) {
+        show(records, moveVideos, singlePlace, null, listener);
+    }
+
+    private void show(List<MemoryRecord> records, boolean moveVideos, boolean singlePlace,
+                      DiscoveryAlbumOrganizer.Preparation preparation,
+                      final Listener listener) {
         int placeCount = 0;
         int itemCount = 0;
         if (records != null) {
@@ -52,7 +70,11 @@ final class DiscoveryOrganizeConfirmDialog {
         root.addView(title, widthWithBottom(8));
 
         TextView summary = text(
-                "발견한 장소 " + placeCount + "곳 · 사진과 동영상 " + itemCount + "개",
+                singlePlace && preparation != null
+                        ? "새로 정리 " + preparation.actionableCount(moveVideos) + "개 · 이미 있음 "
+                                + preparation.duplicateCount + "개"
+                        : (singlePlace ? "이 장소" : "발견한 장소 " + placeCount + "곳")
+                                + " · 사진과 동영상 " + itemCount + "개",
                 15,
                 Color.rgb(75, 85, 99),
                 false);
@@ -62,7 +84,11 @@ final class DiscoveryOrganizeConfirmDialog {
         TextView message = text(
                 moveVideos
                         ? "사진은 위치별 앨범으로 복사되어 원본이 유지됩니다.\n동영상은 위치 앨범으로 이동됩니다.\n이미 만들어진 항목은 자동으로 건너뜁니다."
-                        : "사진은 위치별 앨범으로 복사되어 원본이 유지됩니다.\n이미 만들어진 항목은 자동으로 건너뜁니다.",
+                        : (singlePlace && preparation != null && preparation.excludedVideoCount(false) > 0
+                                ? "사진은 위치 앨범으로 복사되어 원본이 유지됩니다.\n동영상 "
+                                        + preparation.excludedVideoCount(false) + "개는 설정에 따라 제외됩니다.\n"
+                                : "사진은 위치별 앨범으로 복사되어 원본이 유지됩니다.\n")
+                                + "이미 만들어진 항목은 자동으로 건너뜁니다.",
                 14,
                 Color.rgb(75, 85, 99),
                 false);
@@ -71,6 +97,16 @@ final class DiscoveryOrganizeConfirmDialog {
         message.setPadding(dp(14), dp(12), dp(14), dp(12));
         message.setBackground(rounded(Color.rgb(247, 247, 252), 16, 1, Color.rgb(230, 228, 241)));
         root.addView(message, widthWithBottom(16));
+
+        if (singlePlace && preparation != null && preparation.skippedRefCount > 0) {
+            TextView skipped = text(
+                    "현재 접근할 수 없는 미디어 " + preparation.skippedRefCount + "개는 제외됩니다.",
+                    12,
+                    Color.rgb(107, 114, 128),
+                    false);
+            skipped.setGravity(Gravity.CENTER);
+            root.addView(skipped, widthWithBottom(12));
+        }
 
         LinearLayout actions = new LinearLayout(context);
         actions.setOrientation(LinearLayout.HORIZONTAL);
@@ -81,7 +117,7 @@ final class DiscoveryOrganizeConfirmDialog {
         cancel.setOnClickListener(view -> dialog.dismiss());
         actions.addView(cancel, weightedButton(true));
 
-        Button confirm = button("위치 앨범 만들기", true);
+        Button confirm = button(singlePlace ? "이 장소만 만들기" : "위치 앨범 만들기", true);
         confirm.setOnClickListener(view -> {
             dialog.dismiss();
             if (listener != null) {

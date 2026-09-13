@@ -3,28 +3,44 @@ package com.example.gallerysorter;
 import android.content.Context;
 
 import java.util.HashSet;
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 final class DiscoverySnapshotController {
     private final DiscoverySnapshotStore store;
     private final Clock clock;
     private final DiscoverySnapshotLiveFilter liveFilter;
+    private final MemoryIdentityRegistryStore identityRegistryStore;
+    private final MemoryOrganizationLinkStore organizationLinkStore;
 
     DiscoverySnapshotController(Context context) {
-        this(new DiscoverySnapshotStore(context), new SystemClock(), new DiscoverySnapshotLiveFilter(context.getContentResolver()));
+        this(new DiscoverySnapshotStore(context), new SystemClock(),
+                new DiscoverySnapshotLiveFilter(context.getContentResolver()),
+                new MemoryIdentityRegistryStore(context), new MemoryOrganizationLinkStore(context));
     }
 
     DiscoverySnapshotController(DiscoverySnapshotStore store, Clock clock) {
-        this(store, clock, null);
+        this(store, clock, null, null, null);
     }
 
     DiscoverySnapshotController(DiscoverySnapshotStore store,
                                 Clock clock,
                                 DiscoverySnapshotLiveFilter liveFilter) {
+        this(store, clock, liveFilter, null, null);
+    }
+
+    DiscoverySnapshotController(DiscoverySnapshotStore store,
+                                Clock clock,
+                                DiscoverySnapshotLiveFilter liveFilter,
+                                MemoryIdentityRegistryStore identityRegistryStore,
+                                MemoryOrganizationLinkStore organizationLinkStore) {
         this.store = store;
         this.clock = clock == null ? new SystemClock() : clock;
         this.liveFilter = liveFilter;
+        this.identityRegistryStore = identityRegistryStore;
+        this.organizationLinkStore = organizationLinkStore;
     }
 
     boolean savePreviewItems(List<PhotoItem> items, String sourceSignature) {
@@ -154,7 +170,13 @@ final class DiscoverySnapshotController {
         if (liveFilter != null) {
             snapshot = liveFilter.filter(snapshot, organizedAlbums);
         }
-        return new MemoryRepository(snapshot, organizedAlbums);
+        Map<String, String> aliases = identityRegistryStore == null
+                ? Collections.<String, String>emptyMap()
+                : identityRegistryStore.readAliasesSnapshot();
+        List<OrganizationLink> links = organizationLinkStore == null
+                ? Collections.<OrganizationLink>emptyList()
+                : organizationLinkStore.readAll();
+        return new MemoryRepository(snapshot, organizedAlbums, aliases, links);
     }
 
     interface Clock {

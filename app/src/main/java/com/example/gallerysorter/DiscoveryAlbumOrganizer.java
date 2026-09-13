@@ -48,6 +48,29 @@ final class DiscoveryAlbumOrganizer {
         static Preparation empty() {
             return new Preparation(Collections.<PreparedItem>emptyList(), 0, 0, 0, 0);
         }
+
+        int actionableCount(boolean moveVideos) {
+            int count = 0;
+            for (PreparedItem item : items) {
+                if (item != null && !item.duplicateInTarget && (!item.video || moveVideos)) {
+                    count++;
+                }
+            }
+            return count;
+        }
+
+        int excludedVideoCount(boolean moveVideos) {
+            if (moveVideos) {
+                return 0;
+            }
+            int count = 0;
+            for (PreparedItem item : items) {
+                if (item != null && item.video && !item.duplicateInTarget) {
+                    count++;
+                }
+            }
+            return count;
+        }
     }
 
     static final class PreparedItem {

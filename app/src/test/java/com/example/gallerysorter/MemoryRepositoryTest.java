@@ -386,6 +386,61 @@ public class MemoryRepositoryTest {
     }
 
     @Test
+    public void exactOrganizationLinkMergesByStableMemoryIdentityAcrossDifferentNames() {
+        StoredAlbumSummary album = organizedAlbum(
+                "일본 여행",
+                "Pictures/일본 여행/",
+                7,
+                "2026-08-02",
+                "2026-08-06");
+        DiscoveryMemoryGroup group = discoveryGroup(
+                "discovery:삿포로", "삿포로", "삿포로", 3, 3, 0,
+                1785600000000L, 1785945600000L, 0);
+        OrganizationLink link = organizationLink("mem-sapporo", "mem_sapporo",
+                "Pictures/일본 여행", 900L, OrganizationLink.Status.SUCCESS);
+        MemoryRepository repository = new MemoryRepository(
+                snapshot(group), Collections.singletonList(album),
+                Collections.singletonMap("discovery:삿포로", "mem_sapporo"),
+                Collections.singletonList(link));
+
+        List<MemoryRecord> records = repository.memories();
+
+        assertEquals(1, records.size());
+        assertEquals(MemorySourceType.MIXED, records.get(0).sourceType);
+        assertSame(group, records.get(0).discoveryGroup);
+        assertNotNull(records.get(0).organizedAlbum);
+    }
+
+    @Test
+    public void exactLinkPreventsHeuristicMergeWhenItsAlbumIsNotPresent() {
+        StoredAlbumSummary unrelatedSameNameAlbum = organizedAlbum(
+                "삿포로에서",
+                "Pictures/삿포로에서/",
+                7,
+                "2026-08-02",
+                "2026-08-06",
+                "JP",
+                "Japan",
+                "Hokkaido",
+                "Sapporo, Hokkaido, Japan");
+        DiscoveryMemoryGroup group = discoveryGroup(
+                "discovery:삿포로", "삿포로", "삿포로", 3, 3, 0,
+                1785600000000L, 1785945600000L, 0);
+        OrganizationLink missingOutput = organizationLink("mem-sapporo", "mem_sapporo",
+                "Pictures/other-output", 900L, OrganizationLink.Status.SUCCESS);
+        MemoryRepository repository = new MemoryRepository(
+                snapshot(group), Collections.singletonList(unrelatedSameNameAlbum),
+                Collections.singletonMap("discovery:삿포로", "mem_sapporo"),
+                Collections.singletonList(missingOutput));
+
+        List<MemoryRecord> records = repository.memories();
+
+        assertEquals(2, records.size());
+        assertEquals(MemorySourceType.DISCOVERED_ONLY,
+                records.get(1).sourceType);
+    }
+
+    @Test
     public void returnsNullAndEmptyRefsForMissingMemory() {
         MemoryRepository repository = new MemoryRepository(null, null);
 
@@ -403,6 +458,24 @@ public class MemoryRepositoryTest {
                 Arrays.asList(groups),
                 DiscoverySnapshotMapper.DEFAULT_ANALYSIS_POLICY_VERSION,
                 DiscoverySnapshotMapper.DEFAULT_COUNTRY_IDENTITY_POLICY_VERSION);
+    }
+
+    private static OrganizationLink organizationLink(String requestId,
+                                                      String memoryId,
+                                                      String relativePath,
+                                                      long organizedAtMillis,
+                                                      OrganizationLink.Status status) {
+        return new OrganizationLink("link-" + requestId,
+                OrganizationLink.SubjectType.MEMORY,
+                memoryId,
+                requestId,
+                "album",
+                relativePath,
+                organizedAtMillis,
+                status,
+                1,
+                0,
+                0);
     }
 
     private static DiscoveryMemoryGroup discoveryGroup(String memoryKey,

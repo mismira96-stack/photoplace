@@ -11,6 +11,10 @@ import java.io.FileOutputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.UUID;
+import java.util.Collections;
+import java.util.LinkedHashMap;
+import java.util.Iterator;
+import java.util.Map;
 
 /** Maps observed memory aliases to immutable ids used by user-authored memory data. */
 final class MemoryIdentityRegistryStore {
@@ -33,6 +37,20 @@ final class MemoryIdentityRegistryStore {
             return "";
         }
         return clean(readAliases().optString(key, ""));
+    }
+
+    synchronized Map<String, String> readAliasesSnapshot() {
+        JSONObject aliases = readAliases();
+        LinkedHashMap<String, String> result = new LinkedHashMap<>();
+        Iterator<String> keys = aliases.keys();
+        while (keys.hasNext()) {
+            String alias = keys.next();
+            String stableId = clean(aliases.optString(alias, ""));
+            if (!alias.trim().isEmpty() && !stableId.isEmpty()) {
+                result.put(alias, stableId);
+            }
+        }
+        return Collections.unmodifiableMap(result);
     }
 
     synchronized String resolveOrCreate(String alias) {
