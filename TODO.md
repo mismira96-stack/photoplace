@@ -1,362 +1,282 @@
-# 앨범정리 TODO
+# PhotoPlace TODO
 
-## Current Execution Plan (2026-08-24)
+## CURRENT EXECUTION PLAN
 
-이 섹션이 현재 구현 순서의 단일 기준이다. 아래 날짜별 항목은 맥락과 세부 설계를 보존하는 참고용이다.
+이 문서에서 현재 실제 실행 순서를 정의하는 유일한 섹션이다. 완료된 기능과 과거 계획은 실행 항목으로 반복하지 않는다.
 
-### P0 - 작은 UI 정리
+### P1. Stable Memory lifecycle과 Gallery output 연결
 
-- [x] 발견 기록과 위치 앨범 상단 영역의 배경색/여백 톤을 통일한다.
-  - 두 탭을 오갈 때 상단 배경이 달라 보이지 않도록 같은 surface 정책을 사용한다.
-- [x] 발견 상세 날짜 섹션의 빨간 세로 구분선을 앱의 purple accent로 교체한다.
-  - 경고처럼 읽히지 않고, 발견/위치 앨범 전체 컬러 톤과 맞아야 한다.
-- [x] 위치 앨범 헤더를 `위치 앨범 N개`로 변경하고 `총 N개 장소 발견` 표현을 제거한다.
-- [x] 사진 수 표현을 `사진 N장`으로 통일한다. 사진/동영상 혼합 총계에는 필요한 경우에만 `항목 N개`를 사용한다.
-- [x] 설정 최상위 화면의 Back 버튼을 제거한다. 하위 설정 화면만 Back을 유지한다.
-- [x] 발견 상세 진입 중 Bottom Navigation의 `발견` 선택 상태를 유지한다.
-- [x] 상세 하단 복귀 CTA를 `다른 장소 보기`로 변경해 상단 Back과 목적을 구분한다.
-- [x] 발견 상세 상단 요약에서 중복된 `발견한 장소` 라벨과 설명 문구를 제거하고 사진 수·기간만 남긴다.
-- [x] 발견 탭의 `발견한 장소를 위치 앨범으로 만들기` CTA는 현재 위치와 강도를 유지한다.
-  - Display First, Organize Optional은 Organize Hidden이 아니다. 발견 후 바로 Gallery 정리를 원하는 사용자 흐름도 유지한다.
-- [x] 발견 기록 상단의 안내 문구를 제거하고, 위치 앨범과 같은 정보 요약(`발견한 장소 N곳 · 사진 N장 · 기간`)으로 교체한다.
+- [x] generic `OrganizationLink` 모델과 영속 저장소를 구현한다.
+  - `subjectType = MEMORY | COLLECTION`, `subjectId = mem_<UUID> | group_<UUID>`로 확장 가능하게 한다.
+  - `SUCCESS` / `PARTIAL` / `MISSING` 수명주기를 지원한다. 기존 앨범 이력 backfill 정책은 별도 결정 전까지 미확정으로 둔다.
+  - `relativePath`/앨범명은 Gallery output의 last-known metadata이며 Memory identity로 사용하지 않는다.
+  - 불변 모델, subject/status/count 검증, JSON 직렬화 테스트를 추가했다 (`OrganizationLink`).
+  - 원자 JSON 저장, requestId replay/conflict 처리, subject별 output history, `MISSING` 상태 및 backup 복구/fail-safe 테스트를 추가했다 (`MemoryOrganizationLinkStore`).
+- [ ] 기존 `AlbumSummaryHistoryStore` 기록의 OrganizationLink backfill 정책을 결정한다. 이름만으로 Memory를 자동 연결하지 않는다.
+- [ ] 정리 Worker의 request/result에 `requestId`와 subject identity를 연결해 재시작·중복 결과 처리에도 완료 처리가 idempotent하도록 한다.
+- [ ] Worker가 확인한 실제 성공 결과 이후에만 OrganizationLink, `path:<relativePath>` alias, 앨범 정리 이력을 반영한다.
+- [ ] `MemoryRepository`가 exact OrganizationLink를 우선 사용해 발견 Memory와 Gallery output을 stable ID로 연결하게 한다. 기존 이름/경로 heuristic은 legacy fallback으로만 유지한다.
+- [ ] 공용 Memory media resolver가 live Discovery refs 또는 정확히 연결된 Gallery output에서 미디어를 읽도록 준비한다.
+  - 외부 Gallery 삭제/변경은 Memory, 날짜별 메모, Collection을 삭제하지 않는다.
+  - partial/cancel/failure에서 확인된 성공 항목만 반영하고 실패분은 재시도 가능한 상태로 남긴다.
 
-### P0 - 발견 기록 정합성 조사와 표시 개선
+기준 문서: [MEMORY_COLLECTION_AND_SELECTIVE_ORGANIZATION_DESIGN_2026-09-12.md](MEMORY_COLLECTION_AND_SELECTIVE_ORGANIZATION_DESIGN_2026-09-12.md)
 
-- [ ] 새 분석 뒤 같은 장소가 다시 `새로 발견됨`으로 보이거나, 새 장소가 0곳으로 보이는 재현을 먼저 코드/덤프 기준으로 확정한다.
-  - source scope 병합, `duplicateInTarget`, snapshot merge/replace, live filter를 함께 점검한다.
-- [x] 이번 분석의 새로 갱신된 장소 수를 기존 `placeKey` 존재 여부가 아닌 media URI 기준으로 계산한다.
-  - 같은 URI를 다시 분석하면 0곳, 기존 장소에 새 URI가 추가되면 그 장소는 이번 분석 신규 항목으로 집계한다.
-- [x] Discovery live filter의 `Pictures/*에서` 문자열 휴리스틱을 제거하고, `AlbumSummaryHistoryStore`에서 읽은 실제 위치 앨범 경로와만 일치시킨다.
-- [x] 발견 카드에서 이번 분석에 새 media URI가 들어온 장소를 최상단에 노출하고 `NEW` / `이번에 +N장`으로 표시한다.
-  - `NEW`는 완전히 새로운 placeKey에만 한정하지 않는다. 기존 장소에 새 사진이 추가된 경우도 표시한다.
-  - `DiscoveryPhotoRef.firstSeenSnapshotVersion`을 URI별로 보존해, 같은 폴더를 재분석해도 기존 사진 전체가 NEW가 되지 않도록 한다.
-  - 현재는 카드 정렬/배지로 노출한다. 별도 `이번에 사진이 추가된 장소` 섹션과 분석 완료 dialog의 장소 수·사진 수 분리는 후속 polish로 둔다.
-  - 후속 테스트 보강: 동일 `+N장` 장소 간 최신 날짜 정렬, `ORGANIZED_ALBUM`/`MIXED` NEW 억제, URI 장소 재분류 뒤 first-seen 보존.
-- [ ] 앱 삭제/데이터 초기화 후 discovery snapshot이 복원되지 않는 현재 한계를 안내하고, `발견 기록 다시 구성하기` UX를 설계한다.
+### P1. 특정 Memory 하나만 위치 앨범으로 만들기
 
-### P1 - Incremental Analysis / Memory lifecycle
+- [ ] Memory 상세에 `이 장소를 위치 앨범으로 만들기`를 primary organize action으로 연결한다.
+- [ ] 실행 직전에 해당 Memory의 live media만 다시 조회하고, 기존 `DiscoveryAlbumOrganizer -> SortInputStore -> SortWorker -> SortResultStore` 경로를 재사용한다.
+- [ ] 확인 화면에 대상 장소, 사진/동영상 수, 중복·제외 수와 실제 사진 복사/동영상 이동 정책을 정확히 표시한다.
+- [ ] 완료 후에도 같은 stable Memory, 날짜 grouping, 날짜별 메모, Collection membership를 유지하고 Discovery / 위치 앨범 / 해외 상세에서 재진입을 검증한다.
+- 기존 전체 장소 일괄 앨범 생성은 명시적 secondary/bulk action으로 유지한다. 기존 기능은 제거하지 않는다.
 
-- [x] `MediaAnalysisStore`를 이미지 스캔에 연결해 이미 분석한 사진의 EXIF/Geocoder 재분석을 건너뛴다.
-  - 현재 `ANALYZED`/`NO_LOCATION`, normalized location result와 media identity/signature를 저장한다.
-  - 신규/복사/이동/변경/policy 변경/GPS 추가 미디어만 재분석한다.
-  - cache hit도 발견/위치 없음 카운트와 Memory ref에는 포함한다.
-- [x] `MediaAnalysisStore` 1단계: signature별 `ANALYZED`/`NO_LOCATION` 결과를 JSON 파일에 원자 저장·복원하는 독립 저장소와 단위 테스트를 추가했다.
-  - 이미지 스캔은 cache hit에도 기존 `PhotoItem`을 만들며 결과 목록과 snapshot에 포함한다.
-- [ ] 동영상 스캔에도 같은 캐시 계약을 별도 패치로 연결한다.
-- [ ] retryable `FAILED` 상태와 재시도 정책은 실제 실패 원인/사용자 경험이 확인된 뒤 별도 설계한다.
-- [ ] MediaStore reconciliation으로 외부 삭제/변경된 미디어를 live Memory에서만 제거한다.
-- [ ] 현재 `NoLocationCache`는 이 설계와 단위 테스트가 완료되기 전 재활성화하지 않는다.
+### P1. Memory Collection UI
 
-### P1 - 발견 기록에서 선택적으로 위치 앨범 만들기
+- [ ] 발견 장소 다중 선택 → 2개 이상 선택 → 이름 입력 → 기존 `MemoryCollectionStore` 저장 흐름을 연결한다.
+- [ ] Memory 선택 시 `MemoryIdentityRegistryStore`에서 stable ID를 resolve/create하고, 하나의 Memory는 활성 Collection 하나에만 속하게 한다.
+- [ ] `내 기억 모음` 목록, Collection 상세, 이름 변경, 해제(dissolve), 앱 재시작 후 복원을 제공한다.
+- [ ] 상세는 `날짜 -> 장소 -> 해당 장소/날짜 메모 -> 사진` 계층을 유지한다. 기존 단일 장소의 날짜 메모를 합치거나 이동하지 않는다.
+- [ ] Collection 멤버가 Gallery에 정리된 뒤에도 OrganizationLink를 통해 Gallery 미디어를 열 수 있게 하고, 둘 다 없으면 멤버/메모를 unavailable 상태로 보존한다.
+- [ ] 원본 장소는 계속 검색·개별 진입 가능하게 둔다. drag-and-drop 및 Collection-to-Gallery 앨범 생성은 이 MVP에서 제외한다.
 
-- [x] **Spike 완료 (2026-09-05): single-place Gallery Album 생성 경로를 조사했다.**
-  - `OrganizePlaceService.planFor(record)`과 `DiscoveryAlbumOrganizer.prepare(Collections.singletonList(record), ...)`를 그대로 재사용할 수 있어, Gallery 생성 자체는 작은 확장이다.
-  - 다만 현재는 앨범 생성 후 Discovery snapshot을 명시적으로 `ORGANIZED`로 연결하지 않으며, 날짜 메모의 `discovery:<placeKey>` alias를 위치 앨범 viewer가 아직 공유하지 않는다.
-  - 구현은 `MemoryCollection` / Memory lifecycle 설계 뒤로 보류한다. 그때 organization link와 shared Memory detail을 함께 도입해 메모가 화면에서 사라지지 않게 한다.
-- [ ] 발견 상세에 `이 장소를 위치 앨범으로 만들기` CTA를 추가한다.
-  - 선택한 Memory 한 곳의 live discovery media만 기존 `SortInputStore` -> `SortWorker` 흐름으로 전달한다.
-  - 확인창은 장소명, 사진/동영상 수, 이미 정리된 중복 제외 수를 보여주고 `원본은 유지돼요`를 명시한다.
-  - 성공한 장소만 실제 `AlbumSummaryHistoryStore`에 기록하고 위치 앨범에서 보이게 한다.
-- [ ] 현재 전역 `발견한 장소를 위치 앨범으로 만들기` CTA는 장소별 생성 UX가 실기기 검증된 뒤 `여러 장소 선택` 보조 동작으로 재검토한다.
-  - 기본 흐름은 `발견해서 보기`이며, Gallery 앨범 생성은 사용자가 특정 기억에 대해 선택하는 행동으로 둔다.
+### P1. 날짜/장소 범위 PhotoPlace Photo Viewer
 
-### P1 - 해외 기록을 Memory 기반으로 통합
+- [ ] 날짜 섹션의 썸네일을 누르면 해당 place + date의 전체 미디어 목록을 source로 내부 뷰어를 연다. 현재 렌더된 48장만 source-of-truth로 쓰지 않는다.
+- [ ] 선택한 사진부터 시작하고 좌우 swipe, 현재 위치/전체 개수, Back 후 기존 상세 위치 복귀를 제공한다.
+- [ ] 사진은 내부에서 탐색한다. 동영상 내부 재생은 제외하고 기존 외부 player 흐름을 유지한다.
+- [ ] Gallery에서 열기는 보조 액션으로 유지한다. 줌, 공유, 삭제, 편집, 전체 장소 swipe, 날짜 jump navigation은 MVP에서 제외한다.
 
-#### 문제
+### P1. 해외 Memory lifecycle 통합
 
-현재 홈의 `해외 기록`은 발견 Memory가 아니라 `AlbumSummaryHistoryStore`의 실제 Gallery 위치 앨범 정리 기록만 사용한다.
+- [ ] 이미 출시된 Home `OverseasCountryProjection`과 국가 상세 화면은 유지하면서, OrganizationLink 기반 stable Memory dedupe를 추가한다.
+- [ ] 국가 상세에서 discovery/organized 항목의 중복 장소·사진 수를 검증하고 `날짜 -> 장소 -> 메모 -> 사진` 통합 뷰를 연결한다.
+- [ ] 기존 `AlbumSummaryHistoryStore` 사용자와 DiscoverySnapshot 사용자 모두를 고려한다. 과거 앨범 이력의 자동 연결은 exact identity가 확인되는 경우에만 수행하고, 이름만으로 잘못 합치지 않는다.
 
-따라서 Gallery 앨범을 만들지 않고 PhotoPlace Memory만 사용하는 사용자는 해외 사진을 분석해 발견 기록에 가지고 있어도 `해외 기록`에는 표시되지 않는다.
+## NEXT / BACKLOG
 
-실제 사용자 피드백:
+현재 제품 방향과는 맞지만 위 실행 순서의 완료 전에는 착수하지 않는다.
 
-- 해외 사진 분석 완료.
-- 발견 탭에서는 해외 장소 확인 가능.
-- Gallery 앨범은 생성하지 않음.
-- 홈 `해외 기록`에는 아무것도 나오지 않아 기능 오류로 인식.
+- 홈에서 아직 발견 기록이 없는 사용자를 위한 `사진 속 장소 찾기` empty state.
+- 날짜 메모 기반 `기억을 꺼내보기`, 1년 전 오늘, 최근 다시 찾은 장소 등 resurfacing / Memory Dashboard.
+- 대용량 10k+ lazy grid 및 날짜 grouping 성능 측정.
+- 분석 중단 후 checkpoint/resume와 foreground/background 복구.
+- 동영상 분석 cache, retryable FAILED cache policy, MediaStore reconciliation 및 외부 사라짐 이력.
+- 기존 `NoLocationCache` 회귀를 반복하지 않도록, 대체 설계·무효화 테스트가 갖춰지기 전에는 재활성화하지 않는다.
+- 앱 재설치 후 Memory 재구성, 사용자 메모/Collection backup-export.
+- PhotoPlace가 관찰했던 미디어의 외부 사라짐 이력과 별도 cleanup 앱을 위한 명시적 export/import. PhotoPlace와 외부 앱은 통합하지 않는다.
+- Collection 전체를 단일 Gallery 앨범으로 만들기, 실제 위치 앨범 물리 통합, drag-and-drop grouping.
+- Tag/semantic search 확장과 AI 기능. 현재 core architecture나 실행 지시로 취급하지 않는다.
+- 기존 `AlbumSummaryHistoryStore` 기록을 OrganizationLink로 연결하는 migration/backfill 방식과 외부 Gallery 이름 변경 감지 정책은 별도 검토한다.
 
-이는 `Display First, Organize Optional` 원칙과 맞지 않는 V1 legacy 구조다.
+## PRODUCT / ARCHITECTURE DECISIONS
 
-#### 임시 대응
+### Canonical Memory
 
-- [ ] 필요 시 `해외 기록`을 `해외 위치 앨범`으로 변경한다.
-- [ ] 이는 현재 데이터 source를 정확히 표현하기 위한 임시 UX 수정이며, 근본 해결로 간주하지 않는다.
+- PhotoPlace의 canonical logical record는 Memory이며 stable `mem_<UUID>`가 identity다.
+- `discovery:<placeKey>`와 `path:<relativePath>`는 alias다. 표시명·폴더명·경로는 identity가 아니다.
+- 날짜 메모 키는 stable Memory ID + 날짜이며, 장소 이름 변경이나 Gallery 출력 변경으로 메모를 이동/삭제하지 않는다.
+- Memory는 Gallery 앨범 생성 후에도 유지된다. Discovery/위치 앨범은 같은 Memory를 다른 상태·소스로 보여주는 projection이다.
+- Gallery Album은 선택적 output이지 Memory의 replacement가 아니다. ORGANIZED 상태를 중복 저장하지 않고 usable OrganizationLink에서 파생한다.
+- 파일 삭제/이동과 UI에서 숨김은 서로 다른 사건이다. Gallery output이 없어져도 Memory, 메모, Collection metadata는 삭제하지 않는다.
 
-#### 최종 방향
+### Collections
 
-홈의 해외 기록을 Gallery Album History 전용 기능이 아니라 Memory 기반 projection으로 재구성한다.
+- `MemoryCollection`은 사용자가 만든 app-only grouping이며 장소 병합이나 Gallery 폴더 이동이 아니다.
+- Collection은 stable member IDs와 제목만 보관한다. 미디어와 메모는 표시 시점에 원본 Memory에서 resolve한다.
+- MVP는 한 stable Memory당 활성 Collection 하나, 최소 두 멤버를 유지한다.
+- 해제는 Collection metadata만 제거하고 원본 장소/사진/메모/Gallery output은 건드리지 않는다.
+- 그룹 상세는 `date -> place -> note -> photos` 구조로 메모 소유권을 보존한다.
 
-```text
-Discovery Memory
-+
-Organized Memory
--> stable Memory identity 기준 dedupe
--> 국가별 grouping
--> 해외 기록
-```
+### Discovery, Gallery, Overseas UX
 
-목표:
+- 기본은 PhotoPlace 안에서 Memory를 보고, Gallery 정리는 사용자가 선택했을 때만 한다.
+- 특정 Memory 하나의 앨범 생성이 기본 organize 흐름이다. 전체 장소 일괄 생성은 원하는 사용자를 위한 명시적 보조 기능이다.
+- Home 해외 국가 projection과 국가 전용 상세 화면은 이미 출시된 기능이다. 과거 “홈 미연결”, “Phase 3-B 전 release 금지” 기록은 현재 지시가 아니다.
+- 해외 기록은 Discovery와 기존 위치 앨범을 모두 수용하고, 최종 dedupe 기준은 stable Memory identity다.
+- Photo Viewer MVP 범위는 동일 place + date다. 동영상은 현재 외부 player 흐름을 유지한다.
 
-- Gallery 앨범을 만들지 않은 사용자도 해외 기록을 볼 수 있음.
-- 발견에서 정리 상태가 바뀌어도 동일 Memory로 유지.
-- 동일 장소/사진이 발견 기록과 위치 앨범에서 중복 노출되지 않음.
-- 날짜별 메모 유지.
-- 향후 `MemoryCollection`과 자연스럽게 연결.
+## ARCHIVE / HISTORY
 
-#### 현재 진행 상태
+> 아래 내용은 과거 구현 기록과 설계 히스토리 보존용이다.
+> 현재 구현 우선순위나 제품 지시로 사용하지 않는다.
+> 현재 실행 기준은 문서 상단의 CURRENT EXECUTION PLAN을 따른다.
 
-- [x] `OverseasCountryProjection`을 홈 `해외 기록` 카드의 읽기 전용 source로 연결한다.
-  - 발견 Memory가 있는 국가는 Gallery 앨범을 만들지 않아도 홈 국가 카드에 표시한다.
-  - 발견 기록이 있는 국가 카드는 클릭 시 해당 국가명으로 발견 목록을 열어 장소 리스트를 보여준다.
-  - 기존 위치 앨범만 있는 국가는 기존 Gallery 상세 흐름을 유지한다.
-- [x] 홈 진입 시 해외 projection/live-filter 계산을 백그라운드로 이동한다.
-  - 홈 첫 프레임은 무거운 MediaStore 조회를 기다리지 않는다.
-  - 같은 프레임의 MemoryRepository는 한 번만 만들고 발견 버튼/해외 기록이 공유한다.
-- [x] 발견+위치 앨범이 모두 있는 국가의 해외 기록 카드에서 양쪽 source를 함께 탐색한다.
-  - 국가 카드 진입 시 해당 국가 검색 목록에 `MemoryRepository.memories()`를 사용한다.
-  - 발견 장소와 기존 위치 앨범은 같은 목록에서 구분 가능한 상태로 보인다.
-  - 날짜/장소 통합 상세 화면은 후속 단계로 남긴다.
-- [ ] Discovery Memory와 기존 위치 앨범을 stable Memory ID 기준으로 완전 dedupe한다.
-- [ ] 국가 카드 클릭 후 `날짜 -> 장소 -> 메모 -> 사진` 통합 상세 화면을 연결한다.
-- [ ] Antigravity 종합 리뷰에서 홈 executor/Geocoder 차단/cache 보류/카드 고정 높이를 검증한다.
+### Completed baseline (2026-09-12 기준)
 
-이번 연결은 파일/MediaStore를 변경하지 않는 Phase 3-A UI projection이며,
-Gallery 조직 상태와 Memory identity를 하나의 mutable state로 합치지 않는다.
+- 날짜별 Memory Note: stable identity + date 저장, 작성/수정 UI 및 저장소 복구 테스트 완료; 출시됨.
+- 이미지 재분석 cache: `MediaAnalysisStore`와 image scan 연동, 구형 경로 signature 정규화 및 단말 검증 완료.
+- Discovery 신규 사진 표시: URI 기준 `NEW` / `이번에 +N장`, 정렬과 snapshot/live-filter 개선 완료.
+- 발견/위치 앨범 UI polish: 헤더/사진 수/설정 Back/탭 선택/요약/날짜 accent 항목 완료.
+- Overseas: country projection, Home 연결, mixed source 상세 화면, background 계산 및 성능 보완 완료; Play release 완료.
+- MemoryCollection foundation: Store의 atomic JSON safety, one-active-collection rule, read-only Resolver, `date -> place -> note -> photos`, URI dedupe 및 unavailable member metadata 완료.
+- Songpa discovery cover: 가장 최신 유효 사진을 대표 썸네일로 선택하도록 수정 및 단말 확인 완료.
 
-#### 현재 릴리즈 판단
+### 2026-08-22 Display First 후속
 
-- [ ] 이번 변경은 개발 체크포인트로만 유지한다.
-- [ ] 홈 해외 카드에서 국가 전용 상세 화면으로 연결되는 Phase 3-B 전까지 Play 릴리즈에 포함하지 않는다.
-- [ ] 현재 국가 검색 목록 연결은 mixed-source 검증용 interim UX로 취급한다.
-
-#### 구현 시점
-
-완전한 lifecycle 통합은 `Memory Grouping` Phase 3 UI 및 generic organization link 이후 진행한다.
-
-### P2 - 원본 정리 이력과 선택적 Cleanup Handoff
-
-- [ ] 사용자가 확인 후 실제 휴지통 이동/삭제를 완료한 원본 미디어만 별도 cleanup event로 기록하는 모델을 설계한다.
-  - 후보/분석 결과 전체가 아니라 완료 이벤트만 기록한다.
-  - 최소 식별값 후보: 삭제 시각, display name, MIME type, 촬영 시각, size, MediaStore id/URI(진단용), 정리 세션 id.
-  - GPS, 주소, 개인 장소명은 기본 handoff 데이터에 포함하지 않는다.
-- [ ] 향후 별도 Google Photos cleanup 앱과의 연결은 명시적 사용자 동의 기반의 export/import로 검토한다.
-  - 두 앱이 내부 저장소를 직접 공유하지 않는다.
-  - 외부 앱의 실제 Google Photos 라이브러리 접근 가능 범위와 정책은 구현 전에 별도 검증한다.
-
-### P1 - 대용량 안정성 및 복구
-
-- [ ] 10k+ 사진/수천 장 장소에서 상세 진입, 날짜 grouping, 스크롤, 메모리/OOM을 측정한다.
-- [ ] 필요 시 visible cap을 제거하지 않고 lazy photo grid/paging으로 전환한다.
-- [ ] 분석 중단 후 이어하기를 위한 checkpoint와 foreground/background 복구 정책을 설계한다.
-
-### P1 - Memory 날짜 목록/사진 뷰어
-
-- [ ] **MVP 범위 확정: 장소 + 날짜 section 전용 PhotoPlace 뷰어**
-  - Memory 상세의 썸네일을 누르면 현재 장소와 날짜의 전체 photo refs를 뷰어 입력으로 전달한다.
-  - 화면에 먼저 렌더된 48장만 viewer source로 사용하지 않는다. 날짜 전체 목록을 별도로 가져오거나 lazy load한다.
-  - 전체 화면에서 좌우 스와이프, 현재 번호/전체 수, Back 복귀만 제공한다.
-  - Back 시 원래 Memory 상세의 장소/날짜 맥락으로 돌아온다.
-  - `Gallery에서 열기`는 보조 액션으로 유지한다.
-- [ ] 날짜별 메모는 장소 + 날짜 stable Memory ID 기준으로 뷰어와 계속 공유한다.
-- [ ] 1차 MVP에서 제외: 동영상 내부 재생, 줌, 공유/삭제, 장소 전체 swipe, 날짜 jump navigation.
-
-### P1 - 날짜별 Memory Note (다음 구현 우선순위)
-
-- [ ] **Phase 0 - stable memory key 계약을 먼저 확정한다.**
-  - `MemoryPersonalizationKey.forSummary()`의 `relativePath` 키를 날짜 메모에 재사용하지 않는다. 물리 앨범 이동/통합 시 메모가 끊길 수 있다.
-  - 발견 기록과 위치 앨범이 같은 장소를 가리킬 때 공유 가능한 논리 key를 `MemoryRecord.placeKey` / country / adminArea 기반으로 설계한다.
-  - 장소명이 재분류되거나 country/admin 정보가 바뀐 경우의 alias/migration 정책을 먼저 문서화한다. 임의의 title 문자열 병합은 금지한다.
-- [ ] **Phase 1 - `MemoryDateNoteStore` 저장 기반을 추가한다.**
-  - key: `stableMemoryKey + dateKey(yyyyMMdd)`.
-  - value: 한 줄 text, createdAtMillis, updatedAtMillis. 사진 원본/thumbnail은 저장하지 않는다.
-  - 별도 `memory_date_notes.json`을 사용하고 tmp/bak 원자 저장, 손상 파일을 빈 값으로 덮어쓰지 않는 정책을 적용한다.
-  - 저장/복원, 빈 메모 삭제, JSON 손상 backup 복구, stable key/date key 격리 단위 테스트를 먼저 작성한다.
-- [ ] **Phase 2 - 발견 상세 날짜 섹션에서 작성/수정한다.**
-  - 날짜 헤더 아래에 메모가 있으면 한 줄을 표시하고, 없으면 작은 `이 날의 기억 남기기` 액션만 노출한다.
-  - 입력은 짧은 한 줄로 제한하고, 저장/수정/삭제가 명확히 구분되게 한다.
-  - 사진 그리드/더 보기 paging과 독립적으로 동작해야 한다.
-- [ ] **Phase 3 - lifecycle 회귀를 검증한다.**
-  - 재분석, 동일 장소에 새 사진 추가, 사진 일부 live-filter 제외 뒤에도 메모가 유지돼야 한다.
-  - 발견에서 위치 앨범 생성/이동한 뒤에도 같은 논리 장소·날짜의 메모가 이어지는지 검증한다.
-- [ ] **Gemini 설계 리뷰 게이트**
-  - stable key 충돌, discovery/organized alias, JSON 손상/저장 실패, 앨범 이동 뒤 메모 보존을 우선 검토받는다.
-- [ ] **기억을 꺼내보기**: 날짜별 메모가 있는 사용자에게만 홈에서 다시 볼 수 있는 조건부 섹션을 제공한다.
-  - 대표 사진, 장소명, 날짜, 메모 첫 줄을 표시하고 해당 Memory detail로 연다.
-  - 메모가 하나도 없을 때는 홈에 빈 카드나 새 탭을 만들지 않는다.
-  - 이는 날짜별 메모 MVP 검증 뒤에 진행하며, 독립적인 Memory Dashboard는 그 다음 단계로 보류한다.
-- [ ] **발견 기록 가상 기억 통합**: 파일을 바꾸지 않고 여러 Memory를 사용자 이름으로 묶는 `MemoryCollection`을 구현한다.
-- [ ] **위치 앨범 실제 통합**: 별도 기능으로, PhotoPlace 생성 앨범만 선택해 새 Gallery 폴더로 실제 이동한다.
-  - 두 통합은 UI, 저장 모델, 실패/되돌리기 정책을 절대 공유하거나 혼동하지 않는다.
-
-### 보류
-
-- [ ] 복잡한 추천 시스템, 확장 Memory Dashboard, AI 전면 도입, 월/연도별 실제 Gallery 폴더 생성.
-- [ ] 드래그 앤 드롭 통합. MVP는 long-press 다중 선택으로 유지한다.
-
-## 2026-08-22 Display First 후속
-
-- [x] 분석 완료 dialog의 primary action을 `발견한 장소 보기`로 변경.
-- [x] Preview dialog의 legacy `앨범 만들기`를 제거하고, 앨범 생성은 발견 tab의 사용자 확인 CTA로 단일화.
-- [x] 분석 직후 홈의 중복 대형 앨범 만들기 CTA는 숨김.
-- [x] `발견한 장소 둘러보기`를 photo-first 카드 grid로 변경(일반 폭 2열, 넓은 화면 3열).
-- [x] Memory detail에서 처음 48장을 빠르게 보여준 뒤 `사진 더 보기`로 다음 48장을 현재 화면 아래에 이어서 표시한다.
-- [ ] 장기적으로 Memory detail을 수백/수천 장까지 안전하게 볼 수 있는 lazy date grid로 전환.
-- [ ] 앱 내부 사진 viewer 또는 같은 장소 사진 간 자연스러운 좌우 탐색 제공.
-- [x] 발견 장소 검색 추가. 1차 검색 대상은 장소명, 국가명/국가 alias, 도시명, 연도/월.
-- [x] Memory Browser를 `발견` 메인 tab으로 승격하고 `정리 기록`을 `위치 앨범`으로 명확히 구분.
-- [ ] 발견 탭 검색을 실제 장소 수가 많은 사용자 데이터로 탐색성 검증.
-- [x] Gallery에서 삭제·휴지통 이동된 DiscoverySnapshot 항목을 발견 카드/상세에서 live 제외.
-- [ ] 수천~수만 개 snapshot에서 MediaStore live-filter 진입 성능 측정.
-- [x] 발견 탭의 전역 CTA를 `발견한 장소를 위치 앨범으로 만들기` flow로 연결.
+- [ARCHIVED: complete at the time] 분석 완료 dialog의 primary action을 `발견한 장소 보기`로 변경.
+- [ARCHIVED: complete at the time] Preview dialog의 legacy `앨범 만들기`를 제거하고, 앨범 생성은 발견 tab의 사용자 확인 CTA로 단일화.
+- [ARCHIVED: complete at the time] 분석 직후 홈의 중복 대형 앨범 만들기 CTA는 숨김.
+- [ARCHIVED: complete at the time] `발견한 장소 둘러보기`를 photo-first 카드 grid로 변경(일반 폭 2열, 넓은 화면 3열).
+- [ARCHIVED: complete at the time] Memory detail에서 처음 48장을 빠르게 보여준 뒤 `사진 더 보기`로 다음 48장을 현재 화면 아래에 이어서 표시한다.
+- [ARCHIVED: open at the time; not current] 장기적으로 Memory detail을 수백/수천 장까지 안전하게 볼 수 있는 lazy date grid로 전환.
+- [ARCHIVED: open at the time; not current] 앱 내부 사진 viewer 또는 같은 장소 사진 간 자연스러운 좌우 탐색 제공.
+- [ARCHIVED: complete at the time] 발견 장소 검색 추가. 1차 검색 대상은 장소명, 국가명/국가 alias, 도시명, 연도/월.
+- [ARCHIVED: complete at the time] Memory Browser를 `발견` 메인 tab으로 승격하고 `정리 기록`을 `위치 앨범`으로 명확히 구분.
+- [ARCHIVED: open at the time; not current] 발견 탭 검색을 실제 장소 수가 많은 사용자 데이터로 탐색성 검증.
+- [ARCHIVED: complete at the time] Gallery에서 삭제·휴지통 이동된 DiscoverySnapshot 항목을 발견 카드/상세에서 live 제외.
+- [ARCHIVED: open at the time; not current] 수천~수만 개 snapshot에서 MediaStore live-filter 진입 성능 측정.
+- [ARCHIVED: complete at the time] 발견 탭의 전역 CTA를 `발견한 장소를 위치 앨범으로 만들기` flow로 연결.
   - 장소별 선택 UI는 MVP에서 제외하고 현재 DiscoverySnapshot에 있는 정리 가능 항목 전체를 대상으로 한다.
   - 실행 전 장소 수, 대상 수, 사진 복사/동영상 이동, 위치 없음 제외를 확인하는 dialog 제공.
   - 기존 duplicate/이미 정리됨 검사를 그대로 적용해 같은 항목을 다시 만들지 않는다.
   - 완료 후 `AlbumSummaryHistoryStore`에는 실제 성공 결과만 기록하고 `위치 앨범`에서 확인.
   - 앱 재시작 후 previewItems가 없을 때는 조용히 실행하지 않고 재분석 안내 또는 snapshot adapter를 사용한다.
   - 상세의 임시 `이 장소를 앨범으로 정리` 버튼은 제거한다.
-- [x] 위치 앨범으로 이동된 동영상이 동일 MediaStore ID 때문에 발견 탭에 남는 문제 수정.
-- [x] 발견 탭에서도 백그라운드 분석/정리 진행 배너 표시.
-- [x] 기존 위치 앨범에 동일 파일이 있는 `duplicateInTarget` 항목은 발견 snapshot에서 제외. 기존 앨범에 없는 새 항목은 발견에 유지.
-- [x] 분석 완료 후 홈 `자세히 보기`가 legacy 정리 결과가 아니라 발견으로 이동하도록 lifecycle 분리.
-- [x] 분석 완료 dialog의 legacy 앨범/결과 CTA와 organizer 통계를 제거하고 발견 완료 UI로 단순화.
-- [x] 홈의 legacy `새 장소 / 위치 없음 / 정리 완료` 요약 바 제거.
-- [x] crash/업데이트 후 로컬 위치 분석 progress가 가짜 진행 상태로 복원되지 않도록 수정.
-- [x] 서로 다른 분석 폴더를 순서대로 확인해도 기존 DiscoverySnapshot 기록이 덮어써지지 않고 URI 단위로 병합되도록 수정.
-- [x] 발견 기록 카드에 이번 분석의 새 사진 여부를 `NEW`와 `이번에 +N장`으로 표시하고 상단 우선 정렬한다.
+- [ARCHIVED: complete at the time] 위치 앨범으로 이동된 동영상이 동일 MediaStore ID 때문에 발견 탭에 남는 문제 수정.
+- [ARCHIVED: complete at the time] 발견 탭에서도 백그라운드 분석/정리 진행 배너 표시.
+- [ARCHIVED: complete at the time] 기존 위치 앨범에 동일 파일이 있는 `duplicateInTarget` 항목은 발견 snapshot에서 제외. 기존 앨범에 없는 새 항목은 발견에 유지.
+- [ARCHIVED: complete at the time] 분석 완료 후 홈 `자세히 보기`가 legacy 정리 결과가 아니라 발견으로 이동하도록 lifecycle 분리.
+- [ARCHIVED: complete at the time] 분석 완료 dialog의 legacy 앨범/결과 CTA와 organizer 통계를 제거하고 발견 완료 UI로 단순화.
+- [ARCHIVED: complete at the time] 홈의 legacy `새 장소 / 위치 없음 / 정리 완료` 요약 바 제거.
+- [ARCHIVED: complete at the time] crash/업데이트 후 로컬 위치 분석 progress가 가짜 진행 상태로 복원되지 않도록 수정.
+- [ARCHIVED: complete at the time] 서로 다른 분석 폴더를 순서대로 확인해도 기존 DiscoverySnapshot 기록이 덮어써지지 않고 URI 단위로 병합되도록 수정.
+- [ARCHIVED: complete at the time] 발견 기록 카드에 이번 분석의 새 사진 여부를 `NEW`와 `이번에 +N장`으로 표시하고 상단 우선 정렬한다.
   - 기존 발견 장소는 아래에서 계속 탐색/검색 가능하다.
-- [ ] 분석 완료 dialog와 홈 안내 문구에서 파일 수와 장소 수를 분리한다.
+- [ARCHIVED: open at the time; not current] 분석 완료 dialog와 홈 안내 문구에서 파일 수와 장소 수를 분리한다.
   - 예: `이번에 새로 발견한 장소 7곳 · 사진 174장`.
   - 위치 없음/이미 위치 앨범에 있는 파일 수는 보조 정보로 약하게 표기한다.
-- [ ] 앱 삭제/데이터 초기화 후 발견 기록 복원 UX를 설계한다.
+- [ARCHIVED: open at the time; not current] 앱 삭제/데이터 초기화 후 발견 기록 복원 UX를 설계한다.
   - 위치 앨범은 MediaStore/정리 기록에서 다시 보이지만, discovery snapshot은 앱 내부 파일이라 삭제 시 복원되지 않는 현재 한계를 명시한다.
   - 설정에 `발견 기록 다시 구성하기`를 제공해 저장된 분석 폴더를 재분석할 수 있게 한다. 사진과 Gallery 앨범은 삭제하지 않는다는 안전 문구를 포함한다.
-- [ ] 발견/위치 앨범이 공유하는 Memory detail stable key는 위 `날짜별 Memory Note` Phase 0에서 확정한다.
-- [ ] 앨범 생성 후 발견 UI에서는 숨기되 snapshot/personalization 원본을 보존하는 lifecycle 회귀 테스트 추가.
-- [ ] 발견 상세의 날짜 그룹 단위 앱 내부 사진/동영상 스와이프 viewer 추가.
+- [ARCHIVED: open at the time; not current] 발견/위치 앨범이 공유하는 Memory detail stable key는 위 `날짜별 Memory Note` Phase 0에서 확정한다.
+- [ARCHIVED: open at the time; not current] 앨범 생성 후 발견 UI에서는 숨기되 snapshot/personalization 원본을 보존하는 lifecycle 회귀 테스트 추가.
+- [ARCHIVED: open at the time; not current] 발견 상세의 날짜 그룹 단위 앱 내부 사진/동영상 스와이프 viewer 추가.
 
-### 제품 결정
+#### 제품 결정 [ARCHIVED — 일부 superseded]
 
 - 반복 장소 추천은 당장 구현하지 않는다. 장소별 날짜 탐색과 검색만으로 충분한지 먼저 확인한다.
 - 추천 데이터는 향후 `최근 다시 찾은 장소`, `여러 번 방문한 장소`, `1년 전 오늘` 같은 재발견 섹션 후보로 유지한다.
 - PhotoPlace Memory 구조와 Gallery 앨범 구조는 동일할 필요가 없다.
-- `발견`은 DiscoverySnapshot만 표시하고 Gallery 앨범 수/상태를 카드와 상세에 합산하지 않는다.
-- Gallery 앨범 열기와 관리 책임은 `위치 앨범`에만 둔다. MIXED 상태는 내부 정합성 용도로만 유지한다.
-- Organize Optional은 장소별 선택이 아니라 `앱 안에서만 보기`와 `발견한 장소 전체 앨범 생성` 중 사용자 선택을 뜻한다.
+- [ARCHIVED — superseded] `발견`은 DiscoverySnapshot만 표시하고 Gallery 앨범 수/상태를 카드와 상세에 합산하지 않는다.
+- [ARCHIVED — superseded] Gallery 앨범 열기와 관리 책임은 `위치 앨범`에만 둔다. MIXED 상태는 내부 정합성 용도로만 유지한다.
+- [ARCHIVED — superseded] Organize Optional은 장소별 선택이 아니라 `앱 안에서만 보기`와 `발견한 장소 전체 앨범 생성` 중 사용자 선택을 뜻한다.
 - 해외 Gallery 정리 단위는 국가/여행 세션/도시 중 어느 것이 좋은지 별도 POC한다. 현 단계에서 국가당 1앨범으로 고정하지 않는다.
 
-### 상세 UI/UX 백로그 (현재 실행 순서는 상단 계획 우선)
+#### 상세 UI/UX 백로그 (현재 실행 순서는 상단 계획 우선)
 
-#### 발견과 위치 앨범 역할 구분
+##### 발견과 위치 앨범 역할 구분
 
-- [x] 발견 tab의 `발견한 장소를 위치 앨범으로 만들기` CTA는 현재 위치/강도를 유지한다.
+- [ARCHIVED: complete at the time] 발견 tab의 `발견한 장소를 위치 앨범으로 만들기` CTA는 현재 위치/강도를 유지한다.
   - 앨범 생성에 익숙한 사용자가 발견 후 바로 정리할 수 있어야 하며, 현재 Memory Viewer 사용성도 확보됐다.
-- [ ] 위치 앨범 header의 `총 N개 장소 발견`을 `위치 앨범 N개` 중심 문구로 변경한다.
-- [ ] 사용자 노출 사진 수 표현을 `N개 사진`에서 `사진 N장`으로 통일한다. 동영상 혼합 시 `항목 N개`가 필요한 경계는 별도 확인한다.
-- [ ] 설정 root 화면의 Back 아이콘을 제거한다. 설정 내부 하위 화면에만 Back을 유지한다.
-- [ ] `발견 장소 다시 만들기`를 `장소 목록 다시 구성하기` 등 비파괴 의미가 분명한 문구로 검토하고 `사진과 앨범은 삭제되지 않아요` 설명을 추가한다.
+- [ARCHIVED: open at the time; not current] 위치 앨범 header의 `총 N개 장소 발견`을 `위치 앨범 N개` 중심 문구로 변경한다.
+- [ARCHIVED: open at the time; not current] 사용자 노출 사진 수 표현을 `N개 사진`에서 `사진 N장`으로 통일한다. 동영상 혼합 시 `항목 N개`가 필요한 경계는 별도 확인한다.
+- [ARCHIVED: open at the time; not current] 설정 root 화면의 Back 아이콘을 제거한다. 설정 내부 하위 화면에만 Back을 유지한다.
+- [ARCHIVED: open at the time; not current] `발견 장소 다시 만들기`를 `장소 목록 다시 구성하기` 등 비파괴 의미가 분명한 문구로 검토하고 `사진과 앨범은 삭제되지 않아요` 설명을 추가한다.
 
-#### P1 - Memory detail polish
+##### P1 - Memory detail polish
 
-- [ ] 발견 상세에서 bottom navigation의 `발견` 선택 상태가 유지되는지 회귀 확인한다.
-- [ ] 상세 하단 `발견한 장소로 돌아가기`를 유지할 경우 `다른 장소 둘러보기`처럼 상단 Back과 다른 목적임을 명확히 한다.
-- [ ] 상세 상단 요약 정보밀도를 축소한다.
+- [ARCHIVED: open at the time; not current] 발견 상세에서 bottom navigation의 `발견` 선택 상태가 유지되는지 회귀 확인한다.
+- [ARCHIVED: open at the time; not current] 상세 하단 `발견한 장소로 돌아가기`를 유지할 경우 `다른 장소 둘러보기`처럼 상단 Back과 다른 목적임을 명확히 한다.
+- [ARCHIVED: open at the time; not current] 상세 상단 요약 정보밀도를 축소한다.
   - 장소 제목과 `사진 N장 · 날짜 범위`만 우선 노출하고, 중복되는 `발견한 장소` label 및 설명 문구, 불필요한 `사진 보기` 섹션 제목은 제거/축소를 검토한다.
-- [ ] 날짜 header accent를 경고처럼 보이지 않는 muted blue 또는 저채도 coral로 비교한다.
-- [ ] 날짜별 한 줄 메모 UI는 상단 `날짜별 Memory Note` Phase 2에서 구현한다.
+- [ARCHIVED: open at the time; not current] 날짜 header accent를 경고처럼 보이지 않는 muted blue 또는 저채도 coral로 비교한다.
+- [ARCHIVED: open at the time; not current] 날짜별 한 줄 메모 UI는 상단 `날짜별 Memory Note` Phase 2에서 구현한다.
 
-#### P0 - Media lifecycle / incremental analysis / Memory sync
+##### P0 - Media lifecycle / incremental analysis / Memory sync
 
-- [ ] `LocationAnalysisCache` 단독 TODO를 V2.1 `MediaAnalysisStore`로 교체한다. 설계는 `MEDIA_LIFECYCLE_MEMORY_SYNC_DESIGN.md`를 따른다.
+- [ARCHIVED: open at the time; not current] `LocationAnalysisCache` 단독 TODO를 V2.1 `MediaAnalysisStore`로 교체한다. 설계는 `MEDIA_LIFECYCLE_MEMORY_SYNC_DESIGN.md`를 따른다.
   - media identity/signature별로 `ANALYZED`, `NO_LOCATION`, retryable `FAILED`, 정규화된 위치 결과를 저장한다.
   - cache hit은 EXIF/Geocoder만 생략하며, `PhotoItem`/Memory/위치 없음 카운트를 숨기지 않는다.
   - 신규/복사/이동/변경/policy 변경/GPS 추가 미디어는 반드시 재분석한다.
   - 단위 테스트: 신규 사진 누락 금지, 수정/이동/복사 무효화, GPS 추가 재분석, 위치 없음 카운트 유지, 손상 복구, 정책 변경 무효화.
-- [ ] 재분석과 분리된 MediaStore reconciliation을 추가한다.
+- [ARCHIVED: open at the time; not current] 재분석과 분리된 MediaStore reconciliation을 추가한다.
   - indexed media ref가 실제로 존재하는지 먼저 확인하고, 삭제된 사진만 Memory live ref에서 제거한다.
   - 사진 0장 + 메모 없음은 정리 가능; 사진 0장 + 메모 있음은 메모를 보존하고 unavailable 상태를 표시한다.
-- [ ] `발견 기록`과 `위치 앨범`을 동일 Memory의 다른 projection으로 재정의한다.
+- [ARCHIVED: open at the time; not current] `발견 기록`과 `위치 앨범`을 동일 Memory의 다른 projection으로 재정의한다.
   - 발견 기록은 `새로 분석됨`/`아직 위치 앨범 없음` 필터이며, 앨범 생성이 Memory 자체를 삭제하지 않는다.
   - 장기 root tab 이름은 `기억`으로 검토하고, 내부 상단 섹션/필터에 `이번에 발견`, `정리 전`, `전체 기억`을 둔다.
   - 현재 `DiscoverySnapshotMapper`의 `duplicateInTarget` 제외 규칙을 즉시 뒤집지 않는다. 먼저 MediaAnalysisStore와 Memory projection 경계를 만든다.
-- [ ] 현재 비활성 `NoLocationCache`는 `MediaAnalysisStore` 테스트가 갖춰지기 전 재활성화하지 않는다.
-- [ ] 앱 삭제/데이터 초기화 후 `기억 다시 구성하기` UX를 추가한다. 선택 폴더를 재분석하며 사진/Gallery 앨범은 삭제하지 않는다.
+- [ARCHIVED: open at the time; not current] 현재 비활성 `NoLocationCache`는 `MediaAnalysisStore` 테스트가 갖춰지기 전 재활성화하지 않는다.
+- [ARCHIVED: open at the time; not current] 앱 삭제/데이터 초기화 후 `기억 다시 구성하기` UX를 추가한다. 선택 폴더를 재분석하며 사진/Gallery 앨범은 삭제하지 않는다.
 
-#### P1 - 발견 기록의 가상 기억 통합 (사용자 이름 보존)
+##### P1 - 발견 기록의 가상 기억 통합 (사용자 이름 보존)
 
-- [ ] **제품 결정**: 발견 기록에서는 실제 Gallery 파일을 건드리지 않는 가상 기억 통합을 제공한다.
+- [ARCHIVED: open at the time; not current] 구현 순서는 Current Execution Plan의 공통 Memory lifecycle 설계를 따른다. 기존 Store/Resolver 완료만으로 UI 기능이 완료된 것은 아니다.
+
+- [ARCHIVED: open at the time; not current] **제품 결정**: 발견 기록에서는 실제 Gallery 파일을 건드리지 않는 가상 기억 통합을 제공한다.
   - 예: `삿포로에서`, `오타루에서`, `비에이에서`를 선택 → `2026 여름 일본 여행` 입력 → 발견 기록 안에서 하나의 기억 묶음으로 다시 본다.
   - `MemoryCollection`: stable id, user display name, member memory stable keys, createdAt, updatedAt.
   - 이름/메모/멤버 구성은 Gallery 앨범 생성, 이동, 삭제와 독립적으로 보존한다.
-- [x] `MemoryCollection` / `MemoryCollectionStore` 1단계 저장 기반을 추가했다.
+- [ARCHIVED: complete at the time] `MemoryCollection` / `MemoryCollectionStore` 1단계 저장 기반을 추가했다.
   - `memory_collections.json`은 `tmp -> bak -> replace` 원자 저장, backup 복구, backup 없는 손상 파일 쓰기 거부를 사용한다.
   - MVP 정책으로 하나의 stable Memory ID는 활성 collection 하나에만 속하도록 저장소에서 검증한다.
-- [x] 읽기 전용 `MemoryCollectionResolver`와 Group detail 계층 모델을 추가했다.
+- [ARCHIVED: complete at the time] 읽기 전용 `MemoryCollectionResolver`와 Group detail 계층 모델을 추가했다.
   - 현재 discovery alias를 stable Memory ID로 해석하고, `date -> place -> original date note -> photos` 경계를 보존한다.
   - group 전체에서 `sourceUri` 중복을 제거하며, 현재 MediaStore에서 사라진 멤버는 collection metadata를 지우지 않고 viewer에서만 건너뛴다.
   - 아직 collection 생성 시 Registry alias 발급, 화면 진입점, 선택 UI, Gallery 앨범 생성은 연결하지 않았다.
-- [ ] 발견 기록 카드 long-press → 다중 선택 mode → `기억으로 묶기` → 이름 입력 → 저장 UX를 구현한다.
-- [ ] 저장한 묶음은 발견 기록 상단 `내 기억 모음` 섹션에 사용자 이름, 멤버 수, 대표 썸네일로 보여준다.
-- [ ] 단위 테스트: 저장/복원, 이름 변경, 멤버 추가/제거, missing memory, corrupt JSON, Gallery/위치 앨범에 영향 없음.
+- [ARCHIVED: open at the time; not current] 발견 기록 카드 long-press → 다중 선택 mode → `기억으로 묶기` → 이름 입력 → 저장 UX를 구현한다.
+- [ARCHIVED: open at the time; not current] 저장한 묶음은 발견 기록 상단 `내 기억 모음` 섹션에 사용자 이름, 멤버 수, 대표 썸네일로 보여준다.
+- [ARCHIVED: open at the time; not current] 단위 테스트: 저장/복원, 이름 변경, 멤버 추가/제거, missing memory, corrupt JSON, Gallery/위치 앨범에 영향 없음.
 
-#### P1 - 위치 앨범의 실제 통합 (사용자 이름 + Move)
+##### P1 - 위치 앨범의 실제 통합 (사용자 이름 + Move)
 
-- [ ] **제품 결정**: 위치 앨범의 통합은 가상 묶음이 아니다. 선택한 실제 Gallery 위치 앨범의 사진과 동영상을 사용자가 입력한 새 폴더로 **이동**한다.
+- [ARCHIVED: open at the time; not current] **제품 결정**: 위치 앨범의 통합은 가상 묶음이 아니다. 선택한 실제 Gallery 위치 앨범의 사진과 동영상을 사용자가 입력한 새 폴더로 **이동**한다.
   - 예: `삿포로에서`, `오타루에서`, `비에이에서` 선택 → `2026 여름 일본 여행` 입력 → `Pictures/2026 여름 일본 여행/`으로 이동.
   - 원본 사진은 이미 위치 앨범 복사본 정리 정책에 따라 별도로 존재할 수 있으나, 이번 기능은 **생성된 위치 앨범 안의 항목만** 다룬다.
   - 통합 후 `위치 앨범`에는 사용자가 입력한 새 이름의 실제 폴더가 남는다.
   - Memory의 위치/날짜/메모는 Gallery 경로 변경과 독립적으로 보존한다.
-- [ ] **Phase 0 - 안전 계약과 범위 확정**:
+- [ARCHIVED: open at the time; not current] **Phase 0 - 안전 계약과 범위 확정**:
   - 대상은 PhotoPlace가 생성·기록한 위치 앨범만 허용한다. 임의의 Gallery 폴더는 선택 대상으로 열지 않는다.
   - 새 target path가 기존 위치 앨범/선택한 source path와 충돌하면 시작 전 중단한다.
   - 동일 파일명 충돌, source album missing, 권한 부족, 일부 항목 실패의 정책을 명시한다.
   - 기존 `MediaCopyEngine`은 사진 복사/동영상 이동 용도이므로 통합에 직접 재사용하지 않는다.
-- [ ] **Phase 1 - 통합 action 저장 모델과 순수 계획**:
+- [ARCHIVED: open at the time; not current] **Phase 1 - 통합 action 저장 모델과 순수 계획**:
   - `LocationAlbumMergePlan`: source relative paths, target relative path, selected album summary keys, media counts.
   - `LocationAlbumMergeAction`: action id/time, 항목별 original/target URI 또는 MediaStore id, 성공/실패 상태, source path.
   - 파일 기반 action store는 temp/bak 원자 저장을 사용하며, 작업 전 계획을 먼저 저장한다.
   - 단위 테스트: target path validation, source/target 중복 차단, 동일 파일명 충돌, empty/missing album, JSON 손상 복구.
-- [ ] **Phase 2 - 단순 선택 UX (드래그는 보류)**:
+- [ARCHIVED: open at the time; not current] **Phase 2 - 단순 선택 UX (드래그는 보류)**:
   - `위치 앨범` 카드 long-press → 다중 선택 mode → 하단 `통합` → 새 앨범 이름 입력 → 명확한 이동 확인 dialog.
   - 확인 dialog에는 `사진/동영상 N개를 새 위치 앨범으로 이동합니다`, 기존 source 폴더가 비어질 수 있음, 원본 사진 삭제와 무관함을 명시한다.
   - 드래그 앤 드롭은 첫 MVP에 넣지 않는다. selection mode가 One UI와 Fold/일반 화면에서 더 예측 가능하다.
-- [ ] **Phase 3 - 통합 전용 move engine + 기록 갱신**:
+- [ARCHIVED: open at the time; not current] **Phase 3 - 통합 전용 move engine + 기록 갱신**:
   - 사진/동영상 모두 MediaStore `relative_path`를 target으로 변경하는 `LocationAlbumMergeEngine`을 별도 구현한다.
   - 성공한 항목만 target summary에 반영하고, source summaries는 merged/empty 상태로 history에 남긴다.
   - 앱 포그라운드/백그라운드 중단, partial failure, 앱 재시작 후 action 복구를 처리한다.
   - 최소 rollback은 항목별 원래 `relative_path`로 되돌리는 명시 action으로 설계하고, 대용량 실기기 검증 후 노출한다.
-- [ ] **Phase 4 - 실기기 검증**:
+- [ARCHIVED: open at the time; not current] **Phase 4 - 실기기 검증**:
   - 2개 앨범의 사진만, 동영상 포함, 5개 앨범 대량, 파일명 충돌, 중간 중단, Gallery 외부 삭제 각각 확인.
   - 통합 후 Gallery/위치 앨범/발견 및 Memory detail의 thumbnail·검색·메모가 깨지지 않는지 확인한다.
-- [ ] 10k 이상 discovery refs에서 live-filter, 검색, 전역 CTA prepare 시간과 메모리를 측정한다.
-- [ ] 앱 최초 진입 성능을 구간별로 측정한다.
+- [ARCHIVED: open at the time; not current] 10k 이상 discovery refs에서 live-filter, 검색, 전역 CTA prepare 시간과 메모리를 측정한다.
+- [ARCHIVED: open at the time; not current] 앱 최초 진입 성능을 구간별로 측정한다.
   - 첫 프레임 표시 전 `buildUi()` 동기 작업
   - 첫 프레임 이후 worker projection 계산
   - 해외 카드/썸네일 바인딩 시간
-- [ ] cold start 체감 개선은 측정 후 선택한다.
+- [ARCHIVED: open at the time; not current] cold start 체감 개선은 측정 후 선택한다.
   - 이전 홈 projection을 즉시 표시하는 fast-path cache 검토
   - projection 계산 중 빈 영역/placeholder 표시 검토
   - 성능 측정 전 대규모 XML/Java UI 리팩터링은 보류
-- [x] 홈 projection이 기존 앨범 backfill/분석 worker에 밀리지 않도록 전용 executor로 분리한다.
-- [x] 홈 summary 수집 중 EXIF/동기 Geocoder 보강을 차단한다.
-- [x] 첫 `onResume()`에서 불필요한 album cache 무효화를 건너뛴다.
-- [ ] 중단 후 처음부터 재분석하지 않는 checkpoint/이어하기를 별도 설계한다.
+- [ARCHIVED: complete at the time] 홈 projection이 기존 앨범 backfill/분석 worker에 밀리지 않도록 전용 executor로 분리한다.
+- [ARCHIVED: complete at the time] 홈 summary 수집 중 EXIF/동기 Geocoder 보강을 차단한다.
+- [ARCHIVED: complete at the time] 첫 `onResume()`에서 불필요한 album cache 무효화를 건너뛴다.
+- [ARCHIVED: open at the time; not current] 중단 후 처음부터 재분석하지 않는 checkpoint/이어하기를 별도 설계한다.
 
-#### P2 - Empty-state illustration system
+##### P2 - Empty-state illustration system
 
-- [x] 발견 및 위치 앨범의 빈 화면에만 PhotoPlace illustration을 적용하고 실제 photo-first 화면과 tab icon에는 적용하지 않는다.
-- [ ] 다음 실기기 확인에서 illustration의 입체감/테두리가 강하면 alpha와 asset style을 더 단순한 2D 선·면 중심으로 조정한다.
+- [ARCHIVED: complete at the time] 발견 및 위치 앨범의 빈 화면에만 PhotoPlace illustration을 적용하고 실제 photo-first 화면과 tab icon에는 적용하지 않는다.
+- [ARCHIVED: open at the time; not current] 다음 실기기 확인에서 illustration의 입체감/테두리가 강하면 alpha와 asset style을 더 단순한 2D 선·면 중심으로 조정한다.
 
-## 2026-08-16 긴급 추가 (요청: 발견 장소 다시보기 CTA 관련)
+### 2026-08-16 긴급 추가 (요청: 발견 장소 다시보기 CTA 관련)
 
 - 문제: 분석을 다시 돌리면 `발견한 장소 둘러보기` 대신 장소별 앨범 생성/정리 CTA가 다시 노출되는 현상 보고됨.
 - 목표: 기본 흐름은 "발견한 장소 둘러보기(Discovery-backed preview)" → 사용자가 원할 때 `jump`로 앨범 생성/정리로 이동하도록 유지.
 - 조치 항목:
-  - [x] 재분석(re-run) 완료 후 discovery preview 진입을 primary로 제공하고 홈의 앨범 생성 CTA를 숨김.
-  - [x] preview 완료 dialog에서 앨범 생성은 secondary 선택으로 유지.
+  - [ARCHIVED: complete at the time] 재분석(re-run) 완료 후 discovery preview 진입을 primary로 제공하고 홈의 앨범 생성 CTA를 숨김.
+  - [ARCHIVED: complete at the time] preview 완료 dialog에서 앨범 생성은 secondary 선택으로 유지.
   - 이 동작은 `MemoryRepository`/`DiscoverySnapshotController` 경계에서 보장되도록 단위 테스트 추가.
   - 스모크 테스트 항목에 "재분석 후 discovery-only preview 유지" 검증 케이스 추가.
 
-## 2026-07-25 아침 실기기 체크리스트
+### 2026-07-25 아침 실기기 체크리스트
 
 - 설치된 APK:
   - `app/build/outputs/apk/debug/app-debug.apk`
@@ -407,9 +327,9 @@ Gallery 조직 상태와 Memory identity를 하나의 mutable state로 합치지
   - `MovementClassifierTest` 추가.
   - `testDebugUnitTest assembleDebug` 통과.
 
-## 남은 핵심 TODO 우선순위
+### 남은 핵심 TODO 우선순위
 
-### P0. 진짜 백그라운드 작업 소유권 이전
+#### P0. 진짜 백그라운드 작업 소유권 이전
 
 - 현재:
   - ForegroundService/notification/progress store는 있음.
@@ -427,7 +347,7 @@ Gallery 조직 상태와 Memory identity를 하나의 mutable state로 합치지
 - 주의:
   - 동영상 이동/SAF/MediaStore 권한 요청은 화면 상호작용이 필요하므로 preview/권한 단계와 실제 background execution을 분리해야 함.
 
-### P0. 이미 정리된 파일 재탐색 비용 줄이기
+#### P0. 이미 정리된 파일 재탐색 비용 줄이기
 
 - 현재:
   - 복사/이동 단계에서는 이미 정리된 항목을 중복 처리하지 않음.
@@ -443,7 +363,7 @@ Gallery 조직 상태와 Memory identity를 하나의 mutable state로 합치지
 - 주의:
   - `NoLocationCache` 회귀로 `정리할 항목 0개`가 발생했던 전력이 있으므로, 캐시 적용 전 테스트 케이스부터 만들 것.
 
-### P1. 결과/정리 기록 탐색 UX 확장
+#### P1. 결과/정리 기록 탐색 UX 확장
 
 - 결과 앨범 상세:
   - 현재는 previewItems 기반으로 최대 48개 썸네일 표시.
@@ -453,7 +373,7 @@ Gallery 조직 상태와 Memory identity를 하나의 mutable state로 합치지
   - 최근 정리 기록을 날짜/장소/사진 수 기준으로 찾기 쉽게 개선.
   - “이미 정리됨”을 사용자가 이해할 수 있게 최근 작업 이력과 연결.
 
-### P1. 위치 품질 / 이동 중 기록 표시
+#### P1. 위치 품질 / 이동 중 기록 표시
 
 - 준비 완료:
   - `PlaceNamePolicy`로 장소명 정책을 `MainActivity`에서 분리.
@@ -474,7 +394,7 @@ Gallery 조직 상태와 Memory identity를 하나의 mutable state로 합치지
   - `에버랜드`, `롯데월드`, 공항 같은 강한 장소만 우선 유지.
   - 역/게이트/출입구/상가/지하 같은 후보는 과분류 방지.
 
-## 2026-07-25 4000장 실기기 테스트 후 다음 Step
+### 2026-07-25 4000장 실기기 테스트 후 다음 Step
 
 - 현재 브랜치: `codex/photoplace-v2-bg-wip`
 - 확인:
@@ -493,7 +413,7 @@ Gallery 조직 상태와 Memory identity를 하나의 mutable state로 합치지
   - 결과 화면에서 `정리될 앨범`을 누르면 대표사진만 보여 아쉬움. 사용자는 해당 장소의 사진 전체를 보고 싶어함.
   - 정리 중 `멈추기`를 누르고 다시 시작하면 처음부터 전체 탐색을 다시 하는 점이 체감됨.
 
-### P0. 앱 진입 / 확인 필요 / 결과 보기 성능 개선
+#### P0. 앱 진입 / 확인 필요 / 결과 보기 성능 개선
 
 - 완료:
   - 홈 summary 로딩은 저장된 정리 기록 JSON 우선으로 변경해 기존 앨범 MediaStore 재스캔을 줄임.
@@ -516,7 +436,7 @@ Gallery 조직 상태와 Memory identity를 하나의 mutable state로 합치지
   - 결과 리스트는 상위 그룹만 먼저 렌더링하고, 스크롤/상세 진입 시 lazy load.
   - 썸네일 로딩 throttling/cancel 처리.
 
-### P0. 이미 정리된 파일 재탐색 비용 줄이기
+#### P0. 이미 정리된 파일 재탐색 비용 줄이기
 
 - 현재:
   - 복사/이동은 중복을 피하지만, preview 스캔은 처음부터 다시 훑음.
@@ -527,7 +447,7 @@ Gallery 조직 상태와 Memory identity를 하나의 mutable state로 합치지
 - 주의:
   - 위치 없음 cache에서 `정리할 항목 0개` 회귀가 있었으므로 캐시 무효화 조건과 테스트 케이스를 먼저 만든 뒤 적용.
 
-### P0. 진짜 백그라운드 처리 연결
+#### P0. 진짜 백그라운드 처리 연결
 
 - 현재:
   - ForegroundService/notification/progress store 기반은 있음.
@@ -541,7 +461,7 @@ Gallery 조직 상태와 Memory identity를 하나의 mutable state로 합치지
 - 주의:
   - SAF/MediaStore 권한, 동영상 이동 권한 요청은 사용자 상호작용이 필요하므로 작업 전 preview/권한 단계와 분리 설계 필요.
 
-### P1. 결과 앨범 상세 View
+#### P1. 결과 앨범 상세 View
 
 - 완료:
   - 장소/앨범 그룹 클릭 시 앱 내부 상세 화면 표시.
@@ -551,7 +471,7 @@ Gallery 조직 상태와 Memory identity를 하나의 mutable state로 합치지
   - 48개 이후 항목을 더 보기/paging으로 확장.
   - 실제 생성 앨범 상세는 MediaStore lazy load와 연결.
 
-### P1. 장소명 / POI 정책 추가 정리
+#### P1. 장소명 / POI 정책 추가 정리
 
 - 현재 정책:
   - `에버랜드`, `롯데월드` 등 강한 목적지는 POI 유지.
@@ -562,7 +482,7 @@ Gallery 조직 상태와 Memory identity를 하나의 mutable state로 합치지
   - 기존 앨범으로만 보이면 과거 테스트 흔적으로 보고, 향후 병합/정리 관리에서 처리.
   - 일반 지하철역(`장지역`)을 POI에서 제외할지 결정. 큰 역/공항은 allowlist 후보.
 
-### P1. 알림 진행률 throttle
+#### P1. 알림 진행률 throttle
 
 - 완료:
   - 앱 내부 진행률/ProgressStore는 계속 갱신.
@@ -570,13 +490,13 @@ Gallery 조직 상태와 Memory identity를 하나의 mutable state로 합치지
 - 내일 확인:
   - 4000장 테스트에서 notification progress가 너무 뜸하거나 과하게 튀지 않는지 확인.
 
-## 2026-07-24 백그라운드 테스트 후 남은 TODO
+### 2026-07-24 백그라운드 테스트 후 남은 TODO
 
 - 현재 브랜치: `codex/photoplace-v2-bg-wip`
 - debug APK를 폰에 설치해 4000장 테스트 준비 완료.
 - `assembleDebug`, `assembleRelease` 성공.
 
-### P0. 이미 정리된 파일 재스캔 비용 줄이기
+#### P0. 이미 정리된 파일 재스캔 비용 줄이기
 
 - 현재 상태:
   - 다시 정리를 돌리면 복사 단계에서는 `이미 정리됨`으로 중복 복사를 피한다.
@@ -596,7 +516,7 @@ Gallery 조직 상태와 Memory identity를 하나의 mutable state로 합치지
   - 파일 수정/권한 변경/소스 폴더 변경 시 캐시 무효화 조건 필요.
   - 기존 `NoLocationCache`는 현재 비활성화 상태이므로 같은 실수를 반복하지 않게 invalidation 테스트 먼저 필요.
 
-### P0. 알림 진행률/진입
+#### P0. 알림 진행률/진입
 
 - 완료:
   - 알림 클릭 시 앱 진입 `PendingIntent` 추가.
@@ -606,7 +526,7 @@ Gallery 조직 상태와 Memory identity를 하나의 mutable state로 합치지
   - 4000장 테스트 중 알림 진행률이 실제로 실시간 갱신되는지 확인.
   - 앱 복귀 시 `SortProgressStore` 값이 홈 진행 UI에 자연스럽게 복원되는지 확인.
 
-### P1. Back 키 불응 점검
+#### P1. Back 키 불응 점검
 
 - 작업 중 Back 키가 여러 번 눌러도 안 먹는 경우가 있음.
 - 확인 지점:
@@ -619,7 +539,7 @@ Gallery 조직 상태와 Memory identity를 하나의 mutable state로 합치지
   - 정리 중에는 명확한 안내를 보여주고 작업은 유지.
   - 정리 완료 후에는 이전 화면/홈 복귀가 예측 가능해야 함.
 
-## 2026-07-23 V2 1차 시작 - 해외 기록 / Memory View
+### 2026-07-23 V2 1차 시작 - 해외 기록 / Memory View
 
 - 완료:
   - 홈을 `Memory Dashboard` 방향으로 조정.
@@ -661,9 +581,9 @@ Gallery 조직 상태와 Memory identity를 하나의 mutable state로 합치지
   - 국가 fallback 매핑이 국내 로마자 장소(`Mapo-gu`, `Songpa-gu` 등)를 해외로 오인하지 않는지 추가 확인.
   - 위치 없음 캐시가 권한 변경 또는 사진 메타데이터 변경 후 재검사되는지 확인.
 
-## 다음 큰 작업 후보
+### 다음 큰 작업 후보
 
-### P0. 정리 작업 백그라운드 안정화
+#### P0. 정리 작업 백그라운드 안정화
 - 사용자 피드백: 앱을 나갔다 오면 정리가 끊겨 다시 돌려야 한다고 느낌.
 - 현재 구조:
   - 정리 작업이 `MainActivity` 내부 `ExecutorService`에서 실행됨.
@@ -678,7 +598,7 @@ Gallery 조직 상태와 Memory identity를 하나의 mutable state로 합치지
   - 작은 패치로 넣기보다 구조 분리 작업과 함께 별도 브랜치/패치로 진행.
   - `SortJob`, `SortProgress`, `AlbumSummaryStore`, `NoLocationCache` 같은 단위 분리 검토.
 
-## 2026-07-08 V1.1.10 진행
+### 2026-07-08 V1.1.10 진행
 - 완료:
   - 정리 완료 후 원본 사진 URI 목록을 저장해 앱 재시작 후에도 `원본 사진 휴지통으로 이동`을 이어서 표시.
   - 지난 정리 원본만 별도로 처리하는 결과 화면 추가.
@@ -693,7 +613,7 @@ Gallery 조직 상태와 Memory identity를 하나의 mutable state로 합치지
   - 원본 휴지통 이동 승인/취소 후 상태가 기대대로 유지되는지 확인.
   - 분당서울대학교병원 케이스가 실제 Geocoder 결과에서 `분당서울대학교병원에서`으로 나오는지 확인.
 
-## 2026-07-11 주말 UX 마무리
+### 2026-07-11 주말 UX 마무리
 - 완료:
   - 메인 상단 `새 장소 / 위치 없음 / 정리 완료` 통계 블록을 각각 탭 가능한 보기 진입점으로 변경.
   - `보기` 칩 크기를 키워 버튼처럼 인지되도록 개선.
@@ -714,9 +634,9 @@ Gallery 조직 상태와 Memory identity를 하나의 mutable state로 합치지
   - 위치 없음 skip/cache는 핵심 위치 분석 경로에 영향이 있어 이번 주말 APK에서는 제외.
   - 다음 패치에서 파일 ID/수정시간/권한 변경 기준의 캐시 무효화 조건을 먼저 설계한 뒤 적용.
 
-## V1.1.9 후보
+### V1.1.9 후보
 
-### 1. 장소명 품질 개선: 분당서울대학교병원 `대병원에서` 이슈
+#### 1. 장소명 품질 개선: 분당서울대학교병원 `대병원에서` 이슈
 - 다음 패치에 우선 검토한다.
 - 목표: `대병원에서`처럼 잘린/어색한 장소명이 아니라 `분당서울대학교병원에서`처럼 사용자가 알아볼 수 있는 앨범명을 선택.
 - 구현 후보:
@@ -728,13 +648,13 @@ Gallery 조직 상태와 Memory identity를 하나의 mutable state로 합치지
   - 서울 구 단위/동 단위 사진 기존 결과 유지
   - 일반 비서울 지역 사진이 너무 세부 POI로 과하게 바뀌지 않는지 확인
 
-### 2. Dialog UI Polish
+#### 2. Dialog UI Polish
 - 분석할 폴더 선택 팝업을 앱 카드 스타일로 교체.
 - 기억/메모 편집 팝업을 앱 카드 스타일로 교체.
 - 기본 Android 팝업 느낌을 줄이고 버튼/입력창/체크박스 여백을 앱 UI와 맞춘다.
 - 키보드가 올라오는 작은 화면에서 레이아웃 깨짐 확인.
 
-### 3. 정리 결과 UI Polish
+#### 3. 정리 결과 UI Polish
 - 현재 문제:
   - 홈 하단 `정리 결과` 카드가 긴 안내 문장을 한 덩어리로 보여줘 테스트앱처럼 보인다.
   - `정리 완료`, `새 장소`, `위치 없음`, `남은 원본`, `정리 기록 확인`이 한 문단에 섞여 우선순위가 약하다.
@@ -756,12 +676,12 @@ Gallery 조직 상태와 Memory identity를 하나의 mutable state로 합치지
   - 위치 없음이 매우 많은 케이스에서도 실패/미완료처럼 보이지 않아야 한다.
   - 사용자가 다시 `앨범 정리 시작`을 누르지 않고 `정리 기록`으로 이동해야 함을 이해해야 한다.
 
-### 4. 다음 UX 문구 보강
+#### 4. 다음 UX 문구 보강
 - 진행 중 문구에 `사진 원본은 삭제되지 않습니다`를 추가.
 - 위치 정보 없는 항목은 다음 실행에서 무조건 다시 검사하지 않도록 1차 skip 캐시 설계 검토.
 - 단, 위치 정보가 나중에 생기는 파일/권한 변경/파일 수정시간 변경을 고려해 캐시 무효화 조건을 같이 설계한다.
 
-### 5. 원본 사진 휴지통 이어하기 상태 저장
+#### 5. 원본 사진 휴지통 이어하기 상태 저장
 - 사용자 피드백: 정리 후 원본 사진이 갤러리에 남아 있으면 “사진이 중복됐다”고 오해하는 사례가 있음.
 - 목표: 정리 완료 후 앱을 나갔다 들어와도 `지난 정리의 원본 사진 휴지통 이동` 액션을 계속 보여준다.
 - 정리 완료 시 저장할 최소 상태:
@@ -783,32 +703,32 @@ Gallery 조직 상태와 Memory identity를 하나의 mutable state로 합치지
   - 휴지통 이동 완료 후 카드는 사라지거나 `원본 정리 완료` 상태로 바뀐다.
   - 원본 일부가 이미 삭제된 상태에서도 앱이 튕기지 않고 결과를 안내한다.
 
-## V2 Product North Star
+### V2 Product North Star [ARCHIVED — superseded]
 
-### 한 줄 정의
+#### 한 줄 정의
 - 사진을 정리하는 앱에서 사진을 `의미로 재구성하는 앱`으로 확장한다.
 - V2의 핵심 정의: 앨범 정리 앱이 아니라, 사진을 `기억 구조`로 변환하는 시스템.
 
-### V1 -> V2 변화
+#### V1 -> V2 변화
 - 위치 기반 자동 폴더 생성 -> 의미 기반 태그 + 필터 구조
 - 정리 결과 중심 -> 기억 해석 중심
 - 갤러리 중심 이동 -> 앱 내 의미 탐색 중심
 - 폴더 구조 -> 태그 기반 구조
 
-### 핵심 개념
+#### 핵심 개념
 - Memory State: 사진 원본을 직접 탐색하게 하기보다, 분석 후 의미 상태를 저장한다.
   - 예: `photo -> location: 성남, tags: [집, 회사], time: 2024, poi: optional`
 - Tag 기반 UX: 폴더/계층보다 태그와 필터가 탐색의 중심이 된다.
 - View = Filtered Memory: 같은 데이터라도 장소, 기간, 해외, 태그에 따라 다른 기억 뷰로 보여준다.
 
-### 시스템 구조
+#### 시스템 구조
 1. Gallery source
 2. 1회 분석
 3. Memory Engine
 4. Tag DB / JSON state
 5. 앱 내 filtered memory view
 
-### V2 핵심 UX
+#### V2 핵심 UX
 - Home = Memory Dashboard
   - 성남, 수원, 일본, 호주 같은 장소/국가/기억 묶음 표시
   - 최근 발견한 장소와 해외 기록을 메인 첫 화면에서 보여준다.
@@ -821,58 +741,58 @@ Gallery 조직 상태와 Memory identity를 하나의 mutable state로 합치지
   - 사용자가 직접 기억을 추가한다.
   - 예: `특허 소송 때문에 서울 방문`
 
-### V2에서 의도적으로 하지 않는 것
+#### V2에서 의도적으로 하지 않는 것
 - 폴더 안 폴더 구조
 - 파일 선택 기반 앨범 생성
 - 중복 제거 기능
 - 위치 수동 편집
 - 갤러리 중심 브라우징
 
-### UX 원칙
+#### UX 원칙
 - 갤러리는 주 UI가 아니라 fallback이다.
 - 모든 탐색은 앱 내부에서 끝나는 것을 기본으로 한다.
 - 구조 대신 의미를 보여준다.
 
-### 성공 기준
+#### 성공 기준
 - 앱 재방문 이유가 생긴다.
 - 태그/필터 사용률이 증가한다.
 - 사용자가 `이날 뭐였지?`를 앱 안에서 탐색한다.
 - 갤러리 이동 비율이 줄어든다.
 
-## V2 방향성: Memory View 기반 탐색
+### V2 방향성: Memory View 기반 탐색 [ARCHIVED — updated by current decisions]
 
-### 제품 방향
+#### 제품 방향
 - 폴더 계층을 직접 탐색하게 하는 앱이 아니라, GPS/시간/장소 단서를 기반으로 만든 `기억 뷰`를 앱 안에서 보여주는 방향으로 확장한다.
 - 갤러리 앱으로만 보내는 구조에서 벗어나, 앱 안에서 장소/기간/해외 기록을 필터링해 보는 화면을 제공한다.
 - 실제 파일 이동/복사 구조는 유지하되, 사용자가 보는 탐색 단위는 폴더가 아니라 `장소`, `여행`, `기간`, `해외 기록`, `태그`가 된다.
 
-### V2 1차 목표: 해외 기록 메인 노출
+#### V2 1차 목표: 해외 기록 메인 노출 [ARCHIVED — completed]
 - 메인 화면에 `해외 기록` 섹션을 추가한다.
 - 작은 썸네일 카드로 해외 장소/여행 묶음을 보여준다.
 - 각 카드에는 대표 썸네일, 장소명/국가명, 사진 수, 날짜 범위를 함께 표시한다.
 - 해외 기록 카드를 누르면 해당 해외 앨범/장소를 한꺼번에 모은 filtered memory view로 이동한다.
 - 이 화면은 파일 시스템 폴더 브라우징이 아니라 앱 내부 필터 뷰로 구현한다.
 
-### Filtered Memory View 후보
+#### Filtered Memory View 후보
 - 장소별 필터: `수원에서`, `청주에서`, `분당서울대학교병원에서`
 - 기간별 필터: 연도/월/여행 기간
 - 해외 기록 필터: 국내가 아닌 주소/국가명을 가진 사진 묶음
 - 태그 후보: 해외, 병원, 학교, 공원, 역, 음식, 카페 등. 처음부터 자동 태그를 과하게 하지 말고 장소명 품질 개선과 연결해서 점진 적용한다.
 
-### V2.1 Memory lifecycle 기준
+#### V2.1 Memory lifecycle 기준
 
-- [x] 제품 기준을 `Memory = canonical logical record`, `Gallery Album = optional organization output`으로 확정한다.
-- [x] Gallery 앨범 생성 후에도 stable Memory, 날짜 메모, MemoryCollection membership를 삭제하지 않는 방향을 확정한다.
-- [ ] Gallery output을 Memory/Collection에 연결하는 generic organization link를 설계한다.
+- [ARCHIVED: complete at the time] 제품 기준을 `Memory = canonical logical record`, `Gallery Album = optional organization output`으로 확정한다.
+- [ARCHIVED: complete at the time] Gallery 앨범 생성 후에도 stable Memory, 날짜 메모, MemoryCollection membership를 삭제하지 않는 방향을 확정한다.
+- [ARCHIVED: open at the time; not current] Gallery output을 Memory/Collection에 연결하는 generic organization link를 설계한다.
   - `subjectType = MEMORY | COLLECTION`, `subjectId = mem_<UUID> | group_<UUID>`로 확장 가능하게 한다.
   - Memory/Collection에 별도 `ORGANIZED` truth를 중복 저장하지 않고, active `SUCCESS` link 존재 여부로 `isOrganized`를 파생한다.
   - `albumName`과 `relativePath`는 last-known Gallery output metadata일 뿐 Memory identity가 아니다.
   - Worker 성공 결과 확인 전에는 link를 `SUCCESS`로 기록하지 않는다.
   - partial failure, 재시작, Gallery 외부 삭제(`MISSING`), 기존 앨범 migration 정책을 먼저 확정한다.
-- [ ] 해외 기록을 `AlbumSummaryHistoryStore` 전용 projection에서 Memory 기반 projection으로 전환한다.
-  - [x] Phase 3-A 모델 spike: discovery와 legacy organized source를 내부적으로 분리한 country-level entry를 read-only로 만들었다. 홈에는 아직 연결하지 않았다.
-  - [ ] 다음 단계: 홈 연결 전 국가 카드 클릭 시 discovery-only / organized-only / 양쪽 상태의 상세 UX를 결정하고 실기기에서 확인한다.
-  - [ ] 업데이트 사용자 호환: 별도 마이그레이션 없이 기존 `DiscoverySnapshot`과 `AlbumSummaryHistoryStore`를 앱 업데이트 후 다시 읽어 국가 projection을 구성한다.
+- [ARCHIVED: open at the time; not current] 해외 기록을 `AlbumSummaryHistoryStore` 전용 projection에서 Memory 기반 projection으로 전환한다.
+  - [ARCHIVED: complete at the time] Phase 3-A 모델 spike 당시 discovery와 legacy organized source를 분리한 country-level entry만 만들었고, 홈 연결은 후속 작업이었다. 홈 연결과 국가 상세는 이후 구현되어 출시됐다.
+  - [ARCHIVED: open at the time; not current] 다음 단계: 홈 연결 전 국가 카드 클릭 시 discovery-only / organized-only / 양쪽 상태의 상세 UX를 결정하고 실기기에서 확인한다.
+  - [ARCHIVED: open at the time; not current] 업데이트 사용자 호환: 별도 마이그레이션 없이 기존 `DiscoverySnapshot`과 `AlbumSummaryHistoryStore`를 앱 업데이트 후 다시 읽어 국가 projection을 구성한다.
     - 기존 discovery snapshot이 있으면 해외 Memory가 즉시 홈에 나타나야 한다.
     - 기존 위치 앨범 history만 있는 사용자도 기존 해외 국가가 유지되어야 한다.
     - 양쪽 source가 있으면 국가 카드는 하나만 만들되 내부 source는 분리해 보존한다.
@@ -882,19 +802,19 @@ Gallery 조직 상태와 Memory identity를 하나의 mutable state로 합치지
   - Phase 3-C: lifecycle state와 무관하게 stable Memory를 국가별로 한 번만 보여주는 unified projection을 만든다.
   - 3-A에서 sourceUri만으로 서로 다른 discovery/album record를 같은 Memory로 합치지 않는다.
 
-### Codex 방향 문장
+#### Codex 방향 문장
 Build a memory-based photo organization system that replaces folder hierarchy with tag-based semantic grouping derived from GPS/time clustering, and renders all navigation inside the app as filtered memory views rather than file system browsing.
 
-### 구현 메모
+#### 구현 메모
 - 기존 `StoredAlbumSummary`/정리 기록 JSON을 확장해서 memory view의 데이터 소스로 쓸 수 있는지 먼저 검토한다.
 - 앱 내부 뷰는 썸네일, 날짜 범위, 사진 수, 장소명, 원본 앨범 경로를 가진 summary 모델이 필요하다.
 - 해외 판별은 `countryName`, `addressLine`, `adminArea` 기반으로 시작하되, 한국 주소 예외 처리를 명확히 둔다.
 - 파일을 다시 이동하지 않고도 memory view가 동작해야 한다.
 - 갤러리 열기는 보조 액션으로 유지하고, 기본 탐색은 앱 내부 filtered view로 제공한다.
 
-## V1 사용자 테스트 피드백
+### V1 사용자 테스트 피드백
 
-### 1. 메인 화면을 사용자 목표 중심 Flow로 재구성
+#### 1. 메인 화면을 사용자 목표 중심 Flow로 재구성
 - 현재 4개 버튼이 각각 독립 기능처럼 보여 첫 사용자가 헷갈림.
 - 실제 목표는 `사진/동영상 정리` 하나이므로 메인 액션을 단순화한다.
 - 추천 구조:
@@ -903,7 +823,7 @@ Build a memory-based photo organization system that replaces folder hierarchy wi
   - Separate/Safe action: `원본 삭제`
 - `미리보기`, `앨범으로 정리`, `결과 보기`는 하나의 흐름 안에서 자연스럽게 이어지게 만든다.
 
-### 2. 버튼/화면 이름 정리
+#### 2. 버튼/화면 이름 정리
 - `미리보기`라는 이름이 사용자에게 어색하다는 피드백.
 - 후보:
   - `정리 시작`
@@ -911,7 +831,7 @@ Build a memory-based photo organization system that replaces folder hierarchy wi
   - `앨범 정리`
 - 메인에 버튼이 하나만 남는다면 `앨범 정리` 또는 `정리 시작`이 더 자연스러움.
 
-### 3. 정리 Flow
+#### 3. 정리 Flow
 1. `정리 시작`
 2. 정리 예정 항목 확인
    - 예: 남해 94개, 압구정 21개, 위치 없음 238개
@@ -920,7 +840,7 @@ Build a memory-based photo organization system that replaces folder hierarchy wi
 5. 정리 완료 후 `결과 보기`
 6. 필요 시 `원본 삭제`
 
-### 4. 진행 상태 UI 개선
+#### 4. 진행 상태 UI 개선
 - 오늘 추가한 진행 카드는 기존보다 훨씬 나아졌음.
 - 다음 개선:
   - 더 깔끔한 진행 카드 디자인
@@ -929,21 +849,21 @@ Build a memory-based photo organization system that replaces folder hierarchy wi
   - 진행바 색/높이/여백 다듬기
   - `중지` 버튼은 진행 카드 안에 작게 유지
 
-### 5. 원본 삭제는 별도 액션 유지
+#### 5. 원본 삭제는 별도 액션 유지
 - 사진은 복사, 동영상은 이동이므로 원본 삭제는 사진 원본만 대상으로 유지.
 - 문구는 안전하게:
   - `복사된 원본 삭제`
   - `사진 원본 삭제`
   - 삭제 전 확인 팝업 유지
 
-## 내일 우선순위
+### 내일 우선순위
 1. 메인 4개 버튼 구조를 `정리 시작` 중심으로 재배치
 2. 미리보기/결과 화면에서 바로 정리 실행 흐름 연결
 3. 진행 카드 UI 한 번 더 다듬기
 4. 문구 전체 재점검: 개발자 용어 줄이기
 5. 빌드 후 폰 설치, Google Drive APK/AAB 업데이트
 
-## 2026-06-11 안정화 메모
+### 2026-06-11 안정화 메모
 - 6월 9일 동일 사진 3개를 비교함: 원본 `DCIM/Camera`, 삼성 갤러리 복사본 `Download`, 앱 복사본 `Pictures/성남에서`.
 - 세 파일 SHA256이 동일해서 EXIF 차이는 없음.
 - 차이는 MediaStore/파일 시간 쪽:
@@ -959,7 +879,7 @@ Build a memory-based photo organization system that replaces folder hierarchy wi
 - `정리 대상 폴더`의 `선택` 버튼은 메인 CTA처럼 보여서 `폴더 변경 >` 보조 액션으로 낮춤.
 - 비교 보고서: `C:\Users\mismi\Documents\Codex\GallerySorter\reports\media-compare-20260609_233202.md`
 
-## UX 개선 후보
+### UX 개선 후보
 - 진행 중 화면에서 실시간으로 발견된 장소를 보여주기:
   - 예: `속초 38`, `강동 22`, `청주 14`
   - 사용자가 앱이 실제로 일하고 있다는 느낌을 받게 함.
@@ -979,7 +899,7 @@ Build a memory-based photo organization system that replaces folder hierarchy wi
   - 장소별 결과에서 날짜별/월별/연도별 세분화.
   - POI/별칭 기반 앨범명.
 
-## 현재 UX 결정사항
+### 현재 UX 결정사항
 - 메인 CTA 이름은 `앨범분류 시작` 쪽이 더 자연스럽다.
 - `정리 시작`, `정리 실행`, `결과 보기`, `사진 원본 삭제`, `폴더 선택`을 같은 레벨의 4개 기능처럼 노출하지 않는다.
 - 메인 화면은 하나의 목표인 `사진/동영상 앨범 분류`를 시작하는 화면이어야 한다.
@@ -989,7 +909,7 @@ Build a memory-based photo organization system that replaces folder hierarchy wi
 - 결과 화면의 `바로 정리하기` 버튼은 리스트 아래가 아니라 통계 카드 아래, `정리될 앨범` 섹션 위에 둔다.
 - 진행 카드는 하나로 묶는다: `위치 정보 분석 중` + `525 / 1295개 완료 · 41%` + 진행바 + 작은 `중지`.
 
-## 새 채널 시작용 요약
+### 새 채널 시작용 요약
 프로젝트 경로: `C:\Users\mismi\Documents\Codex\GallerySorter`
 
 현재 구현:
@@ -1009,9 +929,9 @@ Build a memory-based photo organization system that replaces folder hierarchy wi
 - 결과 화면 상단의 `바로 정리하기` 위치
 - 동영상 이동이 실제 기기에서 권한 문제 없이 되는지
 
-## 2026-06-25 V1.1/V2 장소명 품질 개선 후보
+### 2026-06-25 V1.1/V2 장소명 품질 개선 후보
 
-### 비서울 POI 장소명 우선순위 개선
+#### 비서울 POI 장소명 우선순위 개선
 - 사례: 분당서울대학교병원에서 찍은 사진이 `대병원에서`으로 생성됨.
 - 원인 추정:
   - 현재 비서울 주소는 `locality -> subAdminArea -> adminArea -> countryName` 순서로 장소명을 선택함.
@@ -1021,7 +941,7 @@ Build a memory-based photo organization system that replaces folder hierarchy wi
   - 너무 짧거나 의미 없는 조각은 제외.
   - `병원`, `대학교`, `공원`, `역`, `공항`, `미술관`, `박물관`, `예술의전당` 같은 POI성 이름은 우선 사용.
   - 단, 비서울 전체 장소명 규칙에 영향이 있으므로 V1 출시 직전에는 수정하지 않고 V1.1/V2에서 테스트 후 반영.
-# 2026-07-24 백그라운드 리팩터 중단 지점 / 다음 TODO
+### 2026-07-24 백그라운드 리팩터 중단 지점 / 다음 TODO
 
 현재 브랜치: `codex/photoplace-v2-bg-wip`
 
@@ -1064,59 +984,59 @@ Build a memory-based photo organization system that replaces folder hierarchy wi
 4. 이미 정리됨 UX 개선.
 5. Back 키 처리 점검.
 6. 그 다음 WorkManager 실제 연결 재개.
-## Memory viewer follow-up
+### Memory viewer follow-up
 
-- [ ] 발견 상세에서 선택한 날짜 그룹의 사진/동영상을 앱 내부에서 좌우로 넘겨보는 뷰어 추가
-- [ ] 앱 내부 뷰어에서 현재 항목 위치, 동영상 재생, 원본 앱으로 열기 제공
+- [ARCHIVED: open at the time; not current] 발견 상세에서 선택한 날짜 그룹의 사진/동영상을 앱 내부에서 좌우로 넘겨보는 뷰어 추가
+- [ARCHIVED: open at the time; not current] 앱 내부 뷰어에서 현재 항목 위치, 동영상 재생, 원본 앱으로 열기 제공
 
-## Discovery cache and new-place correctness (next P0)
+### Discovery cache and new-place correctness (next P0)
 
-- [ ] Mark places newly added by the latest completed analysis in `발견 기록`.
+- [ARCHIVED: open at the time; not current] Mark places newly added by the latest completed analysis in `발견 기록`.
   - Show a compact `NEW` badge on cards/list rows whose place key was absent from the pre-analysis Discovery snapshot.
   - Keep the badge scoped to the latest successful analysis; it must not permanently mark historical records as new.
   - New-place ordering should be newest-first while the marker is active, without changing the user's normal sort order after acknowledgement.
   - Persist only the latest-analysis place-key set (or equivalent analysis token), not presentation-only flags per photo.
   - Opening a place may acknowledge that one badge; provide an explicit, predictable point to clear all remaining NEW markers.
-- [ ] Reproduce and fix: reanalyzing the same `Band` folder after adding a new `안성에서` photo reported `새로 발견한 장소 0곳`.
+- [ARCHIVED: open at the time; not current] Reproduce and fix: reanalyzing the same `Band` folder after adding a new `안성에서` photo reported `새로 발견한 장소 0곳`.
   - Trace MediaStore selection, duplicate filter, snapshot mapper, merger, and `DiscoverySnapshotUpdate` baseline comparison.
   - Add a regression test for “existing snapshot + new URI/new place = newPlaceCount 1”.
   - Confirm the new group appears in Discovery on device before changing caching behavior.
-- [ ] Add `LocationAnalysisCache` only after the new-place regression is resolved.
+- [ARCHIVED: open at the time; not current] Add `LocationAnalysisCache` only after the new-place regression is resolved.
   - Cache normalized place results and `LOCATION_NONE`, never merely hide items.
   - Cache hit must still rebuild Preview/Discovery counts and cards.
   - New, copied, moved, changed, GPS-added, or policy-version-changed media must miss the cache.
 
-- [x] Migrate legacy image-cache signatures with trailing source-folder slashes.
+- [ARCHIVED: complete at the time] Migrate legacy image-cache signatures with trailing source-folder slashes.
   - Older cache entries such as `Pictures/Camera/` now normalize to `Pictures/Camera` when loaded.
   - Existing cache data is preserved instead of forcing a full cache reset.
   - Regression test added for legacy signature migration.
 
-## Overseas country detail Phase 3-B (first slice)
+### Overseas country detail Phase 3-B (first slice)
 
-- [x] Home overseas country cards open a dedicated country detail screen.
-- [x] Show `새로 발견한 장소` and `정리된 위치 앨범` as separate sections.
-- [x] Reuse existing Memory detail and Gallery album detail flows from each row.
-- [x] Preserve country detail as the back destination from both row types.
-- [ ] Add stable Memory ID / organization-link dedupe for a fully unified lifecycle.
-- [ ] Add country-level date -> place -> note -> photos detail projection.
-- [ ] Review mixed-source total photo count to avoid double counting after explicit links exist.
+- [ARCHIVED: complete at the time] Home overseas country cards open a dedicated country detail screen.
+- [ARCHIVED: complete at the time] Show `새로 발견한 장소` and `정리된 위치 앨범` as separate sections.
+- [ARCHIVED: complete at the time] Reuse existing Memory detail and Gallery album detail flows from each row.
+- [ARCHIVED: complete at the time] Preserve country detail as the back destination from both row types.
+- [ARCHIVED: open at the time; not current] Add stable Memory ID / organization-link dedupe for a fully unified lifecycle.
+- [ARCHIVED: open at the time; not current] Add country-level date -> place -> note -> photos detail projection.
+- [ARCHIVED: open at the time; not current] Review mixed-source total photo count to avoid double counting after explicit links exist.
 
-## Home Memory entry (next P0)
+### Home Memory entry (next P0)
 
-- [x] Merge discovery-place and location-album thumbnails into one Home `최근 발견한 장소` strip.
+- [ARCHIVED: complete at the time] Merge discovery-place and location-album thumbnails into one Home `최근 발견한 장소` strip.
   - Include domestic and overseas Memory records, not only overseas projection or Gallery albums.
   - Sort the mixed strip by the latest available discovery/album date.
   - Use a lightweight `전체 보기` action instead of a duplicate large CTA.
-- [ ] Add a first-use empty state with `사진 속 장소 찾기` when no Memory has been discovered yet.
+- [ARCHIVED: open at the time; not current] Add a first-use empty state with `사진 속 장소 찾기` when no Memory has been discovered yet.
 
-## Selective Gallery organization
+### Selective Gallery organization
 
-- [ ] Make single-place organization the default action from a Memory detail screen.
+- [ARCHIVED: open at the time; not current] Make single-place organization the default action from a Memory detail screen.
   - Create a Gallery location album only for the selected place.
   - Preserve the place's Memory, date grouping, and date notes after organization.
   - Reuse the existing whole-discovery organization pipeline instead of duplicating it.
-- [ ] Keep `발견한 장소 모두 위치 앨범으로 만들기` as an explicit secondary/bulk action.
+- [ARCHIVED: open at the time; not current] Keep `발견한 장소 모두 위치 앨범으로 만들기` as an explicit secondary/bulk action.
   - This remains available for users who intentionally want every discovered place organized.
-- [ ] Define mixed-state UI when some places are already organized and others remain discovery-only.
-- [x] Put the newer source first on Home when discovery places and location albums coexist.
+- [ARCHIVED: open at the time; not current] Define mixed-state UI when some places are already organized and others remain discovery-only.
+- [ARCHIVED: complete at the time] Put the newer source first on Home when discovery places and location albums coexist.
   - Compare the latest discovery date with the latest album date.
