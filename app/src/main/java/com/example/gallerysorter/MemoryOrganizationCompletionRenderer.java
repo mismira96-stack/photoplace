@@ -43,7 +43,7 @@ final class MemoryOrganizationCompletionRenderer {
 
     LinearLayout render(String albumName, int copiedCount, int failedCount,
                         boolean canceled, boolean linkSaved, String coverUri,
-                        String dateRange, int noLocationCount, String returnLabel,
+                        String dateRange, String returnLabel,
                         Listener listener) {
         LinearLayout content = new LinearLayout(context);
         content.setOrientation(LinearLayout.VERTICAL);
@@ -98,20 +98,6 @@ final class MemoryOrganizationCompletionRenderer {
             }
         });
         hero.addView(albums, new LinearLayout.LayoutParams(-1, dp(48)));
-
-        LinearLayout stats = new LinearLayout(context);
-        stats.setOrientation(LinearLayout.HORIZONTAL);
-        stats.setGravity(Gravity.CENTER_VERTICAL);
-        stats.setPadding(dp(12), dp(14), dp(12), dp(14));
-        stats.setBackground(tintedCardBackground(0xFFFFFFFF, 0xFFE7E9EF));
-        LinearLayout.LayoutParams statsParams = matchWidth();
-        statsParams.topMargin = dp(12);
-        content.addView(stats, statsParams);
-        addStat(stats, "정리된 사진·동영상", Math.max(0, copiedCount) + "개", 0xFF159653);
-        View divider = new View(context);
-        divider.setBackgroundColor(0xFFE5E8EE);
-        stats.addView(divider, new LinearLayout.LayoutParams(dp(1), dp(52)));
-        addStat(stats, "위치 정보 없음", Math.max(0, noLocationCount) + "개", 0xFFE18A00);
 
         TextView keepOriginals = new TextView(context);
         keepOriginals.setText(statusText(copiedCount, failedCount, canceled, linkSaved));
@@ -188,29 +174,6 @@ final class MemoryOrganizationCompletionRenderer {
         backParams.topMargin = dp(12);
         content.addView(back, backParams);
         return content;
-    }
-
-    private void addStat(LinearLayout parent, String label, String value, int valueColor) {
-        LinearLayout stat = new LinearLayout(context);
-        stat.setOrientation(LinearLayout.VERTICAL);
-        stat.setGravity(Gravity.CENTER);
-        parent.addView(stat, new LinearLayout.LayoutParams(0, -2, 1));
-
-        TextView labelView = new TextView(context);
-        labelView.setText(label);
-        labelView.setTextSize(13);
-        labelView.setTextColor(0xFF737F95);
-        labelView.setGravity(Gravity.CENTER);
-        stat.addView(labelView, matchWidth());
-
-        TextView valueView = new TextView(context);
-        valueView.setText(value);
-        valueView.setTextSize(23);
-        valueView.setTypeface(Typeface.DEFAULT_BOLD);
-        valueView.setTextColor(valueColor);
-        valueView.setGravity(Gravity.CENTER);
-        valueView.setPadding(0, dp(3), 0, 0);
-        stat.addView(valueView, matchWidth());
     }
 
     private String titleText(String albumName, int copiedCount, int failedCount,

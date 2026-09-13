@@ -206,7 +206,6 @@ public class MainActivity extends Activity {
     private String memoryOrganizationDateRange = "";
     private int memoryOrganizationCopiedCount = 0;
     private int memoryOrganizationFailedCount = 0;
-    private int memoryOrganizationNoLocationCount = 0;
     private int lastSortFailedCount = 0;
     private boolean memoryOrganizationCanceled = false;
     private boolean memoryOrganizationLinkSaved = false;
@@ -2226,7 +2225,6 @@ public class MainActivity extends Activity {
                     historyItems, organizationRequest.relativePath);
             this.memoryOrganizationCopiedCount = Math.max(0, i);
             this.memoryOrganizationFailedCount = Math.max(0, i3);
-            this.memoryOrganizationNoLocationCount = countNoLocationItems(historyItems);
             this.memoryOrganizationDateRange = memoryOrganizationDateRange(
                     historyItems, organizationRequest.relativePath);
             this.memoryOrganizationCanceled = z;
@@ -8701,7 +8699,7 @@ public class MainActivity extends Activity {
         boolean z = this.copyCompletedMode;
         boolean z2 = this.copyStoppedMode;
         if (singleAlbumCompletion != null) {
-            addSingleAlbumCompletion(linearLayout, singleAlbumCompletion, i2);
+            addSingleAlbumCompletion(linearLayout, singleAlbumCompletion);
             setContentViewWithBottomTabs(scrollView, -1);
             return;
         }
@@ -8836,12 +8834,11 @@ public class MainActivity extends Activity {
     }
 
     private void addSingleAlbumCompletion(LinearLayout parent,
-                                         SingleAlbumCompletionResolver.Summary completion,
-                                         int noLocationCount) {
+                                         SingleAlbumCompletionResolver.Summary completion) {
         MemoryOrganizationCompletionRenderer renderer = createMemoryOrganizationCompletionRenderer();
         parent.addView(renderer.render(completion.albumName, completion.itemCount,
                 this.lastSortFailedCount, false, true, completion.coverUri,
-                completion.dateRange, noLocationCount, "홈으로 돌아가기",
+                completion.dateRange, "홈으로 돌아가기",
                 new MemoryOrganizationCompletionRenderer.Listener() {
                     @Override
                     public void onReturnToMemory() {
@@ -9494,7 +9491,6 @@ public class MainActivity extends Activity {
                 this.memoryOrganizationLinkSaved,
                 this.memoryOrganizationCoverUri,
                 this.memoryOrganizationDateRange,
-                this.memoryOrganizationNoLocationCount,
                 "기억으로 돌아가기",
                 new MemoryOrganizationCompletionRenderer.Listener() {
                     @Override

@@ -24,6 +24,7 @@ Primary areas:
 ### Home completion result
 
 - A generic Home organization result containing exactly one album is summarized by `SingleAlbumCompletionResolver` and rendered with the same completion renderer.
+- The shared single-album completion renderer omits the always-zero no-location metric and duplicate count panel; counts and date remain in the hero and created-album row.
 - Multi-album and empty results retain the aggregate result route.
 - The current latest APK was installed without clearing app data and launch was confirmed, but the completion route was not reopened after the final UI change because doing so by creating another album would add unwanted test data.
 
