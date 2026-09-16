@@ -9,6 +9,7 @@ import android.provider.MediaStore;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 
 /** Read-only MediaStore adapter for one exact Gallery relative path. */
@@ -18,6 +19,8 @@ final class MemoryMediaStoreReader implements MemoryMediaResolver.GalleryReader 
             MediaStore.MediaColumns.MIME_TYPE,
             MediaStore.MediaColumns.DISPLAY_NAME,
             MediaStore.MediaColumns.DATE_TAKEN,
+            MediaStore.MediaColumns.DATE_MODIFIED,
+            MediaStore.MediaColumns.DATE_ADDED,
             MediaStore.MediaColumns.RELATIVE_PATH
     };
 
@@ -39,6 +42,12 @@ final class MemoryMediaStoreReader implements MemoryMediaResolver.GalleryReader 
                     path, memory, refs);
             readKind(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, MediaKind.VIDEO,
                     path, memory, refs);
+            Collections.sort(refs, new Comparator<DiscoveryPhotoRef>() {
+                @Override
+                public int compare(DiscoveryPhotoRef left, DiscoveryPhotoRef right) {
+                    return Long.compare(sortTime(right), sortTime(left));
+                }
+            });
             return refs.isEmpty() ? Result.missing() : Result.found(refs);
         } catch (Throwable ignored) {
             return Result.failed();
@@ -50,15 +59,17 @@ final class MemoryMediaStoreReader implements MemoryMediaResolver.GalleryReader 
                           String relativePath,
                           MemoryRecord memory,
                           List<DiscoveryPhotoRef> refs) {
-        String selection = MediaStore.MediaColumns.RELATIVE_PATH + "=?";
+        String selection = "(" + MediaStore.MediaColumns.RELATIVE_PATH + "=? OR "
+                + MediaStore.MediaColumns.RELATIVE_PATH + "=?)";
         if (Build.VERSION.SDK_INT >= 30) {
             selection += " AND " + MediaStore.MediaColumns.IS_PENDING + "=0"
                     + " AND " + MediaStore.MediaColumns.IS_TRASHED + "=0";
         } else if (Build.VERSION.SDK_INT >= 29) {
             selection += " AND " + MediaStore.MediaColumns.IS_PENDING + "=0";
         }
+        List<String> pathArgs = relativePathCandidates(relativePath);
         try (Cursor cursor = resolver.query(collection, PROJECTION, selection,
-                new String[]{relativePath}, MediaStore.MediaColumns.DATE_TAKEN + " DESC")) {
+                pathArgs.toArray(new String[0]), MediaStore.MediaColumns.DATE_TAKEN + " DESC")) {
             if (cursor == null) {
                 throw new IllegalStateException("MediaStore query returned null");
             }
@@ -68,8 +79,15 @@ final class MemoryMediaStoreReader implements MemoryMediaResolver.GalleryReader 
             int takenIndex = cursor.getColumnIndex(MediaStore.MediaColumns.DATE_TAKEN);
             while (cursor.moveToNext()) {
                 long id = cursor.getLong(idIndex);
-                long takenAt = takenIndex < 0 || cursor.isNull(takenIndex)
-                        ? DiscoveryPhotoRef.UNKNOWN_TIME : cursor.getLong(takenIndex);
+                long takenAt = timestampMillis(cursor, takenIndex, 1L);
+                if (takenAt <= 0L) {
+                    int modifiedIndex = cursor.getColumnIndex(MediaStore.MediaColumns.DATE_MODIFIED);
+                    takenAt = timestampMillis(cursor, modifiedIndex, 1000L);
+                }
+                if (takenAt <= 0L) {
+                    int addedIndex = cursor.getColumnIndex(MediaStore.MediaColumns.DATE_ADDED);
+                    takenAt = timestampMillis(cursor, addedIndex, 1000L);
+                }
                 String mime = mimeIndex < 0 ? "" : cursor.getString(mimeIndex);
                 String name = nameIndex < 0 ? "" : cursor.getString(nameIndex);
                 Uri itemUri = ContentUris.withAppendedId(collection, id);
@@ -92,6 +110,29 @@ final class MemoryMediaStoreReader implements MemoryMediaResolver.GalleryReader 
             path = path.substring(0, path.length() - 1);
         }
         return path;
+    }
+
+    static List<String> relativePathCandidates(String value) {
+        String path = normalizePath(value);
+        if (path.isEmpty()) {
+            return Collections.emptyList();
+        }
+        ArrayList<String> candidates = new ArrayList<>();
+        candidates.add(path);
+        candidates.add(path + "/");
+        return Collections.unmodifiableList(candidates);
+    }
+
+    private static long timestampMillis(Cursor cursor, int index, long multiplier) {
+        if (index < 0 || cursor.isNull(index)) {
+            return DiscoveryPhotoRef.UNKNOWN_TIME;
+        }
+        long value = cursor.getLong(index);
+        return value <= 0L ? DiscoveryPhotoRef.UNKNOWN_TIME : value * multiplier;
+    }
+
+    private static long sortTime(DiscoveryPhotoRef ref) {
+        return ref == null ? DiscoveryPhotoRef.UNKNOWN_TIME : ref.takenAtMillis;
     }
 
     static final class Result {

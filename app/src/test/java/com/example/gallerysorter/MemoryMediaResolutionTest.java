@@ -47,6 +47,12 @@ public class MemoryMediaResolutionTest {
         assertEquals("", MemoryMediaStoreReader.normalizePath("///"));
     }
 
+    @Test
+    public void relativePathQueryAcceptsBothMediaStoreRepresentations() {
+        assertEquals(java.util.Arrays.asList("Pictures/Songpa", "Pictures/Songpa/"),
+                MemoryMediaStoreReader.relativePathCandidates("Pictures/Songpa/"));
+    }
+
     private static DiscoveryPhotoRef ref(String uri) {
         return new DiscoveryPhotoRef(uri, 1L, MediaKind.PHOTO, "image/jpeg",
                 "photo.jpg", 100L, "KR|Songpa", "송파구", "KR", "대한민국",
