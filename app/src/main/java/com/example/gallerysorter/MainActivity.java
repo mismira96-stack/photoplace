@@ -114,6 +114,8 @@ public class MainActivity extends Activity {
     private static final String CAMERA_PATH = "DCIM/Camera/";
     private static final String LOCATION_NONE = "위치없음";
     private static final int MAX_MAIN_RESULT_GROUPS = 3;
+    private static final int VIEWER_RETURN_MEMORY_DETAIL = 1;
+    private static final int VIEWER_RETURN_COLLECTION_DETAIL = 2;
     private static final int MAX_NO_LOCATION_RESULT_ROWS = 60;
     static final int MAX_RESULT_DETAIL_THUMBNAILS = 48;
     private static final int MAX_RESULT_SCREEN_GROUPS = 24;
@@ -225,6 +227,7 @@ public class MainActivity extends Activity {
     private String activeMemoryKey = "";
     private MemoryPhotoSection activeMemoryPhotoViewerSection = null;
     private int activeMemoryPhotoViewerIndex = 0;
+    private int memoryPhotoViewerReturnMode = VIEWER_RETURN_MEMORY_DETAIL;
     private ScrollView activeMemoryDetailScrollView = null;
     private int activeMemoryDetailScrollY = 0;
     private String activeMemoryCollectionId = "";
@@ -409,6 +412,10 @@ public class MainActivity extends Activity {
             showMemoryOrganizationCompletionScreen();
             return;
         }
+        if (this.memoryPhotoViewerMode && this.activeMemoryPhotoViewerSection != null) {
+            showMemoryPhotoViewer(this.activeMemoryPhotoViewerSection, this.activeMemoryPhotoViewerIndex);
+            return;
+        }
         if (this.memoryCollectionDetailMode && !this.activeMemoryCollectionId.isEmpty()) {
             showMemoryCollectionDetailScreen(this.activeMemoryCollectionId);
             return;
@@ -419,10 +426,6 @@ public class MainActivity extends Activity {
         }
         if (this.memoryBrowserDetailMode && !this.activeMemoryKey.isEmpty()) {
             showMemoryBrowserDetailScreen(this.activeMemoryKey);
-            return;
-        }
-        if (this.memoryPhotoViewerMode && this.activeMemoryPhotoViewerSection != null) {
-            showMemoryPhotoViewer(this.activeMemoryPhotoViewerSection, this.activeMemoryPhotoViewerIndex);
             return;
         }
         if (this.memoryBrowserScreenMode) {
@@ -7848,11 +7851,11 @@ public class MainActivity extends Activity {
     private void loadThumbnailInto(final ImageView imageView, final Uri uri, final int i, final String fallbackRelativePath) {
         final String str = uri.toString() + "#" + i;
         imageView.setTag(str);
-        imageView.setImageDrawable(thumbnailPlaceholder());
         Bitmap bitmap = this.thumbnailCache.get(str);
         if (bitmap != null) {
             imageView.setImageBitmap(bitmap);
         } else {
+            imageView.setImageDrawable(thumbnailPlaceholder());
             if (this.thumbnailWorker.isShutdown() || this.thumbnailWorker.isTerminated()) {
                 return;
             }
@@ -9123,6 +9126,29 @@ public class MainActivity extends Activity {
         }
     }
 
+    /** Viewer variant: keep the previous bitmap visible until the replacement is ready. */
+    private void loadThumbnailIntoPreservingCurrent(final ImageView imageView, final Uri uri, final int size) {
+        final String tag = uri.toString() + "#" + size;
+        imageView.setTag(tag);
+        Bitmap cached = this.thumbnailCache.get(tag);
+        if (cached != null) {
+            imageView.setImageBitmap(cached);
+            return;
+        }
+        if (this.thumbnailWorker.isShutdown() || this.thumbnailWorker.isTerminated()) {
+            return;
+        }
+        try {
+            this.thumbnailWorker.execute(new Runnable() {
+                @Override
+                public void run() {
+                    MainActivity.this.m33x8a0aaf5(uri, size, tag, imageView, null);
+                }
+            });
+        } catch (RejectedExecutionException unused) {
+        }
+    }
+
     private void addMemoryCollectionCards(LinearLayout root,
                                          List<MemoryCollection> collections,
                                          List<MemoryRecord> records) {
@@ -10121,10 +10147,10 @@ public class MainActivity extends Activity {
         addMemoryPhotoGrid(parent, null, photos, startIndex, count);
     }
 
-    private void addMemoryPhotoGrid(LinearLayout parent,
-                                    MemoryPhotoSection section,
-                                    int startIndex,
-                                    int count) {
+    void addMemoryPhotoGrid(LinearLayout parent,
+                            MemoryPhotoSection section,
+                            int startIndex,
+                            int count) {
         addMemoryPhotoGrid(parent, section, section == null ? null : section.photos, startIndex, count);
     }
 
@@ -10218,8 +10244,16 @@ public class MainActivity extends Activity {
         this.overseasMemoryScreenMode = false;
         this.memoryBrowserScreenMode = false;
         this.memoryBrowserDetailMode = false;
+        if (!this.memoryPhotoViewerMode) {
+            this.memoryPhotoViewerReturnMode = this.memoryCollectionDetailMode
+                    && !this.activeMemoryCollectionId.isEmpty()
+                    ? VIEWER_RETURN_COLLECTION_DETAIL
+                    : VIEWER_RETURN_MEMORY_DETAIL;
+        }
+        this.memoryCollectionDetailMode = false;
         this.memoryPhotoViewerMode = true;
-        if (this.activeMemoryDetailScrollView != null) {
+        if (this.memoryPhotoViewerReturnMode == VIEWER_RETURN_MEMORY_DETAIL
+                && this.activeMemoryDetailScrollView != null) {
             this.activeMemoryDetailScrollY = this.activeMemoryDetailScrollView.getScrollY();
         }
         this.activeMemoryPhotoViewerSection = section;
@@ -10242,7 +10276,7 @@ public class MainActivity extends Activity {
 
                     @Override
                     public void loadThumbnail(ImageView target, Uri uri, int sizePx) {
-                        MainActivity.this.loadThumbnailInto(target, uri, sizePx);
+                        MainActivity.this.loadThumbnailIntoPreservingCurrent(target, uri, sizePx);
                     }
 
                     @Override
@@ -10264,10 +10298,14 @@ public class MainActivity extends Activity {
     }
 
     private void closeMemoryPhotoViewer() {
+        int returnMode = this.memoryPhotoViewerReturnMode;
+        String collectionId = this.activeMemoryCollectionId;
         this.memoryPhotoViewerMode = false;
         this.activeMemoryPhotoViewerSection = null;
         this.activeMemoryPhotoViewerIndex = 0;
-        if (!this.activeMemoryKey.isEmpty()) {
+        if (returnMode == VIEWER_RETURN_COLLECTION_DETAIL && !collectionId.isEmpty()) {
+            showMemoryCollectionDetailScreen(collectionId);
+        } else if (!this.activeMemoryKey.isEmpty()) {
             showMemoryBrowserDetailScreen(this.activeMemoryKey);
         } else {
             showMemoryBrowserScreen(this.memoryBrowserShowsOrganizedSources);
