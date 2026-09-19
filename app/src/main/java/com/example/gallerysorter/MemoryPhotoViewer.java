@@ -4,6 +4,7 @@ import android.graphics.Color;
 import android.graphics.Typeface;
 import android.net.Uri;
 import android.view.Gravity;
+import android.view.MotionEvent;
 import android.view.View;
 import android.widget.Button;
 import android.widget.FrameLayout;
@@ -79,31 +80,34 @@ final class MemoryPhotoViewer {
         counter.setGravity(Gravity.CENTER);
         toolbar.addView(counter, new LinearLayout.LayoutParams(host.dp(56), -1));
 
+        final FrameLayout photoViewport = new FrameLayout(root.getContext());
         final ImageView image = new ImageView(root.getContext());
         image.setScaleType(ImageView.ScaleType.FIT_CENTER);
         image.setAdjustViewBounds(true);
         image.setContentDescription("Memory 사진");
+        photoViewport.addView(image, new FrameLayout.LayoutParams(-1, -1));
+        photoViewport.setClickable(true);
         LinearLayout.LayoutParams imageParams = new LinearLayout.LayoutParams(-1, 0, 1.0f);
         imageParams.setMargins(0, host.dp(8), 0, host.dp(8));
-        column.addView(image, imageParams);
+        column.addView(photoViewport, imageParams);
 
         final LinearLayout navigation = new LinearLayout(root.getContext());
         navigation.setGravity(Gravity.CENTER);
         navigation.setPadding(0, 0, 0, host.dp(4));
         column.addView(navigation, new LinearLayout.LayoutParams(-1, host.dp(48)));
 
-        final Button previous = new Button(root.getContext());
+        final TextView previous = new TextView(root.getContext());
         previous.setText("‹ 이전");
         previous.setTextSize(13.0f);
         previous.setTextColor(Color.WHITE);
-        previous.setAllCaps(false);
+        previous.setGravity(Gravity.CENTER);
         navigation.addView(previous, new LinearLayout.LayoutParams(0, host.dp(42), 1.0f));
 
-        final Button next = new Button(root.getContext());
+        final TextView next = new TextView(root.getContext());
         next.setText("다음 ›");
         next.setTextSize(13.0f);
         next.setTextColor(Color.WHITE);
-        next.setAllCaps(false);
+        next.setGravity(Gravity.CENTER);
         navigation.addView(next, new LinearLayout.LayoutParams(0, host.dp(42), 1.0f));
 
         final TextView videoMessage = new TextView(root.getContext());
@@ -135,6 +139,32 @@ final class MemoryPhotoViewer {
             }
         });
 
+        final float[] downX = {0.0f};
+        final float[] downY = {0.0f};
+        photoViewport.setOnTouchListener(new View.OnTouchListener() {
+            @Override
+            public boolean onTouch(View view, MotionEvent event) {
+                if (event.getAction() == MotionEvent.ACTION_DOWN) {
+                    downX[0] = event.getX();
+                    downY[0] = event.getY();
+                    return true;
+                }
+                if (event.getAction() == MotionEvent.ACTION_UP) {
+                    float dx = event.getX() - downX[0];
+                    float dy = event.getY() - downY[0];
+                    if (Math.abs(dx) > host.dp(40) && Math.abs(dx) > Math.abs(dy)) {
+                        int nextIndex = indexHolder[0] + (dx < 0 ? 1 : -1);
+                        if (nextIndex >= 0 && nextIndex < count) {
+                            indexHolder[0] = nextIndex;
+                            bind(photos, indexHolder[0], image, counter, videoMessage, previous, next, host);
+                        }
+                    }
+                    return true;
+                }
+                return true;
+            }
+        });
+
         final Button gallery = new Button(root.getContext());
         gallery.setText("Gallery에서 열기");
         gallery.setTextColor(Color.WHITE);
@@ -160,8 +190,8 @@ final class MemoryPhotoViewer {
                              ImageView image,
                              TextView counter,
                              TextView videoMessage,
-                             Button previous,
-                             Button next,
+                             TextView previous,
+                             TextView next,
                              Host host) {
         MemoryPhotoItem item = current(photos, index);
         int count = photos == null ? 0 : photos.size();
