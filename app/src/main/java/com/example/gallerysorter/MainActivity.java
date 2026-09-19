@@ -225,6 +225,8 @@ public class MainActivity extends Activity {
     private String activeMemoryKey = "";
     private MemoryPhotoSection activeMemoryPhotoViewerSection = null;
     private int activeMemoryPhotoViewerIndex = 0;
+    private ScrollView activeMemoryDetailScrollView = null;
+    private int activeMemoryDetailScrollY = 0;
     private String activeMemoryCollectionId = "";
     private final Set<String> selectedMemoryCollectionKeys = new HashSet<>();
     private int detailBackTarget = DETAIL_BACK_HOME;
@@ -9647,6 +9649,7 @@ public class MainActivity extends Activity {
         this.activeMemoryKey = detail.item.memoryKey;
 
         ScrollView scrollView = new ScrollView(this);
+        this.activeMemoryDetailScrollView = scrollView;
         scrollView.setBackgroundColor(-197377);
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(1);
@@ -9733,6 +9736,15 @@ public class MainActivity extends Activity {
         styleActionButton(back, "다른 장소 보기", "grid", -1050881, -4203522, -14326805);
         root.addView(back, matchWidth());
         setContentViewWithBottomTabs(scrollView, 1);
+        if (this.activeMemoryDetailScrollY > 0) {
+            final int restoreY = this.activeMemoryDetailScrollY;
+            scrollView.post(new Runnable() {
+                @Override
+                public void run() {
+                    MainActivity.this.activeMemoryDetailScrollView.scrollTo(0, restoreY);
+                }
+            });
+        }
     }
 
     void addMemoryHeader(LinearLayout root, String titleText, final Runnable backAction) {
@@ -10207,6 +10219,9 @@ public class MainActivity extends Activity {
         this.memoryBrowserScreenMode = false;
         this.memoryBrowserDetailMode = false;
         this.memoryPhotoViewerMode = true;
+        if (this.activeMemoryDetailScrollView != null) {
+            this.activeMemoryDetailScrollY = this.activeMemoryDetailScrollView.getScrollY();
+        }
         this.activeMemoryPhotoViewerSection = section;
         this.activeMemoryPhotoViewerIndex = Math.max(0, Math.min(initialIndex, section.photos.size() - 1));
 
