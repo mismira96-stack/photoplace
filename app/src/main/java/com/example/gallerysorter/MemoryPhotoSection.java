@@ -66,6 +66,13 @@ final class MemoryPhotoSection {
         return Collections.unmodifiableList(sections);
     }
 
+    static MemoryPhotoSection fromCollectionPlace(String dateKey,
+                                                   String dateText,
+                                                   String placeText,
+                                                   List<MemoryPhotoItem> photos) {
+        return new MemoryPhotoSection(dateKey, dateText, placeText, photos);
+    }
+
     static List<String> sourceUris(List<MemoryPhotoSection> sections) {
         if (sections == null || sections.isEmpty()) {
             return Collections.emptyList();

@@ -4,7 +4,6 @@ import android.graphics.Color;
 import android.graphics.Typeface;
 import android.net.Uri;
 import android.view.Gravity;
-import android.view.MotionEvent;
 import android.view.View;
 import android.widget.Button;
 import android.widget.FrameLayout;
@@ -88,6 +87,25 @@ final class MemoryPhotoViewer {
         imageParams.setMargins(0, host.dp(8), 0, host.dp(8));
         column.addView(image, imageParams);
 
+        final LinearLayout navigation = new LinearLayout(root.getContext());
+        navigation.setGravity(Gravity.CENTER);
+        navigation.setPadding(0, 0, 0, host.dp(4));
+        column.addView(navigation, new LinearLayout.LayoutParams(-1, host.dp(48)));
+
+        final Button previous = new Button(root.getContext());
+        previous.setText("‹ 이전");
+        previous.setTextSize(13.0f);
+        previous.setTextColor(Color.WHITE);
+        previous.setAllCaps(false);
+        navigation.addView(previous, new LinearLayout.LayoutParams(0, host.dp(42), 1.0f));
+
+        final Button next = new Button(root.getContext());
+        next.setText("다음 ›");
+        next.setTextSize(13.0f);
+        next.setTextColor(Color.WHITE);
+        next.setAllCaps(false);
+        navigation.addView(next, new LinearLayout.LayoutParams(0, host.dp(42), 1.0f));
+
         final TextView videoMessage = new TextView(root.getContext());
         videoMessage.setText("동영상은 Gallery에서 재생할 수 있어요.");
         videoMessage.setTextColor(Color.LTGRAY);
@@ -97,6 +115,25 @@ final class MemoryPhotoViewer {
         column.addView(videoMessage, new LinearLayout.LayoutParams(-1, host.dp(36)));
 
         final int[] indexHolder = {firstIndex};
+
+        previous.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                if (indexHolder[0] > 0) {
+                    indexHolder[0]--;
+                    bind(photos, indexHolder[0], image, counter, videoMessage, previous, next, host);
+                }
+            }
+        });
+        next.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                if (indexHolder[0] + 1 < count) {
+                    indexHolder[0]++;
+                    bind(photos, indexHolder[0], image, counter, videoMessage, previous, next, host);
+                }
+            }
+        });
 
         final Button gallery = new Button(root.getContext());
         gallery.setText("Gallery에서 열기");
@@ -114,33 +151,7 @@ final class MemoryPhotoViewer {
         galleryParams.setMargins(0, host.dp(4), 0, 0);
         column.addView(gallery, galleryParams);
 
-        final float[] downX = {0.0f};
-        final float[] downY = {0.0f};
-        image.setOnTouchListener(new View.OnTouchListener() {
-            @Override
-            public boolean onTouch(View view, MotionEvent event) {
-                if (event.getAction() == MotionEvent.ACTION_DOWN) {
-                    downX[0] = event.getX();
-                    downY[0] = event.getY();
-                    return true;
-                }
-                if (event.getAction() == MotionEvent.ACTION_UP) {
-                    float dx = event.getX() - downX[0];
-                    float dy = event.getY() - downY[0];
-                    if (Math.abs(dx) > host.dp(48) && Math.abs(dx) > Math.abs(dy)) {
-                        int next = indexHolder[0] + (dx < 0 ? 1 : -1);
-                        if (next >= 0 && next < count) {
-                            indexHolder[0] = next;
-                            bind(photos, indexHolder[0], image, counter, videoMessage, host);
-                        }
-                    }
-                    return true;
-                }
-                return true;
-            }
-        });
-
-        bind(photos, firstIndex, image, counter, videoMessage, host);
+        bind(photos, firstIndex, image, counter, videoMessage, previous, next, host);
         return root;
     }
 
@@ -149,10 +160,16 @@ final class MemoryPhotoViewer {
                              ImageView image,
                              TextView counter,
                              TextView videoMessage,
+                             Button previous,
+                             Button next,
                              Host host) {
         MemoryPhotoItem item = current(photos, index);
         int count = photos == null ? 0 : photos.size();
         counter.setText(count == 0 ? "0/0" : (index + 1) + "/" + count);
+        previous.setEnabled(index > 0);
+        next.setEnabled(index + 1 < count);
+        previous.setAlpha(index > 0 ? 1.0f : 0.4f);
+        next.setAlpha(index + 1 < count ? 1.0f : 0.4f);
         if (item == null || item.sourceUri.isEmpty()) {
             image.setImageDrawable(null);
             videoMessage.setVisibility(View.GONE);

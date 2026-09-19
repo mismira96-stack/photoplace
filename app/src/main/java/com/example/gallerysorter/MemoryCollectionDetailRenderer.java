@@ -53,7 +53,7 @@ final class MemoryCollectionDetailRenderer {
                 root.addView(activity.sectionTitle(date.dateText),
                         activity.matchWidthWithBottom(activity.dp(8)));
                 for (GroupMemoryPlaceSection place : date.places) {
-                    addPlace(root, place);
+                    addPlace(root, date, place);
                 }
             }
         }
@@ -98,7 +98,7 @@ final class MemoryCollectionDetailRenderer {
         root.addView(actions, activity.matchWidthWithBottom(activity.dp(14)));
     }
 
-    private void addPlace(LinearLayout root, GroupMemoryPlaceSection place) {
+    private void addPlace(LinearLayout root, GroupMemoryDateSection date, GroupMemoryPlaceSection place) {
         LinearLayout placeBlock = new LinearLayout(activity);
         placeBlock.setOrientation(LinearLayout.VERTICAL);
         placeBlock.setPadding(activity.dp(12), activity.dp(10), activity.dp(12), activity.dp(12));
@@ -127,14 +127,22 @@ final class MemoryCollectionDetailRenderer {
         photoCount.setTextSize(12.0f);
         photoCount.setPadding(0, activity.dp(4), 0, activity.dp(8));
         placeBlock.addView(photoCount, activity.matchWidth());
-        addPhotos(placeBlock, place.photos);
+        addPhotos(placeBlock, date, place);
         root.addView(placeBlock, activity.matchWidthWithBottom(activity.dp(10)));
     }
 
-    private void addPhotos(final LinearLayout parent, final List<MemoryPhotoItem> photos) {
+    private void addPhotos(final LinearLayout parent,
+                           GroupMemoryDateSection date,
+                           final GroupMemoryPlaceSection place) {
+        final List<MemoryPhotoItem> photos = place == null ? null : place.photos;
         final int total = photos == null ? 0 : photos.size();
         final int[] shown = {Math.min(total, MainActivity.MAX_RESULT_DETAIL_THUMBNAILS)};
-        activity.addMemoryPhotoGrid(parent, photos, 0, shown[0]);
+        final MemoryPhotoSection viewerSection = MemoryPhotoSection.fromCollectionPlace(
+                date == null ? "" : date.dateKey,
+                date == null ? "" : date.dateText,
+                place == null ? "" : place.placeTitle,
+                photos);
+        activity.addMemoryPhotoGrid(parent, viewerSection, 0, shown[0]);
         if (shown[0] >= total) {
             return;
         }
@@ -144,7 +152,7 @@ final class MemoryCollectionDetailRenderer {
             @Override
             public void onClick(View view) {
                 int added = Math.min(MainActivity.MAX_RESULT_DETAIL_THUMBNAILS, total - shown[0]);
-                activity.addMemoryPhotoGrid(parent, photos, shown[0], added);
+                activity.addMemoryPhotoGrid(parent, viewerSection, shown[0], added);
                 shown[0] += added;
                 if (shown[0] >= total) {
                     ((android.view.ViewGroup) more.getParent()).removeView(more);

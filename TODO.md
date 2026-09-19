@@ -17,7 +17,7 @@
    - 이미 Gallery로 이동되어 Discovery에서 사라진 동영상도 exact link를 통해 다시 표시되는지 검증한다. 연결된 output이 없거나 사라진 경우는 live Discovery fallback을 사용한다.
 2. **앱 내부 날짜 Photo Viewer**
    - [x] Memory 사진 썸네일 탭을 chooser/외부 Gallery 대신 PhotoPlace 내부 사진 뷰어로 연결했다. `Gallery에서 열기`는 보조 액션으로 둔다.
-   - [x] 현재 화면에 보이는 일부 thumbnail이 아니라 해당 날짜 section 전체 미디어를 사용한다. 선택 사진부터 시작해 같은 장소·날짜 안에서 swipe, 위치/전체 개수, Back 후 상세 위치 복귀를 제공한다.
+   - [x] 현재 화면에 보이는 일부 thumbnail이 아니라 해당 날짜 section 전체 미디어를 사용한다. 선택 사진부터 시작해 같은 장소·날짜 안에서 이전/다음 버튼으로 이동하고, 위치/전체 개수, Back 후 상세 위치 복귀를 제공한다.
    - 사진은 내부에서 본다. 동영상 내부 재생은 MVP에서 제외하고 기존 외부 player를 유지한다. 줌/공유/삭제/편집/장소 전체 swipe도 제외한다.
 3. **회귀 방어 및 실기기 확인**
    - resolver/viewer 단위 테스트와 날짜 메모·Collection·조직된 Gallery output 회귀 테스트를 통과시킨다.
