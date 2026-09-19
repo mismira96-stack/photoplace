@@ -4,28 +4,28 @@
 
 이 문서에서 현재 실제 실행 순서를 정의하는 유일한 섹션이다. 완료된 기능과 과거 계획은 실행 항목으로 반복하지 않는다.
 
-### P0 — 출시 전 필수: Memory 사진 연결 및 앱 내부 뷰어
+### Release 1.3.5 — 출시 완료 및 모니터링
 
-현재 출시를 막는 P0는 과거 ARCHIVE에 남아 있는 백그라운드/캐시 P0가 아니라 아래 Memory 미디어 연속성이다. Gallery 휴지통 이동은 현재 막혀 있으며, 이를 켜는 것이 이번 P0의 목표는 아니다.
+Memory resolver, 앱 내부 Photo Viewer, Memory Collection 연동 및 실기기 smoke test를 완료했다. `1.3.5 / versionCode 35` production draft를 Play Console에 등록하고 사용자가 직접 심사 제출했다. 현재는 Play 검토 결과를 기다리는 상태다. 원본 휴지통 이동은 계속 비활성화한다.
 
 1. **공용 Memory media resolver**
    - [x] source 선택 정책을 순수 로직으로 분리하고 exact usable link 우선, 확인된 output 부재 시 Discovery fallback, lookup 오류 시 unavailable 처리 테스트를 추가했다. Antigravity 최종 승인 완료.
    - [x] MediaStore query adapter와 resolver를 `MainActivity` 밖에 두고 exact `relativePath`의 사진/동영상을 읽는다. `FOUND` / 확인된 `MISSING` / `FAILED` / `UNKNOWN` 구분, 끝 슬래시 양쪽 조회, 날짜 fallback, 사진·동영상 통합 정렬을 테스트했다.
-   - [ ] `PARTIAL` 링크는 현재 usable로 취급되므로 Gallery output만 보여주면 복사 실패 항목은 빠질 수 있다. 원본을 보존하고 partial 상태를 사용자에게 드러내거나 안전한 재시도 경로를 제공한다. per-media identity가 없으면 두 source를 무분별하게 합치지 않는다.
+   - [ ] 후속 보강: `PARTIAL` 링크는 현재 usable로 취급되므로 Gallery output만 보여주면 복사 실패 항목은 빠질 수 있다. 원본을 보존하고 partial 상태를 사용자에게 드러내거나 안전한 재시도 경로를 제공한다. per-media identity가 없으면 두 source를 무분별하게 합치지 않는다.
    - [x] usable exact `OrganizationLink`가 있으면 연결된 Gallery output을 우선 source로 사용하고, 없으면 live Discovery refs를 사용하도록 Memory detail 데이터 경로에 연결했다. 두 source를 무조건 union하지 않는다.
    - [x] Gallery output의 사진·동영상을 기존 날짜별 Memory 섹션으로 전달해 stable Memory ID + date 메모와 Collection의 `날짜 -> 장소 -> 메모 -> 사진` ownership을 보존한다. 내부 Photo Viewer UI와 실기기 검증은 별도 P0로 남긴다.
-   - 이미 Gallery로 이동되어 Discovery에서 사라진 동영상도 exact link를 통해 다시 표시되는지 검증한다. 연결된 output이 없거나 사라진 경우는 live Discovery fallback을 사용한다.
+   - [x] 이미 Gallery로 이동되어 Discovery에서 사라진 미디어도 exact link를 통해 다시 표시되는지 실기기에서 확인했다. 연결된 output이 없거나 사라진 경우는 live Discovery fallback을 사용한다.
 2. **앱 내부 날짜 Photo Viewer**
    - [x] Memory 사진 썸네일 탭을 chooser/외부 Gallery 대신 PhotoPlace 내부 사진 뷰어로 연결했다. `Gallery에서 열기`는 보조 액션으로 둔다.
    - [x] 현재 화면에 보이는 일부 thumbnail이 아니라 해당 날짜 section 전체 미디어를 사용한다. 선택 사진부터 시작해 같은 장소·날짜 안에서 좌우 swipe로 이동하고, 가벼운 이전/다음 보조 컨트롤, 위치/전체 개수, Back 후 상세 위치 복귀를 제공한다.
-   - 사진은 내부에서 본다. 동영상 내부 재생은 MVP에서 제외하고 기존 외부 player를 유지한다. 줌/공유/삭제/편집/장소 전체 swipe도 제외한다.
+   - [x] 사진은 내부에서 본다. 동영상 내부 재생은 MVP에서 제외하고 기존 외부 player를 유지한다. 줌/공유/삭제/편집/장소 전체 swipe도 제외한다.
 3. **회귀 방어 및 실기기 확인**
-   - resolver/viewer 단위 테스트와 날짜 메모·Collection·조직된 Gallery output 회귀 테스트를 통과시킨다.
-   - 기존 미디어만으로 사진 swipe, chooser 미노출, Back/스크롤 복원, 메모 보존, Collection detail, 동영상 진입을 확인한다. 개인 라이브러리에 테스트 앨범을 추가하거나 원본을 휴지통으로 보내지 않는다.
+   - [x] resolver/viewer 단위 테스트와 날짜 메모·Collection·조직된 Gallery output 회귀 테스트를 통과시켰다.
+   - [x] 기존 미디어만으로 사진 swipe, chooser 미노출, Back/스크롤 복원, 메모 보존, Collection detail, 동영상 진입을 확인했다. 개인 라이브러리에 테스트 앨범을 추가하거나 원본을 휴지통으로 보내지 않았다.
 4. **최종 리뷰 및 출시 판단**
-   - Antigravity 최종 리뷰에서 P0 finding이 없어야 출시 준비로 이동한다. 발견 미디어 동영상 이동과 원본 휴지통 기능은 별도 안전성 검증 전까지 계속 제한한다.
+   - [x] Antigravity 최종 리뷰에서 P0 blocker가 없음을 확인하고 `1.3.5` 출시 준비 및 Play 제출을 완료했다. 발견 미디어 동영상 이동과 원본 휴지통 기능은 계속 제한한다.
 
-### P0 통과 후 — 출시 준비 및 릴스
+### 출시 후 — 모니터링 및 릴스
 
 - [x] `photoplace-release` 절차로 `1.3.5` / `versionCode 35`를 올리고 release AAB, 변경 요약 및 Play production draft를 준비했다. 최종 Play 제출/출시는 사용자가 직접 확인한다.
 - [ ] 실기기에서 기억 모으기 생성 → 모음 상세 → 날짜 사진 내부 swipe를 보여주는 짧은 릴스 촬영용 흐름을 준비한다. 개인 사진/민감 정보가 노출되지 않는 촬영 자료를 사용한다.
@@ -76,26 +76,27 @@
 - [x] 단일 장소 완료 화면을 장소명/기간/정리 결과 중심으로 다듬고, 생성 앨범 행과 주요 CTA를 분리한다. 보라색은 주요 액션에 한정하고 성공/주의 색상은 의미에 맞게 사용한다.
   - 위치가 확인된 Memory의 완료 화면에는 항상 0인 `위치 정보 없음` 통계를 노출하지 않는다. 정리 수와 기간은 요약/앨범 행에만 표시한다.
 - [x] 공용 완료 renderer에서 Gallery 정리 성공과 Memory link 저장 성공을 분리한다. Home 단일 앨범 결과는 Memory link를 주장하지 않고, 단일 Memory 결과만 실제 link 저장 여부를 표시한다. 사진/동영상 수를 미디어 종류에 맞게 표기한다.
-- [ ] Resolver 구현 후 실기기에서 한 장소만 생성되는지, Gallery output source로 중복 없이 표시되는지, 원본 휴지통 이동 뒤에도 Memory 사진/날짜 메모가 유지되는지, 위치 앨범/해외 상세 진입과 실패·취소·재실행을 검증한다.
+- [ ] 후속 안전성 검증: 원본 휴지통 이동 뒤에도 Memory 사진/날짜 메모가 유지되는지 확인한다. 이 검증 전까지 휴지통 액션은 활성화하지 않는다.
   - 단일 앨범 완료 UI는 Memory 상세와 기존 정리 결과 경로가 공통 renderer를 사용한다. 최신 APK를 데이터 보존 설치했고 앱 실행까지 확인했다. 결과 화면은 새 앨범을 추가 생성하지 않고 재검증할 방법을 확인 중이다.
 - 기존 전체 장소 일괄 앨범 생성은 명시적 secondary/bulk action으로 유지한다. 기존 기능은 제거하지 않는다.
 
 ### 상세 구현 현황 — Memory Collection UI
 
-- [x] 발견 장소 다중 선택 → 2개 이상 선택 → 이름 입력 → 기존 `MemoryCollectionStore` 저장 흐름을 연결한다. (2026-09-13 UI slice; APK 설치/실행 완료, 기능 smoke 미완료)
+- [x] 발견 장소 다중 선택 → 2개 이상 선택 → 이름 입력 → 기존 `MemoryCollectionStore` 저장 흐름을 연결한다. (2026-09-13 UI slice; 실기기 생성/상세/해제 흐름 확인 완료)
 - [x] Collection 카드, 선택 화면, 상세 화면의 뷰 구성은 각각 `MemoryCollectionCardRenderer`, `MemoryCollectionSelectionRenderer`, `MemoryCollectionDetailRenderer`로 분리한다. `MainActivity`에는 데이터 준비·상태 전환·기존 앱 흐름 연결만 둔다.
 - [x] Memory 선택 시 `MemoryIdentityRegistryStore`에서 stable ID를 resolve/create하고, 하나의 Memory는 활성 Collection 하나에만 속하게 한다. 중복 소속은 선택 UI와 store 양쪽에서 거부한다.
 - [x] `내 기억 모음` 목록, Collection 상세, 이름 변경, 해제(dissolve), 저장소 기반 재진입 복원을 연결한다. 화면 회전 시 현재 상세/선택 화면도 복원한다. 실기기 재시작 smoke test는 남아 있다.
-- [x] 상세는 `날짜 -> 장소 -> 해당 장소/날짜 메모 -> 사진` 계층을 유지한다. 기존 단일 장소의 날짜 메모를 합치거나 이동하지 않는다.
+- [x] 상세는 `날짜 -> 장소 -> 해당 장소/날짜 메모 -> 사진` 계층을 유지한다. 기존 단일 장소의 날짜 메모를 합치거나 이동하지 않는다. 사진은 내부 viewer로 연속 감상한다.
 - [x] 선택 화면을 썸네일·장소명·사진 수·날짜·원형 선택 상태가 드러나는 카드형 UI로 다듬었다. 선택 강조는 옅은 보라색 배경/테두리와 체크 아이콘으로 한정한다.
-- [ ] Collection 멤버가 Gallery에 정리된 뒤에도 OrganizationLink를 통해 Gallery 미디어를 열 수 있게 하고, 둘 다 없으면 멤버/메모를 unavailable 상태로 보존한다.
+- [x] Collection 멤버가 Gallery에 정리된 뒤에도 OrganizationLink를 통해 Gallery 미디어를 열 수 있게 하고, 둘 다 없으면 멤버/메모를 unavailable 상태로 보존한다.
 - [x] 기본 발견 목록에서는 모음 멤버를 모음 카드로 접고, 검색에서는 원래 장소를 계속 찾고 개별 진입할 수 있게 한다. drag-and-drop 및 Collection-to-Gallery 앨범 생성은 이 MVP에서 제외한다.
 - [x] 발견 브라우저에서 Collection badge와 최대 3개 장소명 + `외 N곳`, 약한 강조의 `기억 모으기` CTA, 축약된 `위치 앨범 만들기` 액션 및 `발견한 장소` 섹션 제목을 적용한다. 기본 장소 목록의 멤버 접기/검색 노출 정책은 유지하며 아직 동작 화면이 없는 `전체 보기` 액션은 추가하지 않는다.
-- [ ] Release gate: Collection detail은 현재 live Discovery refs를 표시한다. Gallery에만 남은 정리 미디어를 포함하려면 exact `OrganizationLink` 기반 shared Memory media resolver가 먼저 필요하다. 실기기 생성/검색/해제/재시작 검증 전에는 출시 판단을 하지 않는다.
+- [x] Release gate: exact `OrganizationLink` 기반 shared Memory media resolver와 내부 Photo Viewer 연결을 완료하고, Collection detail 및 Back 복귀를 실기기에서 확인했다. `1.3.5`에 포함해 Play 심사에 제출했다.
+- [ ] 후속: Collection을 하나의 Gallery 앨범으로 출력하는 기능은 별도 lifecycle 과제로 설계한다. Collection 생성 자체는 Gallery를 변경하지 않는다.
 
 ### Photo Viewer 상태
 
-Photo Viewer는 아직 미완료다. resolver 연결까지 완료했으며, 다음 P0는 Memory 썸네일 탭을 외부 chooser 대신 내부 same-place + date viewer로 연결하는 작업이다. 아래 ARCHIVE의 예전 viewer TODO는 과거 기록이며 현재 우선순위를 덮어쓰지 않는다.
+Photo Viewer MVP는 완료되어 `1.3.5`에 포함됐다. Back 시 상세 화면 재렌더링으로 생기는 미세한 flicker는 기능 blocker가 아닌 P2 polish로 남긴다. 아래 ARCHIVE의 예전 viewer TODO는 과거 기록이며 현재 우선순위를 덮어쓰지 않는다.
 
 ### 출시 후 P1 — 해외 Memory lifecycle 통합
 
