@@ -59,11 +59,20 @@ final class MemoryBrowserState {
     }
 
     MemoryBrowserDetail detail(String memoryKey, MemoryRepository repository) {
+        return detail(memoryKey, repository, null);
+    }
+
+    MemoryBrowserDetail detail(String memoryKey,
+                               MemoryRepository repository,
+                               MemoryMediaResolver.GalleryReader galleryReader) {
         MemoryBrowserItem item = item(memoryKey);
         if (item == null || repository == null) {
             return null;
         }
-        return MemoryBrowserDetail.from(item, repository.memory(memoryKey), repository.discoveryPhotoRefs(memoryKey));
+        MemoryRecord record = repository.memory(memoryKey);
+        OrganizationLink exactLink = repository.usableMemoryLink(record);
+        MemoryMediaResolution resolution = MemoryMediaResolver.resolve(record, exactLink, galleryReader);
+        return MemoryBrowserDetail.from(item, record, resolution.refs);
     }
 
     private static List<MemoryBrowserItem> immutableCopy(List<MemoryBrowserItem> items) {

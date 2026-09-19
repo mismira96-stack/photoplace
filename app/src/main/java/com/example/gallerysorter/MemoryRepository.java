@@ -151,6 +151,17 @@ final class MemoryRepository {
         return record.discoveryGroup.photoRefs;
     }
 
+    OrganizationLink usableMemoryLink(MemoryRecord record) {
+        if (record == null) {
+            return null;
+        }
+        String stableId = stableIdByAlias.get(record.memoryKey);
+        if (stableId == null || stableId.trim().isEmpty()) {
+            return null;
+        }
+        return latestUsableLinksByMemoryId().get(stableId);
+    }
+
     static MemoryRecord fromDiscoveryGroup(DiscoveryMemoryGroup group) {
         if (group == null || clean(group.memoryKey).isEmpty()) {
             return null;

@@ -14,11 +14,13 @@ final class DiscoverySnapshotController {
     private final DiscoverySnapshotLiveFilter liveFilter;
     private final MemoryIdentityRegistryStore identityRegistryStore;
     private final MemoryOrganizationLinkStore organizationLinkStore;
+    private MemoryMediaResolver.GalleryReader galleryReader;
 
     DiscoverySnapshotController(Context context) {
         this(new DiscoverySnapshotStore(context), new SystemClock(),
                 new DiscoverySnapshotLiveFilter(context.getContentResolver()),
                 new MemoryIdentityRegistryStore(context), new MemoryOrganizationLinkStore(context));
+        this.galleryReader = new MemoryMediaStoreReader(context.getContentResolver());
     }
 
     DiscoverySnapshotController(DiscoverySnapshotStore store, Clock clock) {
@@ -162,7 +164,7 @@ final class DiscoverySnapshotController {
                 ? repository.memories()
                 : repository.discoveryMemories();
         return MemoryBrowserState.fromRecords(records)
-                .detail(memoryKey, repository);
+                .detail(memoryKey, repository, galleryReader);
     }
 
     MemoryRepository repository(List<StoredAlbumSummary> organizedAlbums) {
