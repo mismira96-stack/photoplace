@@ -27,7 +27,7 @@
 
 ### P0 통과 후 — 출시 준비 및 릴스
 
-- [ ] `photoplace-release` 절차로 버전 증가, release 빌드 산출물, 변경 요약 및 Play 초안을 준비한다. 최종 Play 제출/출시는 사용자가 직접 확인한다.
+- [x] `photoplace-release` 절차로 `1.3.5` / `versionCode 35`를 올리고 release AAB, 변경 요약 및 Play production draft를 준비했다. 최종 Play 제출/출시는 사용자가 직접 확인한다.
 - [ ] 실기기에서 기억 모으기 생성 → 모음 상세 → 날짜 사진 내부 swipe를 보여주는 짧은 릴스 촬영용 흐름을 준비한다. 개인 사진/민감 정보가 노출되지 않는 촬영 자료를 사용한다.
 
 ### P1 — 출시 후 수명주기 확장
