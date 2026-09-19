@@ -34,6 +34,8 @@ Memory resolver, 앱 내부 Photo Viewer, Memory Collection 연동 및 실기기
 
 - [ ] 기존 전체 장소 일괄 정리 결과를 장소별 OrganizationLink에 연결할지 결정하고, 부분 성공 및 중복 안전성을 포함해 구현한다.
 - [ ] Collection을 단일 Gallery 앨범으로 출력하는 기능을 설계한다. Collection 생성만으로 Gallery를 자동 변경하지 않는다.
+  - bulk 정리 결과를 먼저 Memory별 `OrganizationLink`로 연결해, 이미 장소별 Gallery 앨범이 있는 멤버를 정확히 식별한다.
+  - 기존 장소 앨범과 Collection 앨범 사이의 재사용/복사 정책을 정한 뒤 구현한다. 같은 미디어를 무조건 다시 복사해 중복 앨범을 만들지 않는다.
 - [ ] 원본 휴지통 이동은 resolver의 복구/재진입 검증 이후 별도 결정한다. 이번 출시 준비에서 활성화하지 않는다.
 
 ### 상세 구현 현황 — Stable Memory lifecycle과 Gallery output 연결
@@ -93,6 +95,7 @@ Memory resolver, 앱 내부 Photo Viewer, Memory Collection 연동 및 실기기
 - [x] 발견 브라우저에서 Collection badge와 최대 3개 장소명 + `외 N곳`, 약한 강조의 `기억 모으기` CTA, 축약된 `위치 앨범 만들기` 액션 및 `발견한 장소` 섹션 제목을 적용한다. 기본 장소 목록의 멤버 접기/검색 노출 정책은 유지하며 아직 동작 화면이 없는 `전체 보기` 액션은 추가하지 않는다.
 - [x] Release gate: exact `OrganizationLink` 기반 shared Memory media resolver와 내부 Photo Viewer 연결을 완료하고, Collection detail 및 Back 복귀를 실기기에서 확인했다. `1.3.5`에 포함해 Play 심사에 제출했다.
 - [ ] 후속: Collection을 하나의 Gallery 앨범으로 출력하는 기능은 별도 lifecycle 과제로 설계한다. Collection 생성 자체는 Gallery를 변경하지 않는다.
+  - 선행 조건: bulk 결과의 Memory별 link/reconciliation, 기존 output 재사용 여부, 미디어 중복 제거, 부분 성공 및 재시도 정책 확정.
 
 ### Photo Viewer 상태
 
