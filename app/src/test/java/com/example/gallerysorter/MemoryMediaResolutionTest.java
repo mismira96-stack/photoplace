@@ -53,9 +53,40 @@ public class MemoryMediaResolutionTest {
                 MemoryMediaStoreReader.relativePathCandidates("Pictures/Songpa/"));
     }
 
+    @Test
+    public void galleryOutputKeepsNewDiscoveryMediaWithoutDuplicateFilename() {
+        DiscoveryPhotoRef existing = ref("content://discovery/existing", "photo.jpg", 100L);
+        DiscoveryPhotoRef newer = ref("content://discovery/new", "new-photo.jpg", 300L);
+        MemoryRecord memory = MemoryRepository.fromDiscoveryGroup(new DiscoveryMemoryGroup(
+                "discovery:songpa", "songpa", "송파구", "KR", "대한민국", "서울", "송파구",
+                2, 2, 0, 100L, 300L, newer.sourceUri,
+                java.util.Arrays.asList(existing, newer), 0, 1L));
+        OrganizationLink link = new OrganizationLink(
+                "link-songpa", OrganizationLink.SubjectType.MEMORY, "mem_songpa",
+                "request-songpa", "송파구에서", "Pictures/송파구에서/", 1L,
+                OrganizationLink.Status.SUCCESS, 1, 0, 0);
+
+        MemoryMediaResolution resolution = MemoryMediaResolver.resolve(memory, link,
+                new MemoryMediaResolver.GalleryReader() {
+                    @Override
+                    public MemoryMediaStoreReader.Result read(String relativePath, MemoryRecord value) {
+                        return MemoryMediaStoreReader.Result.found(
+                                Collections.singletonList(ref("content://gallery/existing", "photo.jpg", 100L)));
+                    }
+                });
+
+        assertEquals(2, resolution.refs.size());
+        assertEquals("content://discovery/new", resolution.refs.get(0).sourceUri);
+        assertEquals("content://gallery/existing", resolution.refs.get(1).sourceUri);
+    }
+
     private static DiscoveryPhotoRef ref(String uri) {
+        return ref(uri, "photo.jpg", 100L);
+    }
+
+    private static DiscoveryPhotoRef ref(String uri, String displayName, long takenAtMillis) {
         return new DiscoveryPhotoRef(uri, 1L, MediaKind.PHOTO, "image/jpeg",
-                "photo.jpg", 100L, "KR|Songpa", "송파구", "KR", "대한민국",
+                displayName, takenAtMillis, "KR|Songpa", "송파구", "KR", "대한민국",
                 "서울", "", "Pictures/Songpa", 0L, 0L, false);
     }
 }

@@ -36,6 +36,13 @@ final class MemoryCollectionCardRenderer {
 
     void render(LinearLayout root, List<MemoryCollection> collections,
                 List<MemoryRecord> records, Map<String, String> aliases) {
+        render(root, collections, records, aliases, null, null);
+    }
+
+    void render(LinearLayout root, List<MemoryCollection> collections,
+                List<MemoryRecord> records, Map<String, String> aliases,
+                MemoryRepository repository,
+                MemoryMediaResolver.GalleryReader galleryReader) {
         if (root == null) {
             return;
         }
@@ -69,7 +76,7 @@ final class MemoryCollectionCardRenderer {
             if (collection == null) {
                 continue;
             }
-            Summary summary = summarize(collection, records, aliases);
+            Summary summary = summarize(collection, records, aliases, repository, galleryReader);
             LinearLayout card = new LinearLayout(activity);
             card.setOrientation(LinearLayout.HORIZONTAL);
             card.setGravity(android.view.Gravity.CENTER_VERTICAL);
@@ -152,7 +159,9 @@ final class MemoryCollectionCardRenderer {
     }
 
     private Summary summarize(MemoryCollection collection, List<MemoryRecord> records,
-                              Map<String, String> aliases) {
+                              Map<String, String> aliases,
+                              MemoryRepository repository,
+                              MemoryMediaResolver.GalleryReader galleryReader) {
         Set<String> memberIds = new HashSet<>();
         for (MemoryCollection.Member member : collection.members) {
             if (member != null) {
@@ -179,10 +188,18 @@ final class MemoryCollectionCardRenderer {
                 firstDate = Math.min(firstDate,
                         record.startDateMillis > 0L ? record.startDateMillis : Long.MAX_VALUE);
                 lastDate = Math.max(lastDate, record.endDateMillis);
-                if (record.discoveryGroup == null) {
-                    continue;
+                List<DiscoveryPhotoRef> refs;
+                if (repository == null) {
+                    refs = record.discoveryGroup == null
+                            ? java.util.Collections.<DiscoveryPhotoRef>emptyList()
+                            : record.discoveryGroup.photoRefs;
+                } else {
+                    MemoryMediaResolution resolution = MemoryMediaResolver.resolve(
+                            record, repository.usableMemoryLink(record), galleryReader);
+                    refs = resolution == null ? java.util.Collections.<DiscoveryPhotoRef>emptyList()
+                            : resolution.refs;
                 }
-                for (DiscoveryPhotoRef ref : record.discoveryGroup.photoRefs) {
+                for (DiscoveryPhotoRef ref : refs) {
                     if (ref == null || ref.stale || ref.sourceUri == null || !uris.add(ref.sourceUri)) {
                         continue;
                     }

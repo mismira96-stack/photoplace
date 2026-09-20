@@ -181,6 +181,10 @@ final class DiscoverySnapshotController {
         return new MemoryRepository(snapshot, organizedAlbums, aliases, links);
     }
 
+    MemoryMediaResolver.GalleryReader galleryReader() {
+        return galleryReader;
+    }
+
     interface Clock {
         long nowMillis();
     }

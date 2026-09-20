@@ -75,6 +75,42 @@ public class MemoryCollectionResolverTest {
         assertEquals("삿포로", detail.dates.get(0).places.get(0).placeTitle);
     }
 
+    @Test
+    public void prefersExactGalleryOutputForOrganizedCollectionMember() throws Exception {
+        MemoryIdentityRegistryStore identities = new MemoryIdentityRegistryStore(temporaryFolder.newFolder("identity4"));
+        MemoryDateNoteStore notes = new MemoryDateNoteStore(temporaryFolder.newFolder("notes4"));
+        String stableId = identities.resolveOrCreate("path:Pictures/삿포로에서/");
+        StoredAlbumSummary album = new StoredAlbumSummary(
+                "삿포로에서", "Pictures/삿포로에서/", 1, "2026-08-05", "2026-08-05",
+                "content://cover", "2026-08-05", 1L, "JP", "Japan", "Hokkaido", "");
+        MemoryRecord organized = MemoryRepository.fromOrganizedAlbum(album);
+        OrganizationLink link = new OrganizationLink(
+                "link_gallery", OrganizationLink.SubjectType.MEMORY, stableId,
+                "request_gallery", "삿포로에서", "Pictures/삿포로에서/", 2L,
+                OrganizationLink.Status.SUCCESS, 1, 0, 0);
+        MemoryRepository repository = new MemoryRepository(
+                new DiscoverySnapshot(1, 1L, 1L, "", 0, Collections.<DiscoveryMemoryGroup>emptyList(), "", ""),
+                Collections.singletonList(album),
+                Collections.singletonMap(organized.memoryKey, stableId),
+                Collections.singletonList(link));
+        DiscoveryPhotoRef galleryRef = ref("content://gallery-output", 1785888000000L);
+
+        GroupMemoryDetail detail = new MemoryCollectionResolver(identities, notes).resolve(
+                collection(stableId, identities.resolveOrCreate("discovery:missing")),
+                Collections.singletonList(organized), repository,
+                new MemoryMediaResolver.GalleryReader() {
+                    @Override
+                    public MemoryMediaStoreReader.Result read(String relativePath, MemoryRecord memory) {
+                        return MemoryMediaStoreReader.Result.found(Collections.singletonList(galleryRef));
+                    }
+                });
+
+        assertNotNull(detail);
+        assertEquals(1, detail.dates.size());
+        assertEquals("content://gallery-output",
+                detail.dates.get(0).places.get(0).photos.get(0).sourceUri);
+    }
+
     private static MemoryCollection collection(String firstId, String secondId) {
         return new MemoryCollection("group_trip", "2026 홋카이도 여행", Arrays.asList(
                 new MemoryCollection.Member(firstId, "discovery:sapporo"),

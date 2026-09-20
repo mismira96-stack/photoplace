@@ -30,6 +30,13 @@ Memory resolver, 앱 내부 Photo Viewer, Memory Collection 연동 및 실기기
 - [x] `photoplace-release` 절차로 `1.3.5` / `versionCode 35`를 올리고 release AAB, 변경 요약 및 Play production draft를 준비했다. 최종 Play 제출/출시는 사용자가 직접 확인한다.
 - [ ] 실기기에서 기억 모으기 생성 → 모음 상세 → 날짜 사진 내부 swipe를 보여주는 짧은 릴스 촬영용 흐름을 준비한다. 개인 사진/민감 정보가 노출되지 않는 촬영 자료를 사용한다.
 
+### 1.3.6 hotfix — Collection / Discovery projection regression
+
+- [ ] 실기기에서 Collection 멤버의 Gallery-only 사진이 모음 상세에 다시 표시되는지 확인한다.
+- [ ] Collection 해제 후 발견기록 탭에서 Gallery-only 장소가 다시 표시되고, 검색으로 개별 진입되는지 확인한다.
+- [ ] 새 Discovery 사진이 이미 정리된 Memory에 추가된 경우, Gallery output을 기준으로 파일명 정규화 중복을 제외한 새 Discovery 미디어가 함께 표시되는지 확인한다. 파일명만으로 동일성을 추정하는 한계와 오탐 가능성을 기록한다.
+- [ ] 위 smoke test 통과 후에만 1.3.6 release candidate를 만들고, 원본 휴지통 이동은 계속 비활성화한다.
+
 ### P1 — 출시 후 수명주기 확장
 
 - [ ] 기존 전체 장소 일괄 정리 결과를 장소별 OrganizationLink에 연결할지 결정하고, 부분 성공 및 중복 안전성을 포함해 구현한다.
@@ -137,7 +144,7 @@ Photo Viewer MVP는 완료되어 `1.3.5`에 포함됐다. Back 시 상세 화면
 - `discovery:<placeKey>`와 `path:<relativePath>`는 alias다. 표시명·폴더명·경로는 identity가 아니다.
 - 날짜 메모 키는 stable Memory ID + 날짜이며, 장소 이름 변경이나 Gallery 출력 변경으로 메모를 이동/삭제하지 않는다.
 - Memory는 Gallery 앨범 생성 후에도 유지된다. Discovery/위치 앨범은 같은 Memory를 다른 상태·소스로 보여주는 projection이다.
-- Gallery Album은 선택적 output이지 Memory의 replacement가 아니다. ORGANIZED 상태를 중복 저장하지 않고 usable OrganizationLink에서 파생한다.
+- Gallery Album은 선택적 output이지 Memory의 replacement가 아니다. ORGANIZED 상태를 중복 저장하지 않고 usable OrganizationLink에서 파생한다. Gallery output이 있는 Memory에 새 Discovery 미디어가 생기면 기존 Gallery 파일명과의 보수적 중복 제거 후 새 항목만 Memory view에 확장 표시한다.
 - 파일 삭제/이동과 UI에서 숨김은 서로 다른 사건이다. Gallery output이 없어져도 Memory, 메모, Collection metadata는 삭제하지 않는다.
 
 ### Collections

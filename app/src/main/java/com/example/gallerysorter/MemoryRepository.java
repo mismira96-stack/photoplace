@@ -291,7 +291,7 @@ final class MemoryRepository {
                 videoCount,
                 startDateMillis,
                 endDateMillis,
-                firstNonEmpty(existing.coverUri, incoming.coverUri),
+                newestCoverUri(existing, incoming),
                 MemorySourceType.MIXED,
                 discoveryGroup,
                 organizedAlbum,
@@ -301,6 +301,20 @@ final class MemoryRepository {
                 organizedAlbum != null && !organizedAlbum.relativePath.isEmpty(),
                 false,
                 discoveryGroup != null && organizedAlbum != null && availableCount > 0);
+    }
+
+    private static String newestCoverUri(MemoryRecord existing, MemoryRecord incoming) {
+        if (existing == null) {
+            return incoming == null ? "" : incoming.coverUri;
+        }
+        if (incoming == null) {
+            return existing.coverUri;
+        }
+        if (incoming.endDateMillis > existing.endDateMillis
+                && !clean(incoming.coverUri).isEmpty()) {
+            return incoming.coverUri;
+        }
+        return firstNonEmpty(existing.coverUri, incoming.coverUri);
     }
 
     private static List<StoredAlbumSummary> immutableCopy(List<StoredAlbumSummary> summaries) {

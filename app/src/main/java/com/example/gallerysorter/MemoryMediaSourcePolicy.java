@@ -1,6 +1,6 @@
 package com.example.gallerysorter;
 
-/** Chooses one source for a Memory without combining Gallery and Discovery media. */
+/** Chooses the primary source for a Memory. New Discovery media may extend Gallery output. */
 final class MemoryMediaSourcePolicy {
     enum GalleryLookup {
         FOUND,

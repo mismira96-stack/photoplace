@@ -86,6 +86,14 @@ final class MemoryPhotoViewer {
         image.setAdjustViewBounds(true);
         image.setContentDescription("Memory 사진");
         photoViewport.addView(image, new FrameLayout.LayoutParams(-1, -1));
+        final TextView videoOverlay = new TextView(root.getContext());
+        videoOverlay.setText("▶\n동영상\nGallery에서 재생");
+        videoOverlay.setTextColor(Color.WHITE);
+        videoOverlay.setTextSize(16.0f);
+        videoOverlay.setGravity(Gravity.CENTER);
+        videoOverlay.setLineSpacing(host.dp(3), 1.0f);
+        videoOverlay.setVisibility(View.GONE);
+        photoViewport.addView(videoOverlay, new FrameLayout.LayoutParams(-1, -1));
         photoViewport.setClickable(true);
         LinearLayout.LayoutParams imageParams = new LinearLayout.LayoutParams(-1, 0, 1.0f);
         imageParams.setMargins(0, host.dp(8), 0, host.dp(8));
@@ -125,7 +133,7 @@ final class MemoryPhotoViewer {
             public void onClick(View view) {
                 if (indexHolder[0] > 0) {
                     indexHolder[0]--;
-                    bind(photos, indexHolder[0], image, counter, videoMessage, previous, next, host);
+                    bind(photos, indexHolder[0], image, videoOverlay, counter, videoMessage, previous, next, host);
                 }
             }
         });
@@ -134,7 +142,7 @@ final class MemoryPhotoViewer {
             public void onClick(View view) {
                 if (indexHolder[0] + 1 < count) {
                     indexHolder[0]++;
-                    bind(photos, indexHolder[0], image, counter, videoMessage, previous, next, host);
+                    bind(photos, indexHolder[0], image, videoOverlay, counter, videoMessage, previous, next, host);
                 }
             }
         });
@@ -156,7 +164,7 @@ final class MemoryPhotoViewer {
                         int nextIndex = indexHolder[0] + (dx < 0 ? 1 : -1);
                         if (nextIndex >= 0 && nextIndex < count) {
                             indexHolder[0] = nextIndex;
-                            bind(photos, indexHolder[0], image, counter, videoMessage, previous, next, host);
+                            bind(photos, indexHolder[0], image, videoOverlay, counter, videoMessage, previous, next, host);
                         }
                     }
                     return true;
@@ -181,13 +189,14 @@ final class MemoryPhotoViewer {
         galleryParams.setMargins(0, host.dp(4), 0, 0);
         column.addView(gallery, galleryParams);
 
-        bind(photos, firstIndex, image, counter, videoMessage, previous, next, host);
+        bind(photos, firstIndex, image, videoOverlay, counter, videoMessage, previous, next, host);
         return root;
     }
 
     private static void bind(List<MemoryPhotoItem> photos,
                              int index,
                              ImageView image,
+                             TextView videoOverlay,
                              TextView counter,
                              TextView videoMessage,
                              TextView previous,
@@ -202,10 +211,12 @@ final class MemoryPhotoViewer {
         next.setAlpha(index + 1 < count ? 1.0f : 0.4f);
         if (item == null || item.sourceUri.isEmpty()) {
             image.setImageDrawable(null);
+            videoOverlay.setVisibility(View.GONE);
             videoMessage.setVisibility(View.GONE);
             return;
         }
         boolean video = item.mediaKind == MediaKind.VIDEO;
+        videoOverlay.setVisibility(video ? View.VISIBLE : View.GONE);
         videoMessage.setVisibility(video ? View.VISIBLE : View.GONE);
         if (video) {
             image.setImageDrawable(null);

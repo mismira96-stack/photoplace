@@ -1062,6 +1062,12 @@ public class MainActivity extends Activity {
             Collections.sort(orderedDiscoveryRecords, new Comparator<MemoryRecord>() {
                 @Override
                 public int compare(MemoryRecord left, MemoryRecord right) {
+                    int latestDate = Long.compare(
+                            latestDiscoveryDateMillis(Collections.singletonList(right)),
+                            latestDiscoveryDateMillis(Collections.singletonList(left)));
+                    if (latestDate != 0) {
+                        return latestDate;
+                    }
                     return Integer.compare(recentDiscoveryCount(right), recentDiscoveryCount(left));
                 }
             });
@@ -1092,23 +1098,22 @@ public class MainActivity extends Activity {
         scroll.setHorizontalScrollBarEnabled(false);
         LinearLayout row = new LinearLayout(this);
         row.setOrientation(0);
-        int discoveryIndex = 0;
         int albumIndex = 0;
+        int discoveryIndex = 0;
         int visibleCount = Math.min(4, orderedDiscoveryRecords.size() + albumCount);
-        for (int i = 0; i < visibleCount; i++) {
-            boolean hasNewDiscovery = discoveryIndex < orderedDiscoveryRecords.size()
-                    && recentDiscoveryCount(orderedDiscoveryRecords.get(discoveryIndex)) > 0;
-            boolean useDiscovery = albumIndex >= albumCount
-                    || (discoveryIndex < orderedDiscoveryRecords.size()
-                    && (hasNewDiscovery || latestDiscoveryDateMillis(Collections.singletonList(orderedDiscoveryRecords.get(discoveryIndex)))
-                    >= latestAlbumDateMillis(Collections.singletonList(albums.get(albumIndex)))));
-            if (useDiscovery) {
-                addDiscoveryCompactCard(row, orderedDiscoveryRecords.get(discoveryIndex), discoveryIndex == orderedDiscoveryRecords.size() - 1 && albumIndex >= albumCount);
-                discoveryIndex++;
-            } else {
-                addAlbumCompactCard(row, albums.get(albumIndex), albumIndex == albumCount - 1);
-                albumIndex++;
-            }
+        int albumSlots = orderedDiscoveryRecords.isEmpty()
+                ? visibleCount : Math.min(3, visibleCount);
+        for (int i = 0; i < albumSlots && albumIndex < albumCount; i++) {
+            addAlbumCompactCard(row, albums.get(albumIndex), i == visibleCount - 1);
+            albumIndex++;
+        }
+        for (int i = row.getChildCount(); i < visibleCount && discoveryIndex < orderedDiscoveryRecords.size(); i++) {
+            addDiscoveryCompactCard(row, orderedDiscoveryRecords.get(discoveryIndex), i == visibleCount - 1);
+            discoveryIndex++;
+        }
+        for (int i = row.getChildCount(); i < visibleCount && albumIndex < albumCount; i++) {
+            addAlbumCompactCard(row, albums.get(albumIndex), i == visibleCount - 1);
+            albumIndex++;
         }
         scroll.addView(row);
         section.addView(scroll, matchWidthWithBottom(dp(8)));
@@ -8947,7 +8952,7 @@ public class MainActivity extends Activity {
     }
 
     private void showMemoryBrowserScreen() {
-        showMemoryBrowserScreen(false);
+        showMemoryBrowserScreen(true);
     }
 
     private void showMemoryBrowserScreen(final boolean includeOrganizedSources) {
@@ -9152,6 +9157,7 @@ public class MainActivity extends Activity {
     private void addMemoryCollectionCards(LinearLayout root,
                                          List<MemoryCollection> collections,
                                          List<MemoryRecord> records) {
+        MemoryRepository repository = loadMemoryRepository();
         new MemoryCollectionCardRenderer(this,
                 new MemoryCollectionCardRenderer.Listener() {
                     @Override
@@ -9163,7 +9169,8 @@ public class MainActivity extends Activity {
                     public void onCreateCollectionRequested() {
                         beginMemoryCollectionSelection();
                     }
-                }).render(root, collections, records, memoryIdentityRegistryStore().readAliasesSnapshot());
+                }).render(root, collections, records, memoryIdentityRegistryStore().readAliasesSnapshot(),
+                repository, discoverySnapshotController().galleryReader());
     }
 
     private void beginMemoryCollectionSelection() {
@@ -9283,8 +9290,10 @@ public class MainActivity extends Activity {
         final MemoryCollection activeCollection = collection;
         final GroupMemoryDetail detail;
         try {
+            MemoryRepository repository = loadMemoryRepository();
             detail = new MemoryCollectionResolver(memoryIdentityRegistryStore(), memoryDateNoteStore())
-                    .resolve(activeCollection, loadMemoryRepository().discoveryMemories());
+                    .resolve(activeCollection, repository.memories(), repository,
+                            discoverySnapshotController().galleryReader());
         } catch (Exception unused) {
             showToast("기억 모음을 불러오지 못했어요.");
             return;

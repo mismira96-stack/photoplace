@@ -24,19 +24,47 @@ final class MemoryCollectionResolver {
     }
 
     GroupMemoryDetail resolve(MemoryCollection collection, List<MemoryRecord> discoveryRecords) {
+        return resolveInternal(collection, discoveryRecords, null, null);
+    }
+
+    GroupMemoryDetail resolve(MemoryCollection collection,
+                              List<MemoryRecord> records,
+                              MemoryRepository repository,
+                              MemoryMediaResolver.GalleryReader galleryReader) {
+        return resolveInternal(collection, records, repository, galleryReader);
+    }
+
+    private GroupMemoryDetail resolveInternal(MemoryCollection collection,
+                                              List<MemoryRecord> records,
+                                              MemoryRepository repository,
+                                              MemoryMediaResolver.GalleryReader galleryReader) {
         if (collection == null || !collection.isValid()) {
             return null;
         }
-        LinkedHashMap<String, MemoryRecord> recordsByStableId = recordsByStableId(discoveryRecords);
+        LinkedHashMap<String, MemoryRecord> recordsByStableId = recordsByStableId(records);
+        LinkedHashMap<String, MemoryRecord> recordsByAlias = recordsByAlias(records);
         LinkedHashMap<String, DateBuilder> dates = new LinkedHashMap<>();
         Set<String> seenUris = new HashSet<>();
 
         for (MemoryCollection.Member member : collection.members) {
             MemoryRecord record = member == null ? null : recordsByStableId.get(member.stableMemoryId);
-            if (record == null || record.discoveryGroup == null) {
+            if (record == null && member != null) {
+                record = recordsByAlias.get(clean(member.lastKnownAlias));
+            }
+            if (record == null) {
                 continue;
             }
-            addRecord(member.stableMemoryId, record, dates, seenUris);
+            List<DiscoveryPhotoRef> refs;
+            if (repository == null) {
+                refs = record.discoveryGroup == null
+                        ? Collections.<DiscoveryPhotoRef>emptyList()
+                        : record.discoveryGroup.photoRefs;
+            } else {
+                MemoryMediaResolution resolution = MemoryMediaResolver.resolve(
+                        record, repository.usableMemoryLink(record), galleryReader);
+                refs = resolution == null ? Collections.<DiscoveryPhotoRef>emptyList() : resolution.refs;
+            }
+            addRecord(member.stableMemoryId, record, refs, dates, seenUris);
         }
 
         ArrayList<DateBuilder> orderedDates = new ArrayList<>(dates.values());
@@ -59,7 +87,7 @@ final class MemoryCollectionResolver {
             return result;
         }
         for (MemoryRecord record : records) {
-            if (record == null || record.discoveryGroup == null || clean(record.memoryKey).isEmpty()) {
+            if (record == null || clean(record.memoryKey).isEmpty()) {
                 continue;
             }
             String stableId = identityRegistry.findStableId(record.memoryKey);
@@ -70,11 +98,27 @@ final class MemoryCollectionResolver {
         return result;
     }
 
+    private LinkedHashMap<String, MemoryRecord> recordsByAlias(List<MemoryRecord> records) {
+        LinkedHashMap<String, MemoryRecord> result = new LinkedHashMap<>();
+        if (records == null) {
+            return result;
+        }
+        for (MemoryRecord record : records) {
+            if (record == null || clean(record.memoryKey).isEmpty()) {
+                continue;
+            }
+            result.put(record.memoryKey, record);
+        }
+        return result;
+    }
+
     private void addRecord(String stableMemoryId,
                            MemoryRecord record,
+                           List<DiscoveryPhotoRef> sourceRefs,
                            LinkedHashMap<String, DateBuilder> dates,
                            Set<String> seenUris) {
-        ArrayList<DiscoveryPhotoRef> refs = new ArrayList<>(record.discoveryGroup.photoRefs);
+        ArrayList<DiscoveryPhotoRef> refs = new ArrayList<>(sourceRefs == null
+                ? Collections.<DiscoveryPhotoRef>emptyList() : sourceRefs);
         Collections.sort(refs, new Comparator<DiscoveryPhotoRef>() {
             @Override
             public int compare(DiscoveryPhotoRef left, DiscoveryPhotoRef right) {
