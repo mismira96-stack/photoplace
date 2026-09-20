@@ -158,7 +158,9 @@ final class MemoryBrowserItem {
         if (record == null || clean(record.memoryKey).isEmpty()) {
             return null;
         }
-        String title = firstNonEmpty(record.displayName, record.title, record.canonicalPlaceName, record.placeKey);
+        String title = firstNonEmpty(record.displayName,
+                firstNonEmpty(record.discoveryGroup == null ? "" : record.discoveryGroup.placeName,
+                        record.title, "", ""), record.canonicalPlaceName, record.placeKey);
         if (title.isEmpty()) {
             return null;
         }

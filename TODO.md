@@ -32,6 +32,12 @@ Memory resolver, 앱 내부 Photo Viewer, Memory Collection 연동 및 실기기
 
 ### 1.3.6 hotfix — Collection / Discovery projection regression
 
+- [x] 홈 최근 장소를 Discovery-backed Memory 최대 4개만 노출하도록 분리했다. 별도 위치 앨범 카드 제외, 장소명 표시, 통합 상세 키/조회 모드 일치, 홈 진입 Back 복귀를 보완했다. `HomeRecentPlacesResolver` / `HomeRecentPlacesRenderer` 분리 및 회귀 테스트 5개 추가, 전체 210 tests PASS.
+- [x] `REVIEW_REQUEST_Home_Mixed_Memory_Navigation_2026-09-20.md`에 대한 Antigravity 최종 리뷰와 사용자 기기 확인 완료. 1.3.6 출시 blocker 없음으로 승인되었다. Back 체감 지연과 수량 표기 일치는 후속 개선으로 유지한다.
+- [x] 승인된 홈 수정이 포함된 1.3.6/code36 서명 AAB 재빌드 및 Play production draft 등록 완료. API 재조회로 code36=draft, code35=completed 확인.
+- [ ] 사용자가 Play Console 정책/변경사항을 확인하고 1.3.6 심사 제출한다. 원본 휴지통 이동은 계속 비활성화한다.
+- [ ] Back 지연: 홈 뷰 재생성 및 worker 재조회 비용을 계측하고 캐시/화면 유지 필요성을 판단한다. 상세 요약의 기존 aggregate count와 홈 resolved photo/video count 불일치도 리뷰에서 판정한다.
+
 - [ ] 실기기에서 Collection 멤버의 Gallery-only 사진이 모음 상세에 다시 표시되는지 확인한다.
 - [ ] Collection 해제 후 발견기록 탭에서 Gallery-only 장소가 다시 표시되고, 검색으로 개별 진입되는지 확인한다.
 - [ ] 새 Discovery 사진이 이미 정리된 Memory에 추가된 경우, Gallery output을 기준으로 파일명 정규화 중복을 제외한 새 Discovery 미디어가 함께 표시되는지 확인한다. 파일명만으로 동일성을 추정하는 한계와 오탐 가능성을 기록한다.

@@ -204,6 +204,7 @@ public class MainActivity extends Activity {
     private boolean memoryBrowserSearchVisible = false;
     private String memoryBrowserSearchQuery = "";
     private boolean memoryBrowserShowsOrganizedSources;
+    private boolean memoryDetailReturnsHome;
     private boolean memoryOrganizationCompletionMode = false;
     private String memoryOrganizationReturnKey = "";
     private String memoryOrganizationAlbumName = "";
@@ -483,11 +484,7 @@ public class MainActivity extends Activity {
             return;
         }
         if (this.memoryBrowserDetailMode) {
-            if (this.activeOverseasCountryProjection != null) {
-                showOverseasCountryDetailScreen(this.activeOverseasCountryProjection);
-            } else {
-                showMemoryBrowserScreen();
-            }
+            returnFromMemoryBrowserDetail();
             return;
         }
         if (this.memoryBrowserScreenMode) {
@@ -655,6 +652,7 @@ public class MainActivity extends Activity {
     }
 
     private void buildUi() {
+        this.memoryDetailReturnsHome = false;
         this.resultRenderGeneration++;
         this.memoryOrganizationCompletionMode = false;
         this.resultScreenMode = false;
@@ -961,10 +959,10 @@ public class MainActivity extends Activity {
                         } catch (Exception unused) {
                             // Keep organized albums available if discovery data is unreadable.
                         }
-                        final MemoryRepository finalRepository = repository;
                         final List<MemoryRecord> discoveryRecords = repository == null
-                                ? Collections.<MemoryRecord>emptyList()
-                                : repository.discoveryMemories();
+                                ? Collections.<MemoryRecord>emptyList() : repository.discoveryMemories();
+                        final List<HomeRecentPlacesResolver.Card> homeCards = HomeRecentPlacesResolver.build(
+                                repository, discoverySnapshotController().galleryReader());
                         MainActivity.this.runOnUiThread(new Runnable() {
                             @Override
                             public void run() {
@@ -973,7 +971,7 @@ public class MainActivity extends Activity {
                                 }
                                 container.removeAllViews();
                                 MainActivity.this.addOverseasMemoriesSection(container, discoveryRecords, liveAlbums);
-                                MainActivity.this.addHomeRecentPlacesSection(container, discoveryRecords, liveAlbums);
+                                MainActivity.this.addHomeRecentPlacesSection(container, homeCards);
                             }
                         });
                     }
@@ -982,200 +980,24 @@ public class MainActivity extends Activity {
         });
     }
 
-    private void addHomeMemoryBrowserEntry(LinearLayout container, List<MemoryRecord> discoveryRecords) {
-        MemoryBrowserState state = MemoryBrowserState.fromRecords(discoveryRecords);
-        if (state == null || state.isEmpty()) {
-            return;
-        }
-        LinearLayout section = new LinearLayout(this);
-        section.setOrientation(1);
-        section.addView(sectionTitle("발견 기록"), matchWidthWithBottom(dp(8)));
-        HorizontalScrollView placesScroll = new HorizontalScrollView(this);
-        placesScroll.setHorizontalScrollBarEnabled(false);
-        LinearLayout placesRow = new LinearLayout(this);
-        placesRow.setOrientation(0);
-        placesRow.setGravity(Gravity.CENTER_VERTICAL);
-        placesScroll.addView(placesRow);
-        int visibleCount = Math.min(4, discoveryRecords.size());
-        for (int i = 0; i < visibleCount; i++) {
-            addDiscoveryCompactCard(placesRow, discoveryRecords.get(i), i == visibleCount - 1);
-        }
-        section.addView(placesScroll, matchWidthWithBottom(dp(10)));
-        Button button = new Button(this);
-        button.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                MainActivity.this.showMemoryBrowserScreen();
-            }
-        });
-        styleActionButton(button, actionText("발견 기록 보기", "앨범을 만들지 않아도 앱 안에서 먼저 보기"), "grid", -1050881, -4203522, -14326805);
-        section.addView(button, matchWidthWithBottom(dp(14)));
-        container.addView(section, matchWidthWithBottom(dp(8)));
-    }
-
-    private void addDiscoveryCompactCard(LinearLayout parent, final MemoryRecord record, boolean last) {
-        if (record == null) {
-            return;
-        }
-        final MemoryBrowserItem item = MemoryBrowserItem.from(record);
-        if (item == null) {
-            return;
-        }
-        LinearLayout card = new LinearLayout(this);
-        card.setOrientation(1);
-        card.setClickable(true);
-        card.setFocusable(true);
-        card.setPadding(0, 0, 0, dp(8));
-        card.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                MainActivity.this.showMemoryBrowserDetailScreen(item.memoryKey);
-            }
-        });
-        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(dp(124), -2);
-        params.setMargins(0, 0, last ? 0 : dp(8), 0);
-        parent.addView(card, params);
-        applyCardBackground(card);
-        ImageView image = new ImageView(this);
-        image.setScaleType(ImageView.ScaleType.CENTER_CROP);
-        card.addView(image, new LinearLayout.LayoutParams(-1, dp(92)));
-        loadMemoryBrowserThumbnailInto(image, item.coverUri, dp(92));
-        TextView title = compactCardTitle(item.title, 13);
-        title.setPadding(dp(9), dp(7), dp(7), 0);
-        card.addView(title, matchWidth());
-        TextView count = compactCardMetaSmall(item.countText);
-        count.setPadding(dp(9), dp(2), dp(7), dp(8));
-        card.addView(count, matchWidth());
-    }
-
     private void addHomeRecentPlacesSection(LinearLayout container,
-                                            List<MemoryRecord> discoveryRecords,
-                                            List<StoredAlbumSummary> albums) {
-        int discoveryCount = discoveryRecords == null ? 0 : discoveryRecords.size();
-        int albumCount = albums == null ? 0 : albums.size();
-        if (discoveryCount == 0 && albumCount == 0) {
-            return;
-        }
-        final List<MemoryRecord> orderedDiscoveryRecords = new ArrayList<>();
-        if (discoveryRecords != null) {
-            orderedDiscoveryRecords.addAll(discoveryRecords);
-            Collections.sort(orderedDiscoveryRecords, new Comparator<MemoryRecord>() {
-                @Override
-                public int compare(MemoryRecord left, MemoryRecord right) {
-                    int latestDate = Long.compare(
-                            latestDiscoveryDateMillis(Collections.singletonList(right)),
-                            latestDiscoveryDateMillis(Collections.singletonList(left)));
-                    if (latestDate != 0) {
-                        return latestDate;
-                    }
-                    return Integer.compare(recentDiscoveryCount(right), recentDiscoveryCount(left));
-                }
-            });
-        }
-        LinearLayout section = new LinearLayout(this);
-        section.setOrientation(1);
-        LinearLayout header = new LinearLayout(this);
-        header.setOrientation(0);
-        header.setGravity(Gravity.CENTER_VERTICAL);
-        header.addView(sectionTitle("최근 발견한 장소"), weightedParams(1));
-        TextView all = compactCardMetaSmall("전체 보기");
-        all.setTypeface(Typeface.DEFAULT_BOLD);
-        all.setPadding(dp(8), dp(6), dp(2), dp(6));
-        all.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                if (discoveryCount > 0) {
-                    MainActivity.this.showMemoryBrowserScreen();
-                } else {
-                    MainActivity.this.showRecentPlacesScreen();
-                }
+                                            List<HomeRecentPlacesResolver.Card> cards) {
+        HomeRecentPlacesRenderer.render(this, container, cards, new HomeRecentPlacesRenderer.Host() {
+            @Override public int dp(int value) { return MainActivity.this.dp(value); }
+            @Override public TextView sectionTitle(String text) { return MainActivity.this.sectionTitle(text); }
+            @Override public TextView cardTitle(String text) { return compactCardTitle(text, 13); }
+            @Override public TextView meta(String text) { return compactCardMetaSmall(text); }
+            @Override public void styleCard(View view) { applyCardBackground(view); }
+            @Override public void loadCover(ImageView image, String uri, int size) {
+                loadMemoryBrowserThumbnailInto(image, uri, size);
             }
+            @Override public void openMemory(HomeRecentPlacesResolver.Card card) {
+                memoryDetailReturnsHome = true;
+                activeMemoryDetailScrollY = 0;
+                showMemoryBrowserDetailScreen(card.memoryKey, card.includeOrganizedSources);
+            }
+            @Override public void openBrowser() { showMemoryBrowserScreen(true); }
         });
-        header.addView(all);
-        section.addView(header, matchWidthWithBottom(dp(6)));
-
-        HorizontalScrollView scroll = new HorizontalScrollView(this);
-        scroll.setHorizontalScrollBarEnabled(false);
-        LinearLayout row = new LinearLayout(this);
-        row.setOrientation(0);
-        int albumIndex = 0;
-        int discoveryIndex = 0;
-        int visibleCount = Math.min(4, orderedDiscoveryRecords.size() + albumCount);
-        int albumSlots = orderedDiscoveryRecords.isEmpty()
-                ? visibleCount : Math.min(3, visibleCount);
-        for (int i = 0; i < albumSlots && albumIndex < albumCount; i++) {
-            addAlbumCompactCard(row, albums.get(albumIndex), i == visibleCount - 1);
-            albumIndex++;
-        }
-        for (int i = row.getChildCount(); i < visibleCount && discoveryIndex < orderedDiscoveryRecords.size(); i++) {
-            addDiscoveryCompactCard(row, orderedDiscoveryRecords.get(discoveryIndex), i == visibleCount - 1);
-            discoveryIndex++;
-        }
-        for (int i = row.getChildCount(); i < visibleCount && albumIndex < albumCount; i++) {
-            addAlbumCompactCard(row, albums.get(albumIndex), i == visibleCount - 1);
-            albumIndex++;
-        }
-        scroll.addView(row);
-        section.addView(scroll, matchWidthWithBottom(dp(8)));
-        container.addView(section, matchWidthWithBottom(dp(8)));
-    }
-
-    private int recentDiscoveryCount(MemoryRecord record) {
-        if (record == null || record.discoveryGroup == null) {
-            return 0;
-        }
-        int count = 0;
-        long version = record.discoveryGroup.snapshotVersion;
-        for (DiscoveryPhotoRef ref : record.discoveryGroup.photoRefs) {
-            if (ref != null && ref.firstSeenSnapshotVersion == version) {
-                count++;
-            }
-        }
-        return count;
-    }
-
-    private void addAlbumCompactCard(LinearLayout parent, final StoredAlbumSummary album, boolean last) {
-        if (album == null) {
-            return;
-        }
-        LinearLayout card = new LinearLayout(this);
-        card.setOrientation(1);
-        card.setClickable(true);
-        card.setFocusable(true);
-        card.setPadding(0, 0, 0, dp(8));
-        card.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                MainActivity.this.showRecentPlaceDetailScreen(album);
-            }
-        });
-        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(dp(124), -2);
-        params.setMargins(0, 0, last ? 0 : dp(8), 0);
-        parent.addView(card, params);
-        applyCardBackground(card);
-        ImageView image = new ImageView(this);
-        image.setScaleType(ImageView.ScaleType.CENTER_CROP);
-        card.addView(image, new LinearLayout.LayoutParams(-1, dp(92)));
-        loadMemoryBrowserThumbnailInto(image, album.thumbnailUri, dp(92));
-        TextView title = compactCardTitle(album.albumName, 13);
-        title.setPadding(dp(9), dp(7), dp(7), 0);
-        card.addView(title, matchWidth());
-        TextView count = compactCardMetaSmall("사진 " + Math.max(0, album.itemCount) + "장");
-        count.setPadding(dp(9), dp(2), dp(7), dp(8));
-        card.addView(count, matchWidth());
-    }
-
-    private long latestDiscoveryDateMillis(List<MemoryRecord> records) {
-        long latest = 0L;
-        if (records == null) {
-            return latest;
-        }
-        for (MemoryRecord record : records) {
-            if (record != null) {
-                latest = Math.max(latest, Math.max(record.startDateMillis, record.endDateMillis));
-            }
-        }
-        return latest;
     }
 
     private long latestAlbumDateMillis(List<StoredAlbumSummary> albums) {
@@ -7364,6 +7186,7 @@ public class MainActivity extends Activity {
     }
 
     private void showOverseasCountryDetailScreen(final OverseasCountryProjection projection) {
+        this.memoryDetailReturnsHome = false;
         if (projection == null) {
             return;
         }
@@ -8956,6 +8779,7 @@ public class MainActivity extends Activity {
     }
 
     private void showMemoryBrowserScreen(final boolean includeOrganizedSources) {
+        this.memoryDetailReturnsHome = false;
         final List<MemoryRecord> discoveryRecords;
         try {
             MemoryRepository repository = loadMemoryRepository();
@@ -9275,6 +9099,7 @@ public class MainActivity extends Activity {
     }
 
     private void showMemoryCollectionDetailScreen(final String collectionId) {
+        this.memoryDetailReturnsHome = false;
         MemoryCollection collection = null;
         for (MemoryCollection value : memoryCollectionStore().readAll()) {
             if (value != null && value.collectionId.equals(collectionId)) {
@@ -9657,12 +9482,26 @@ public class MainActivity extends Activity {
     }
 
     private void showMemoryBrowserDetailScreen(String memoryKey) {
+        showMemoryBrowserDetailScreen(memoryKey, this.memoryBrowserShowsOrganizedSources);
+    }
+
+    private void returnFromMemoryBrowserDetail() {
+        if (this.memoryDetailReturnsHome) {
+            returnToMainScreen();
+        } else if (this.activeOverseasCountryProjection != null) {
+            showOverseasCountryDetailScreen(this.activeOverseasCountryProjection);
+        } else {
+            showMemoryBrowserScreen(this.memoryBrowserShowsOrganizedSources);
+        }
+    }
+
+    private void showMemoryBrowserDetailScreen(String memoryKey, boolean includeOrganizedSources) {
         MemoryBrowserDetail detail;
         try {
             detail = discoverySnapshotController().loadBrowserDetail(
                     memoryKey,
                     loadLiveMemoryAlbumSummaries(),
-                    this.memoryBrowserShowsOrganizedSources);
+                    includeOrganizedSources);
         } catch (Exception unused) {
             showToast("장소를 불러오지 못했어요.");
             return;
@@ -9671,6 +9510,7 @@ public class MainActivity extends Activity {
             showToast("장소 정보를 찾지 못했어요.");
             return;
         }
+        this.memoryBrowserShowsOrganizedSources = includeOrganizedSources;
         this.memoryOrganizationCompletionMode = false;
         this.resultScreenMode = false;
         this.recentPlacesScreenMode = false;
@@ -9693,11 +9533,7 @@ public class MainActivity extends Activity {
         addMemoryHeader(root, detail.item.title, new Runnable() {
             @Override
             public void run() {
-                if (MainActivity.this.activeOverseasCountryProjection != null) {
-                    MainActivity.this.showOverseasCountryDetailScreen(MainActivity.this.activeOverseasCountryProjection);
-                } else {
-                    MainActivity.this.showMemoryBrowserScreen(MainActivity.this.memoryBrowserShowsOrganizedSources);
-                }
+                MainActivity.this.returnFromMemoryBrowserDetail();
             }
         }, detail.canOrganize ? createMemoryAlbumHeaderAction(detail) : null);
         addWorkingBanner(root);
@@ -9761,14 +9597,11 @@ public class MainActivity extends Activity {
         back.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                if (MainActivity.this.activeOverseasCountryProjection != null) {
-                    MainActivity.this.showOverseasCountryDetailScreen(MainActivity.this.activeOverseasCountryProjection);
-                } else {
-                    MainActivity.this.showMemoryBrowserScreen(MainActivity.this.memoryBrowserShowsOrganizedSources);
-                }
+                MainActivity.this.returnFromMemoryBrowserDetail();
             }
         });
-        styleActionButton(back, "다른 장소 보기", "grid", -1050881, -4203522, -14326805);
+        styleActionButton(back, this.memoryDetailReturnsHome ? "홈으로 돌아가기" : "다른 장소 보기",
+                "grid", -1050881, -4203522, -14326805);
         root.addView(back, matchWidth());
         setContentViewWithBottomTabs(scrollView, 1);
         if (this.activeMemoryDetailScrollY > 0) {

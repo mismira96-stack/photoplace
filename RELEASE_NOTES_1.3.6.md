@@ -6,7 +6,7 @@
 - Restored organized-only places to Discovery browsing and search.
 - Prevented duplicate display of already organized media using normalized filename and media-kind matching.
 - Updated representative thumbnails when newer Discovery media is found.
-- Kept completed location albums ahead of newly discovered places on Home while reserving a Discovery slot.
+- Home now shows up to four recent Discovery-backed places, with consistent place names and direct Memory detail navigation. Back from a Home-opened detail returns to Home.
 
 ## Safety
 
