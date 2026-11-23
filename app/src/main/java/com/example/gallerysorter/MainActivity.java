@@ -8200,13 +8200,6 @@ public class MainActivity extends Activity {
         });
         addWorkingBanner(root);
 
-        TextView intro = new TextView(this);
-        intro.setText("방문한 나라별 장소 기록 (" + groups.size() + "개국)");
-        intro.setTextSize(13.0f);
-        intro.setTextColor(Color.rgb(100, 111, 132));
-        intro.setPadding(dp(2), 0, 0, dp(12));
-        root.addView(intro, matchWidth());
-
         LinearLayout cardsContainer = new LinearLayout(this);
         cardsContainer.setOrientation(LinearLayout.VERTICAL);
         root.addView(cardsContainer, matchWidth());
@@ -9089,11 +9082,29 @@ public class MainActivity extends Activity {
         date.setTextSize(13.5f);
         date.setTypeface(Typeface.DEFAULT_BOLD);
         date.setTextColor(Color.rgb(55, 65, 81));
-        header.addView(date, new LinearLayout.LayoutParams(0, -2, 1.0f));
+        header.addView(date, new LinearLayout.LayoutParams(-2, -2));
 
         String stableMemoryId = memoryIdentityRegistryStore().findStableId(memoryAlias);
-        MemoryDateNote note = stableMemoryId.isEmpty()
+        final MemoryDateNote note = stableMemoryId.isEmpty()
                 ? null : memoryDateNoteStore().get(stableMemoryId, section.dateKey);
+
+        if (note != null && note.text != null && !note.text.trim().isEmpty()) {
+            TextView noteText = new TextView(this);
+            noteText.setText(" · " + note.text.trim());
+            noteText.setTextSize(12.5f);
+            noteText.setTextColor(Color.rgb(107, 114, 128));
+            noteText.setSingleLine(true);
+            noteText.setEllipsize(TextUtils.TruncateAt.END);
+            noteText.setPadding(dp(2), 0, dp(4), 0);
+            noteText.setClickable(true);
+            noteText.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View view) {
+                    MainActivity.this.showMemoryDateNoteDialog(memoryAlias, section);
+                }
+            });
+            header.addView(noteText, new LinearLayout.LayoutParams(0, -2, 1.0f));
+        }
 
         ImageView edit = new ImageView(this);
         edit.setImageResource(R.drawable.ic_edit_memory);
@@ -9111,7 +9122,7 @@ public class MainActivity extends Activity {
             }
         });
         LinearLayout.LayoutParams editParams = new LinearLayout.LayoutParams(dp(22), dp(22));
-        editParams.setMargins(dp(4), 0, dp(2), 0);
+        editParams.setMargins(dp(6), 0, dp(2), 0);
         header.addView(edit, editParams);
     }
 
@@ -9189,6 +9200,7 @@ public class MainActivity extends Activity {
                 if (index < max) {
                     MemoryPhotoItem photo = photos.get(index);
                     View card = memoryPhotoThumbnailRenderer(section, selection).render(photo, dp(180));
+                    MemoryBrowserScrollController.markPhoto(card, photo.sourceUri);
                     LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(0, photoHeight, 1.0f);
                     params.setMargins(column == 0 ? 0 : dp(2), 0, column == columns - 1 ? 0 : dp(2), 0);
                     row.addView(card, params);

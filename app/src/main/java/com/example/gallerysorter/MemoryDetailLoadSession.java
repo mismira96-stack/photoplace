@@ -39,6 +39,11 @@ final class MemoryDetailLoadSession<T> {
     void cancel() { generation.incrementAndGet(); }
     synchronized void clear() { cancel(); cache.clear(); cachedWeight = 0; }
 
+    synchronized T get(String key) {
+        Cached<T> entry = cache.get(key);
+        return entry != null && reusable.test(entry.value) ? entry.value : null;
+    }
+
     Result<T> read(long request, String key, Supplier<String> revision, Callable<T> source) throws Exception {
         return read(request, key, revision, ignored -> source.call());
     }

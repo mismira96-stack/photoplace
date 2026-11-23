@@ -50,11 +50,7 @@ final class MemoryBrowserEntry {
         return new MemoryBrowserEntry(this, state, revision, unresolvedCount);
     }
 
-    MemoryBrowserDetail detailForRevision(String key, String currentRevision,
-                                          MemoryMediaResolver.GalleryReader reader) {
-        if (!includesAlbums || revision == null || revision.isEmpty() || !revision.equals(currentRevision)) {
-            return null;
-        }
+    MemoryBrowserDetail detailForCard(String key, MemoryMediaResolver.GalleryReader reader) {
         MemoryBrowserItem item = state.item(key);
         if (item == null) return null;
         for (MemoryRecord card : records) {
@@ -63,6 +59,14 @@ final class MemoryBrowserEntry {
             }
         }
         return null;
+    }
+
+    MemoryBrowserDetail detailForRevision(String key, String currentRevision,
+                                          MemoryMediaResolver.GalleryReader reader) {
+        if (!includesAlbums || revision == null || revision.isEmpty() || !revision.equals(currentRevision)) {
+            return null;
+        }
+        return detailForCard(key, reader);
     }
 
     private MemoryBrowserEntry(MemoryRepository repository, boolean includesAlbums,

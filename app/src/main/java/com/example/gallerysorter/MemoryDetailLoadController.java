@@ -23,14 +23,21 @@ final class MemoryDetailLoadController {
         this.discovery = discovery;
         loader = new MemoryScreenLoadController<>(activity, detail -> detail.mediaResolved,
                 "사진을 불러오는 중이에요", "PhotoPlaceDetail",
-                3, 10000, detail -> detail.sourceUris.size());
+                20, 50000, detail -> detail.sourceUris.size());
     }
 
     void load(String key, boolean includeAlbums, MemoryBrowserEntry browserEntry,
               BiConsumer<MemoryBrowserDetail, String> ready,
               Consumer<String> error) {
         clearAlbum();
-        loader.load((includeAlbums ? "albums|" : "discovery|") + key,
+        String requestKey = (includeAlbums ? "albums|" : "discovery|") + key;
+        MemoryBrowserDetail cached = loader.getCached(requestKey);
+        if (cached != null) {
+            ready.accept(cached, "");
+            seen.acknowledge(cached);
+            return;
+        }
+        loader.load(requestKey,
                 revision -> {
                     DiscoverySnapshotController controller = discovery.get();
                     if (browserEntry != null) {

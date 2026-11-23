@@ -186,7 +186,8 @@ final class DiscoverySnapshotController {
     }
 
     MemoryBrowserDetail loadBrowserCardDetail(MemoryBrowserEntry entry, String memoryKey, String revision) {
-        return withCurrentNotes(entry.detailForRevision(memoryKey, revision, galleryReader));
+        if (entry == null) return null;
+        return withCurrentNotes(entry.detailForCard(memoryKey, galleryReader));
     }
 
     MemoryBrowserDetail loadPhysicalAlbumDetail(StoredAlbumSummary album, MemoryBrowserEntry entry) {

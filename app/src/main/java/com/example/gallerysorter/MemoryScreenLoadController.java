@@ -74,6 +74,10 @@ final class MemoryScreenLoadController<T> {
 
     boolean isPreloading() { return pendingLoad != null && pendingLoad.preloadKey != null; }
 
+    T getCached(String key) {
+        return requests.get(key);
+    }
+
     boolean promotePreload(String key, BiConsumer<T, String> ready, Consumer<String> error) {
         PendingLoad<T> current = pendingLoad;
         if (current == null) return false;

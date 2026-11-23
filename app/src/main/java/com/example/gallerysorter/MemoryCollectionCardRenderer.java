@@ -48,7 +48,7 @@ final class MemoryCollectionCardRenderer {
     void renderCountries(LinearLayout root, List<AutomaticCountryGroups.Group> groups,
                          java.util.function.Consumer<AutomaticCountryGroups.Group> opened) {
         for (AutomaticCountryGroups.Group group : groups)
-            renderCard(root, group.key, group.title, group.summary, "국가 모음", () -> opened.accept(group));
+            renderCard(root, group.key, group.title, group.summary, "", () -> opened.accept(group));
     }
 
     void renderDiscoveryTopRow(LinearLayout root, MemoryBrowserEntry entry,
@@ -99,7 +99,7 @@ final class MemoryCollectionCardRenderer {
             String countrySubtitle = entry.countries.groups.size() + "개국 모아보기";
             if (entry.countries.groups.size() == 1) {
                 AutomaticCountryGroups.Group g = entry.countries.groups.get(0);
-                countrySubtitle = g.title + (g.summary != null && !g.summary.countText.isEmpty() ? " · " + g.summary.countText : "");
+                countrySubtitle = g.title;
                 if (g.summary != null && g.summary.coverUri != null) countryCoverUri = g.summary.coverUri;
             } else {
                 AutomaticCountryGroups.Group g = entry.countries.groups.get(0);
@@ -233,23 +233,28 @@ final class MemoryCollectionCardRenderer {
             metaRow.setGravity(Gravity.CENTER_VERTICAL);
             labels.addView(metaRow, activity.matchWidth());
 
-            TextView badge = new TextView(activity);
-            badge.setText(badgeText);
-            badge.setTextSize(10.5f);
-            badge.setTextColor(Color.rgb(104, 82, 226));
-            badge.setPadding(activity.dp(7), activity.dp(2), activity.dp(7), activity.dp(2));
-            GradientDrawable badgeBackground = new GradientDrawable();
-            badgeBackground.setColor(Color.rgb(245, 242, 255));
-            badgeBackground.setCornerRadius(activity.dp(8));
-            badge.setBackground(badgeBackground);
-            metaRow.addView(badge, new LinearLayout.LayoutParams(-2, -2));
+            boolean hasBadge = badgeText != null && !badgeText.trim().isEmpty();
+            if (hasBadge) {
+                TextView badge = new TextView(activity);
+                badge.setText(badgeText);
+                badge.setTextSize(10.5f);
+                badge.setTextColor(Color.rgb(104, 82, 226));
+                badge.setPadding(activity.dp(7), activity.dp(2), activity.dp(7), activity.dp(2));
+                GradientDrawable badgeBackground = new GradientDrawable();
+                badgeBackground.setColor(Color.rgb(245, 242, 255));
+                badgeBackground.setCornerRadius(activity.dp(8));
+                badge.setBackground(badgeBackground);
+                metaRow.addView(badge, new LinearLayout.LayoutParams(-2, -2));
+            }
 
             if (!summary.dateRange.isEmpty()) {
                 TextView date = new TextView(activity);
                 date.setText(summary.dateRange);
                 date.setTextSize(11.5f);
                 date.setTextColor(Color.rgb(120, 129, 147));
-                date.setPadding(activity.dp(8), 0, 0, 0);
+                if (hasBadge) {
+                    date.setPadding(activity.dp(8), 0, 0, 0);
+                }
                 date.setSingleLine(true);
                 date.setEllipsize(TextUtils.TruncateAt.END);
                 metaRow.addView(date, new LinearLayout.LayoutParams(0, -2, 1.0f));
@@ -275,11 +280,13 @@ final class MemoryCollectionCardRenderer {
             places.setPadding(0, activity.dp(2), 0, 0);
             labels.addView(places, activity.matchWidth());
 
-            String countText = summary.complete
-                    ? summary.countText
-                    : "불러오기 필요";
-            TextView count = MemoryCardCountRenderer.render(activity, countText);
-            labels.addView(count, activity.matchWidth());
+            if (hasBadge) {
+                String countText = summary.complete
+                        ? summary.countText
+                        : "불러오기 필요";
+                TextView count = MemoryCardCountRenderer.render(activity, countText);
+                labels.addView(count, activity.matchWidth());
+            }
 
             TextView arrow = new TextView(activity);
             arrow.setText("›");

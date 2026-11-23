@@ -22,6 +22,7 @@ final class MemoryBrowserScrollController {
 
     static void markPlace(View card, String key) { card.setTag(new CardKey("place|" + key)); }
     static void markCollection(View card, String key) { card.setTag(new CardKey("collection|" + key)); }
+    static void markPhoto(View card, String uri) { card.setTag(new CardKey("photo|" + uri)); }
     void capturePlace(String key, boolean albums, String query) { capture("place|" + key, albums, query); }
     void captureCollection(String key, boolean albums, String query) { capture("collection|" + key, albums, query); }
 
