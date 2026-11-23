@@ -9067,17 +9067,12 @@ public class MainActivity extends Activity {
                                              boolean firstSection,
                                              final String memoryAlias) {
         LinearLayout header = new LinearLayout(this);
-        header.setOrientation(0);
-        header.setGravity(16);
-        header.setPadding(dp(10), dp(8), dp(12), dp(8));
-        GradientDrawable bg = new GradientDrawable();
-        bg.setColor(Color.rgb(242, 246, 250));
-        bg.setCornerRadius(dp(12));
-        bg.setStroke(dp(1), Color.rgb(226, 232, 240));
-        header.setBackground(bg);
+        header.setOrientation(LinearLayout.HORIZONTAL);
+        header.setGravity(Gravity.CENTER_VERTICAL);
+        header.setPadding(dp(2), dp(2), dp(2), dp(2));
 
         LinearLayout.LayoutParams headerParams = new LinearLayout.LayoutParams(-1, -2);
-        headerParams.setMargins(0, firstSection ? 0 : dp(16), 0, dp(10));
+        headerParams.setMargins(0, firstSection ? dp(2) : dp(10), 0, dp(4));
         parent.addView(header, headerParams);
 
         View accent = new View(this);
@@ -9085,55 +9080,39 @@ public class MainActivity extends Activity {
         accentBg.setColor(Color.rgb(104, 82, 226));
         accentBg.setCornerRadius(dp(2));
         accent.setBackground(accentBg);
-        LinearLayout.LayoutParams accentParams = new LinearLayout.LayoutParams(dp(4), dp(28));
-        accentParams.setMargins(0, 0, dp(10), 0);
+        LinearLayout.LayoutParams accentParams = new LinearLayout.LayoutParams(dp(3), dp(13));
+        accentParams.setMargins(0, 0, dp(6), 0);
         header.addView(accent, accentParams);
-
-        LinearLayout text = new LinearLayout(this);
-        text.setOrientation(1);
-        header.addView(text, weightedParams(1));
 
         TextView date = new TextView(this);
         date.setText(section.dateText);
-        date.setTextSize(16.0f);
+        date.setTextSize(13.5f);
         date.setTypeface(Typeface.DEFAULT_BOLD);
-        date.setTextColor(Color.rgb(38, 50, 65));
-        text.addView(date, matchWidth());
+        date.setTextColor(Color.rgb(55, 65, 81));
+        header.addView(date, new LinearLayout.LayoutParams(0, -2, 1.0f));
 
         String stableMemoryId = memoryIdentityRegistryStore().findStableId(memoryAlias);
         MemoryDateNote note = stableMemoryId.isEmpty()
                 ? null : memoryDateNoteStore().get(stableMemoryId, section.dateKey);
-        if (note != null) {
-            TextView noteText = new TextView(this);
-            noteText.setText(note.text);
-            noteText.setTextSize(13.0f);
-            noteText.setTextColor(Color.rgb(86, 97, 116));
-            noteText.setSingleLine(true);
-            noteText.setEllipsize(TextUtils.TruncateAt.END);
-            noteText.setPadding(0, dp(3), 0, 0);
-            text.addView(noteText, matchWidth());
-        }
 
         ImageView edit = new ImageView(this);
         edit.setImageResource(R.drawable.ic_edit_memory);
-        edit.setPadding(dp(6), dp(6), dp(6), dp(6));
+        edit.setPadding(dp(4), dp(4), dp(4), dp(4));
         GradientDrawable editBackground = new GradientDrawable();
-        editBackground.setColor(Color.rgb(236, 232, 255));
-        editBackground.setCornerRadius(dp(10));
+        editBackground.setColor(note != null ? Color.rgb(236, 232, 255) : Color.argb(0, 0, 0, 0));
+        editBackground.setCornerRadius(dp(6));
         edit.setBackground(editBackground);
         edit.setClickable(true);
-        edit.setContentDescription(section.dateText + " 메모 " + (note == null ? "작성" : "수정"));
+        edit.setContentDescription(section.dateText + " 메모");
         edit.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
                 MainActivity.this.showMemoryDateNoteDialog(memoryAlias, section);
             }
         });
-        LinearLayout.LayoutParams editParams = new LinearLayout.LayoutParams(dp(32), dp(32));
-        editParams.setMargins(dp(8), 0, 0, 0);
-        MemoryNoteOnlyRenderer.memoHint(this, header, edit);
+        LinearLayout.LayoutParams editParams = new LinearLayout.LayoutParams(dp(22), dp(22));
+        editParams.setMargins(dp(4), 0, dp(2), 0);
         header.addView(edit, editParams);
-
     }
 
     private void showMemoryDateNoteDialog(final String memoryAlias, final MemoryPhotoSection section) {
@@ -9199,7 +9178,9 @@ public class MainActivity extends Activity {
         int index = Math.max(0, startIndex);
         int max = Math.min(photos == null ? 0 : photos.size(), index + Math.max(0, count));
         int columns = this.memoryDetailDensity.columns(isWideListWindow());
-        int photoHeight = dp(columns == 3 ? 112 : (columns == 4 ? 86 : 70));
+        int photoHeight = isWideListWindow()
+                ? dp(columns == 3 ? 150 : (columns == 4 ? 120 : 96))
+                : dp(columns == 3 ? 112 : (columns == 4 ? 86 : 70));
         while (index < max) {
             LinearLayout row = new LinearLayout(this);
             row.setOrientation(0);

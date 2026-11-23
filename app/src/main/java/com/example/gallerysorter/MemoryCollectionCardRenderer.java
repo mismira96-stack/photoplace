@@ -71,11 +71,10 @@ final class MemoryCollectionCardRenderer {
         rowParams.setMargins(0, 0, 0, activity.dp(10));
         row.setLayoutParams(rowParams);
 
-        // 1. Memory Collection tile
-        String collCoverUri = "";
-        String collSubtitle = "새 모음 만들기";
+        View collCard = null;
         if (hasCollections) {
-            collSubtitle = entry.collections.size() + "개 모음";
+            String collCoverUri = "";
+            String collSubtitle = entry.collections.size() + "개 모음";
             MemoryCollection first = entry.collections.get(0);
             if (first != null && entry.collectionSummaries != null) {
                 MemoryCollectionCardSummary s = entry.collectionSummaries.get(first.collectionId);
@@ -83,15 +82,15 @@ final class MemoryCollectionCardRenderer {
                     collCoverUri = s.coverUri;
                 }
             }
+            collCard = createTopTile(
+                    "기억 모음",
+                    collSubtitle,
+                    collCoverUri,
+                    "모음",
+                    () -> {
+                        if (openCollections != null) openCollections.run();
+                    });
         }
-        View collCard = createTopTile(
-                "기억 모음",
-                collSubtitle,
-                collCoverUri,
-                hasCollections ? "모음" : "추가",
-                () -> {
-                    if (openCollections != null) openCollections.run();
-                });
 
         // 2. Overseas Countries tile
         View countryCard = null;
