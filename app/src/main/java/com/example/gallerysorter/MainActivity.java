@@ -1393,9 +1393,8 @@ public class MainActivity extends Activity {
                 @Override
                 public void run() {
                     MainActivity.this.existingAlbumBackfillScheduled = false;
-                    if (!MainActivity.this.isWorking && !MainActivity.this.resultScreenMode && !MainActivity.this.recentPlacesScreenMode && !MainActivity.this.recentPlaceDetailMode && !MainActivity.this.overseasMemoryScreenMode) {
-                        MainActivity.this.buildUi();
-                        MainActivity.this.ensureReadPermission();
+                    if (!MainActivity.this.isWorking && !MainActivity.this.resultScreenMode && !MainActivity.this.recentPlacesScreenMode && !MainActivity.this.recentPlaceDetailMode && !MainActivity.this.overseasMemoryScreenMode && !MainActivity.this.memoryBrowserScreenMode && !MainActivity.this.memoryBrowserDetailMode) {
+                        MainActivity.this.homeDashboardController.refreshIfVisible();
                         MainActivity.this.restoreMainUiFromState();
                     }
                 }
@@ -4218,12 +4217,22 @@ public class MainActivity extends Activity {
         SharedPreferences prefs = getSharedPreferences(PREFS_NAME, 0);
         this.pendingOriginalCleanupCount = Math.max(0, prefs.getInt(PREF_PENDING_ORIGINAL_CLEANUP_COUNT, this.pendingOriginalCleanupCount));
         if (this.pendingOriginalCleanupCount > 0) {
-            if (!hasLiveAlbumForPendingOriginalCleanup()) {
-                clearPendingOriginalCleanup();
-                return;
-            }
             this.originalsTrashCompleted = false;
             this.copyCompletedMode = true;
+            this.worker.execute(new Runnable() {
+                @Override
+                public void run() {
+                    if (!MainActivity.this.hasLiveAlbumForPendingOriginalCleanup()) {
+                        MainActivity.this.runOnUiThread(new Runnable() {
+                            @Override
+                            public void run() {
+                                MainActivity.this.clearPendingOriginalCleanup();
+                                MainActivity.this.restoreMainUiFromState();
+                            }
+                        });
+                    }
+                }
+            });
             return;
         }
         migratePendingOriginalCleanupPreferenceIfNeeded(prefs);

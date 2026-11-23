@@ -127,7 +127,7 @@ final class MediaVectorIconDrawable extends Drawable {
         float cx = b.exactCenterX();
         float cy = b.exactCenterY();
         float s = Math.min(w, h);
-        strokePaint.setStrokeWidth(Math.max(1.5f, s * 0.095f));
+        strokePaint.setStrokeWidth(Math.max(1.2f, s * (1.5f / 28f)));
 
         switch (kind) {
             case KIND_PLAY:
