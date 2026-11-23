@@ -335,15 +335,17 @@ final class MediaVectorIconDrawable extends Drawable {
     }
 
     private void drawTrash(Canvas canvas, float cx, float cy, float s) {
-        float lidY = cy - s * 0.24f;
-        float lidHalfW = s * 0.32f;
+        float u = s / 28f;
+        strokePaint.setStrokeWidth(1.5f * u);
+        float lidY = cy - 6f * u;
+        float lidHalfW = 8f * u;
         canvas.drawLine(cx - lidHalfW, lidY, cx + lidHalfW, lidY, strokePaint);
-        RectF handle = new RectF(cx - s * 0.13f, cy - s * 0.36f, cx + s * 0.13f, lidY);
-        canvas.drawRoundRect(handle, s * 0.04f, s * 0.04f, strokePaint);
-        RectF bin = new RectF(cx - s * 0.25f, lidY, cx + s * 0.25f, cy + s * 0.36f);
-        canvas.drawRoundRect(bin, s * 0.07f, s * 0.07f, strokePaint);
-        canvas.drawLine(cx - s * 0.08f, lidY + s * 0.12f, cx - s * 0.08f, cy + s * 0.22f, strokePaint);
-        canvas.drawLine(cx + s * 0.08f, lidY + s * 0.12f, cx + s * 0.08f, cy + s * 0.22f, strokePaint);
+        RectF handle = new RectF(cx - 3f * u, cy - 9f * u, cx + 3f * u, lidY);
+        canvas.drawRoundRect(handle, 1.2f * u, 1.2f * u, strokePaint);
+        RectF bin = new RectF(cx - 6f * u, lidY, cx + 6f * u, cy + 9f * u);
+        canvas.drawRoundRect(bin, 2f * u, 2f * u, strokePaint);
+        canvas.drawLine(cx - 2.2f * u, lidY + 3.5f * u, cx - 2.2f * u, cy + 6f * u, strokePaint);
+        canvas.drawLine(cx + 2.2f * u, lidY + 3.5f * u, cx + 2.2f * u, cy + 6f * u, strokePaint);
     }
 
     private void drawSearch(Canvas canvas, float cx, float cy, float s) {
@@ -359,19 +361,21 @@ final class MediaVectorIconDrawable extends Drawable {
     }
 
     private void drawShare(Canvas canvas, float cx, float cy, float s) {
+        float u = s / 28f;
+        strokePaint.setStrokeWidth(1.5f * u);
         // 2D line share icon (upward arrow + open tray)
-        float arrowTop = cy - s * 0.36f;
-        float arrowBottom = cy + s * 0.10f;
-        float wingW = s * 0.19f;
-        float wingY = arrowTop + s * 0.18f;
+        float arrowTop = cy - 9f * u;
+        float arrowBottom = cy + 2.5f * u;
+        float wingW = 4.5f * u;
+        float wingY = arrowTop + 4.5f * u;
         canvas.drawLine(cx, arrowBottom, cx, arrowTop, strokePaint);
         canvas.drawLine(cx - wingW, wingY, cx, arrowTop, strokePaint);
         canvas.drawLine(cx + wingW, wingY, cx, arrowTop, strokePaint);
 
         Path tray = new Path();
-        float halfW = s * 0.31f;
-        float trayTop = cy - s * 0.04f;
-        float trayBottom = cy + s * 0.34f;
+        float halfW = 7.5f * u;
+        float trayTop = cy - 1f * u;
+        float trayBottom = cy + 8f * u;
         tray.moveTo(cx - halfW, trayTop);
         tray.lineTo(cx - halfW, trayBottom);
         tray.lineTo(cx + halfW, trayBottom);
@@ -380,8 +384,9 @@ final class MediaVectorIconDrawable extends Drawable {
     }
 
     private void drawMore(Canvas canvas, float cx, float cy, float s) {
-        float r = Math.max(1.6f, s * 0.085f);
-        float gap = s * 0.27f;
+        float u = s / 28f;
+        float r = 1.35f * u;
+        float gap = 6f * u;
         canvas.drawCircle(cx, cy - gap, r, fillPaint);
         canvas.drawCircle(cx, cy, r, fillPaint);
         canvas.drawCircle(cx, cy + gap, r, fillPaint);

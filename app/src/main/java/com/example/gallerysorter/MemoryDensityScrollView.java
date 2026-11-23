@@ -53,7 +53,6 @@ final class MemoryDensityScrollView extends ScrollView {
 
     private void applyDensity() {
         if (!isAttachedToWindow() || render == null) return;
-        showIndicator(pendingColumns);
         MemoryBrowserScrollController.aroundGridChange(this, focusX, focusY, render);
     }
 

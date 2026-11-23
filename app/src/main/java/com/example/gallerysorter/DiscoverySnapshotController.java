@@ -176,12 +176,33 @@ final class DiscoverySnapshotController {
         List<MemoryRecord> records = includeOrganizedSources
                 ? repository.memories()
                 : repository.discoveryMemories();
-        MemoryBrowserState state=MemoryBrowserState.fromRecords(records);
-        String resolvedKey=includeOrganizedSources?repository.presentationKey(memoryKey):memoryKey;
-        if(state.item(resolvedKey)==null) {
-            String id=repository.stableId(memoryKey);
-            if(!id.isEmpty())for(MemoryRecord record:records)if(id.equals(repository.stableId(record.memoryKey))){resolvedKey=record.memoryKey;break;}
+        String resolvedKey = includeOrganizedSources ? repository.presentationKey(memoryKey) : memoryKey;
+        MemoryRecord targetRecord = null;
+        for (MemoryRecord r : records) {
+            if (resolvedKey.equals(r.memoryKey)) {
+                targetRecord = r;
+                break;
+            }
         }
+        if (targetRecord == null) {
+            String id = repository.stableId(memoryKey);
+            if (!id.isEmpty()) {
+                for (MemoryRecord r : records) {
+                    if (id.equals(repository.stableId(r.memoryKey))) {
+                        targetRecord = r;
+                        resolvedKey = r.memoryKey;
+                        break;
+                    }
+                }
+            }
+        }
+        if (targetRecord != null) {
+            MemoryBrowserItem item = MemoryBrowserItem.from(targetRecord);
+            if (item != null) {
+                return withCurrentNotes(MemoryBrowserState.detail(item, repository.detailRecordForBrowserCard(targetRecord), repository, galleryReader));
+            }
+        }
+        MemoryBrowserState state=MemoryBrowserState.fromRecords(records);
         return withCurrentNotes(state.detail(resolvedKey, repository, galleryReader));
     }
 

@@ -1054,7 +1054,8 @@ public class MainActivity extends Activity {
             @Override public void openMemory(HomeRecentPlacesResolver.Card card) {
                 memoryDetailReturnsHome = true;
                 activeMemoryDetailScrollY = 0;
-                showMemoryBrowserDetailScreen(card.memoryKey, card.includeOrganizedSources);
+                showMemoryBrowserDetailScreen(card.memoryKey, card.includeOrganizedSources,
+                        memoryBrowserLoadController.getLastEntry(card.includeOrganizedSources));
             }
             @Override public void openBrowser() { showMemoryBrowserScreen(true); }
         });
