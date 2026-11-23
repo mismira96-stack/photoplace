@@ -120,7 +120,7 @@ final class MemoryCollectionCardRenderer {
                     });
         }
 
-        if (countryCard != null) {
+        if (collCard != null && countryCard != null) {
             LinearLayout.LayoutParams p1 = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1.0f);
             p1.setMargins(0, 0, activity.dp(4), 0);
             row.addView(collCard, p1);
@@ -128,12 +128,16 @@ final class MemoryCollectionCardRenderer {
             LinearLayout.LayoutParams p2 = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1.0f);
             p2.setMargins(activity.dp(4), 0, 0, 0);
             row.addView(countryCard, p2);
-        } else {
+            root.addView(row);
+        } else if (countryCard != null) {
+            row.addView(countryCard, new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
+            root.addView(row);
+        } else if (collCard != null) {
             row.addView(collCard, new LinearLayout.LayoutParams(
                     LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
+            root.addView(row);
         }
-
-        root.addView(row);
     }
 
     private View createTopTile(String titleText, String subtitleText, String coverUri,
