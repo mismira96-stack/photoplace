@@ -1,4 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
-<bitmap xmlns:android="http://schemas.android.com/apk/res/android"
-    android:gravity="center"
-    android:src="@drawable/ic_launcher_foreground_image" />
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp"
+    android:viewportWidth="108" android:viewportHeight="108">
+    <group android:scaleX="0.140625" android:scaleY="0.140625"
+        android:translateX="18" android:translateY="18">
+        <path android:fillColor="#BBAAF5"
+            android:pathData="M225,117 H351 Q375,117 375,141 V279 Q375,303 351,303 H225 Q201,303 201,279 V141 Q201,117 225,117 Z" />
+        <path android:fillColor="#51429A"
+            android:pathData="M214,220 L257,170 L317,226 L345,197 L375,225 V264 H214 Z" />
+        <path android:fillColor="#FFF8EA"
+            android:pathData="M126,221 V208 Q126,184 150,184 H216 Q240,184 240,208 V212 H364 Q392,212 392,240 V351 Q392,379 364,379 H146 Q118,379 118,351 V240 Q118,228 126,221 Z" />
+        <path android:fillColor="#51429A" android:fillType="evenOdd"
+            android:pathData="M287,236 C307,236 324,252 324,273 C324,291 303,322 290,339 Q287,343 284,339 C271,322 250,291 250,273 C250,252 267,236 287,236 Z M287,259 A14,14 0,1 0,287 287 A14,14 0,1 0,287 259 Z" />
+    </group>
+</vector>

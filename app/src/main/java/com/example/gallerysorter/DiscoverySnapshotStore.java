@@ -4,7 +4,6 @@ import android.content.Context;
 
 import org.json.JSONObject;
 
-import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
@@ -15,6 +14,7 @@ final class DiscoverySnapshotStore {
     private static final String FILE_NAME = "discovery_snapshot.json";
 
     private final File filesDir;
+    private final DiscoverySnapshotDecodeCache decoded = new DiscoverySnapshotDecodeCache();
 
     DiscoverySnapshotStore(Context context) {
         this(context.getApplicationContext().getFilesDir());
@@ -25,10 +25,18 @@ final class DiscoverySnapshotStore {
     }
 
     synchronized DiscoverySnapshot read() {
-        return DiscoverySnapshotJson.fromJson(readRoot());
+        DiscoverySnapshot snapshot = decoded.decode(readTextFile(file()));
+        if (snapshot != null) return snapshot;
+        DiscoverySnapshot backup = decoded.decode(readTextFile(backupFile()));
+        if (backup != null) {
+            restoreBackup();
+            return backup;
+        }
+        return DiscoverySnapshotJson.fromJson(new JSONObject());
     }
 
     synchronized boolean save(DiscoverySnapshot snapshot) {
+        decoded.clear();
         try {
             if (!canSafelyWrite()) {
                 return false;
@@ -41,25 +49,12 @@ final class DiscoverySnapshotStore {
     }
 
     synchronized boolean clear() {
+        decoded.clear();
         boolean ok = true;
         ok &= deleteIfExists(file());
         ok &= deleteIfExists(tempFile());
         ok &= deleteIfExists(backupFile());
         return ok;
-    }
-
-    private JSONObject readRoot() {
-        File target = file();
-        JSONObject root = readRootFile(target);
-        if (root != null) {
-            return root;
-        }
-        JSONObject backupRoot = readRootFile(backupFile());
-        if (backupRoot != null) {
-            restoreBackup();
-            return backupRoot;
-        }
-        return new JSONObject();
     }
 
     private boolean canSafelyWrite() {
@@ -79,20 +74,25 @@ final class DiscoverySnapshotStore {
     }
 
     private JSONObject readRootFile(File file) {
+        String text = readTextFile(file);
+        if (text == null || text.isEmpty()) return null;
+        try {
+            JSONObject root = new JSONObject(text);
+            return DiscoverySnapshotJson.isReadableRoot(root) ? root : null;
+        } catch (Exception unreadable) { return null; }
+    }
+
+    private String readTextFile(File file) {
         if (file == null || !file.exists()) {
             return null;
         }
         StringBuilder builder = new StringBuilder();
         try (FileInputStream input = new FileInputStream(file);
-             BufferedReader reader = new BufferedReader(new InputStreamReader(input, StandardCharsets.UTF_8))) {
-            String line;
-            while ((line = reader.readLine()) != null) {
-                builder.append(line);
-            }
-            if (builder.length() > 0) {
-                JSONObject root = new JSONObject(builder.toString());
-                return DiscoverySnapshotJson.isReadableRoot(root) ? root : null;
-            }
+             InputStreamReader reader = new InputStreamReader(input, StandardCharsets.UTF_8)) {
+            char[] buffer = new char[16384];
+            int count;
+            while ((count = reader.read(buffer)) != -1) builder.append(buffer, 0, count);
+            if (builder.length() > 0) return builder.toString();
         } catch (Exception unused) {
         }
         return null;

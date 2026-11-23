@@ -15,6 +15,7 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Iterator;
 import java.util.Map;
+import java.util.function.Supplier;
 
 /** Maps observed memory aliases to immutable ids used by user-authored memory data. */
 final class MemoryIdentityRegistryStore {
@@ -22,21 +23,37 @@ final class MemoryIdentityRegistryStore {
     private static final int SCHEMA_VERSION = 1;
 
     private final File filesDir;
+    private java.util.function.Supplier<ManualPlaceSnapshot> manualSnapshot = ManualPlaceSnapshot::empty;
 
     MemoryIdentityRegistryStore(Context context) {
         this(context.getApplicationContext().getFilesDir());
+        manualSnapshot = () -> {
+            try { return new ManualPlaceStore(context).readIdentities(); }
+            catch (Exception error) { throw new IllegalStateException("Manual identities unavailable", error); }
+        };
     }
 
     MemoryIdentityRegistryStore(File filesDir) {
         this.filesDir = filesDir;
     }
 
+    MemoryIdentityRegistryStore(File filesDir, java.util.function.Supplier<ManualPlaceSnapshot> manualSnapshot) {
+        this(filesDir);
+        this.manualSnapshot = manualSnapshot;
+    }
+
     synchronized String findStableId(String alias) {
+        return findStableId(alias, this::readAliasesSnapshot);
+    }
+
+    static String findStableId(String alias, Supplier<Map<String, String>> aliases) {
         String key = clean(alias);
         if (key.isEmpty()) {
             return "";
         }
-        return clean(readAliases().optString(key, ""));
+        if(key.startsWith("note-only:mem_")&&key.length()>"note-only:mem_".length())
+            return key.substring("note-only:".length());
+        return clean(aliases.get().get(key));
     }
 
     synchronized Map<String, String> readAliasesSnapshot() {
@@ -50,7 +67,7 @@ final class MemoryIdentityRegistryStore {
                 result.put(alias, stableId);
             }
         }
-        return Collections.unmodifiableMap(result);
+        return manualSnapshot.get().mergedAliases(result);
     }
 
     synchronized String resolveOrCreate(String alias) {
@@ -58,6 +75,10 @@ final class MemoryIdentityRegistryStore {
         if (key.isEmpty()) {
             return "";
         }
+        String canonical = findStableId(key);
+        if (!canonical.isEmpty()) return canonical;
+        // Manual aliases can only be created in the same transaction as their place.
+        if (key.startsWith("manual:")) return "";
         JSONObject root = readWritableRoot();
         if (root == null) {
             return "";
@@ -83,6 +104,9 @@ final class MemoryIdentityRegistryStore {
         if (id.isEmpty() || key.isEmpty()) {
             return false;
         }
+        String canonical = findStableId(key);
+        if (!canonical.isEmpty()) return canonical.equals(id);
+        if (key.startsWith("manual:")) return false;
         JSONObject root = readWritableRoot();
         if (root == null) {
             return false;

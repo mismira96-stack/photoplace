@@ -26,6 +26,7 @@ final class SortInputStore {
 
     void write(List<PhotoItem> items, boolean shouldMoveVideos,
                OrganizationRequest organizationRequest) throws Exception {
+        try(MediaMutationCoordinator.Reservation reservation=MediaMutationCoordinator.reserve(context,"sort")) {
         if (organizationRequest != null && !organizationRequest.isValid()) {
             throw new IllegalArgumentException("Invalid organization request");
         }
@@ -45,8 +46,12 @@ final class SortInputStore {
         if (organizationRequest != null) {
             root.put("organizationRequest", organizationRequest.toJson());
         }
-        try (FileOutputStream output = context.openFileOutput(FILE_NAME, 0)) {
-            output.write(root.toString(2).getBytes(StandardCharsets.UTF_8));
+        android.util.AtomicFile file=new android.util.AtomicFile(new java.io.File(context.getFilesDir(),FILE_NAME));
+        FileOutputStream output=null;
+        try {
+            output=file.startWrite();output.write(root.toString().getBytes(StandardCharsets.UTF_8));
+            output.getFD().sync();file.finishWrite(output);
+        }catch(Exception failed){if(output!=null)file.failWrite(output);throw failed;}
         }
     }
 

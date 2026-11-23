@@ -22,7 +22,13 @@ final class MemoryMediaSourcePolicy {
     static Source choose(OrganizationLink exactMemoryLink,
                          GalleryLookup galleryLookup,
                          boolean hasLiveDiscoveryMedia) {
-        if (hasUsableMemoryLink(exactMemoryLink)) {
+        return chooseKnownOutput(hasUsableMemoryLink(exactMemoryLink), galleryLookup, hasLiveDiscoveryMedia);
+    }
+
+    static Source chooseKnownOutput(boolean hasKnownOutput,
+                                    GalleryLookup galleryLookup,
+                                    boolean hasLiveDiscoveryMedia) {
+        if (hasKnownOutput) {
             if (galleryLookup == GalleryLookup.FOUND) {
                 return Source.GALLERY_OUTPUT;
             }

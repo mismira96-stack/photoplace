@@ -32,7 +32,10 @@ final class StoredAlbumSummaryMetadataMerger {
                 countryCode,
                 countryName,
                 adminArea,
-                addressLine);
+                addressLine,
+                liveSummary.photoCount,
+                liveSummary.videoCount,
+                liveSummary.mediaSplitKnown);
     }
 
     private static String firstNonEmpty(String first, String second) {

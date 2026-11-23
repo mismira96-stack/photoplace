@@ -24,20 +24,28 @@ final class MediaMetadataReader {
 
     ExifReadResult readExifData(Uri uri) {
         ExifReadResult result = new ExifReadResult();
-        try (ParcelFileDescriptor descriptor = context.getContentResolver().openFileDescriptor(uri, "r")) {
+        Uri targetUri = PersonalPlaceGpsReader.prepareOriginalUri(
+                uri, new PersonalPlaceGpsReader(context).hasMediaLocationPermission());
+        try (ParcelFileDescriptor descriptor = context.getContentResolver().openFileDescriptor(
+                targetUri != null ? targetUri : uri, "r")) {
             if (descriptor != null) {
                 readExifIntoResult(new ExifInterface(descriptor.getFileDescriptor()), result);
                 if (hasUsableCoordinates(result.latitude, result.longitude)) {
+                    PersonalPlaceGpsCacheStore.recordObservedFromScanner(context, uri, result.latitude, result.longitude);
                     return result;
                 }
             }
         } catch (Exception ignored) {
         }
-        try (InputStream input = context.getContentResolver().openInputStream(uri)) {
+        try (InputStream input = context.getContentResolver().openInputStream(
+                targetUri != null ? targetUri : uri)) {
             if (input != null) {
                 readExifIntoResult(new ExifInterface(input), result);
             }
         } catch (Exception ignored) {
+        }
+        if (hasUsableCoordinates(result.latitude, result.longitude)) {
+            PersonalPlaceGpsCacheStore.recordObservedFromScanner(context, uri, result.latitude, result.longitude);
         }
         return result;
     }
@@ -46,11 +54,14 @@ final class MediaMetadataReader {
         VideoMetadataResult result = new VideoMetadataResult();
         MediaMetadataRetriever retriever = new MediaMetadataRetriever();
         try {
-            retriever.setDataSource(context, uri);
+            Uri targetUri = PersonalPlaceGpsReader.prepareOriginalUri(
+                    uri, new PersonalPlaceGpsReader(context).hasMediaLocationPermission());
+            retriever.setDataSource(context, targetUri != null ? targetUri : uri);
             double[] location = parseIso6709Location(retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_LOCATION));
             if (location != null) {
                 result.latitude = location[0];
                 result.longitude = location[1];
+                PersonalPlaceGpsCacheStore.recordObservedFromScanner(context, uri, result.latitude, result.longitude);
             }
             Date videoDate = parseVideoDate(retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DATE));
             if (videoDate != null) {
@@ -67,6 +78,10 @@ final class MediaMetadataReader {
     }
 
     private void readExifIntoResult(ExifInterface exif, ExifReadResult result) throws Exception {
+        QuickBeautySourceLink.ParsedLink qbLink = QuickBeautySourceLink.parseFromExif(exif);
+        if (qbLink != null && result.takenAt == null) {
+            result.takenAt = sanitizeTakenAt(QuickBeautySourceLink.parseTakenDate(qbLink));
+        }
         String attribute = exif.getAttribute("DateTimeOriginal");
         if (attribute == null) {
             attribute = exif.getAttribute("DateTime");
@@ -78,6 +93,13 @@ final class MediaMetadataReader {
         if (exif.getLatLong(latLong) && hasUsableCoordinates(latLong[0], latLong[1])) {
             result.latitude = latLong[0];
             result.longitude = latLong[1];
+        } else if (qbLink != null) {
+            double[] linkedCoords = QuickBeautySourceLink.resolveCoordinates(
+                    context, qbLink, new PersonalPlaceGpsReader(context).hasMediaLocationPermission());
+            if (linkedCoords != null && hasUsableCoordinates(linkedCoords[0], linkedCoords[1])) {
+                result.latitude = linkedCoords[0];
+                result.longitude = linkedCoords[1];
+            }
         }
     }
 

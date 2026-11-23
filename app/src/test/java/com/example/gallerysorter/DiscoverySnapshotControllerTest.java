@@ -12,6 +12,20 @@ import org.junit.rules.TemporaryFolder;
 import java.util.Arrays;
 
 public class DiscoverySnapshotControllerTest {
+    @Test public void existingPlaceNewPhotoThenIdenticalReanalysisDoesNotReportNewAgain() throws Exception {
+        DiscoverySnapshotStore store = new DiscoverySnapshotStore(temporaryFolder.newFolder("repeat-existing"));
+        long[] now = {100L};
+        DiscoverySnapshotController controller = new DiscoverySnapshotController(store, () -> now[0]);
+        DiscoverySnapshotMapper.SourceItem first = sourceItem("content://media/external/images/media/1", "성남");
+        DiscoverySnapshotMapper.SourceItem added = sourceItem("content://media/external/images/media/2", "성남");
+        controller.saveSourceItemsWithResult(Arrays.asList(first), 1, "camera");
+        now[0] = 200L;
+        assertEquals(1, controller.saveSourceItemsWithResult(Arrays.asList(first, added), 2, "camera").newPlaceCount);
+        assertEquals(100L, store.read().groups.get(0).photoRefs.get(0).firstSeenSnapshotVersion);
+        now[0] = 300L;
+        assertEquals(0, controller.saveSourceItemsWithResult(Arrays.asList(first, added), 2, "camera").newPlaceCount);
+        assertEquals(2, store.read().groups.get(0).itemCount);
+    }
     @Rule
     public TemporaryFolder temporaryFolder = new TemporaryFolder();
 

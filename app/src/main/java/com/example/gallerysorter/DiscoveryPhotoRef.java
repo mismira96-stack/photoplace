@@ -20,6 +20,7 @@ final class DiscoveryPhotoRef {
     final long firstSeenSnapshotVersion;
     final long lastSeenSnapshotVersion;
     final boolean stale;
+    final boolean manualAssigned;
 
     DiscoveryPhotoRef(String sourceUri,
                       long mediaStoreId,
@@ -37,6 +38,15 @@ final class DiscoveryPhotoRef {
                       long firstSeenSnapshotVersion,
                       long lastSeenSnapshotVersion,
                       boolean stale) {
+        this(sourceUri,mediaStoreId,mediaKind,mimeType,displayName,takenAtMillis,locationKey,placeName,
+                countryCode,countryName,adminArea,addressLine,sourceRelativePath,firstSeenSnapshotVersion,
+                lastSeenSnapshotVersion,stale,false);
+    }
+
+    DiscoveryPhotoRef(String sourceUri,long mediaStoreId,MediaKind mediaKind,String mimeType,String displayName,
+                      long takenAtMillis,String locationKey,String placeName,String countryCode,String countryName,
+                      String adminArea,String addressLine,String sourceRelativePath,long firstSeenSnapshotVersion,
+                      long lastSeenSnapshotVersion,boolean stale,boolean manualAssigned) {
         this.sourceUri = clean(sourceUri);
         this.mediaStoreId = mediaStoreId;
         this.mediaKind = mediaKind == null ? MediaKind.PHOTO : mediaKind;
@@ -53,6 +63,7 @@ final class DiscoveryPhotoRef {
         this.firstSeenSnapshotVersion = firstSeenSnapshotVersion;
         this.lastSeenSnapshotVersion = lastSeenSnapshotVersion;
         this.stale = stale;
+        this.manualAssigned=manualAssigned;
     }
 
     private static String clean(String value) {

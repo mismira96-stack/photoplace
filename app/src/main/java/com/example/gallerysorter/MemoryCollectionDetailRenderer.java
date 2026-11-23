@@ -1,7 +1,9 @@
 package com.example.gallerysorter;
 
-import android.content.DialogInterface;
-import android.app.AlertDialog;
+import android.graphics.Color;
+import android.graphics.Typeface;
+import android.graphics.drawable.GradientDrawable;
+import android.view.Gravity;
 import android.view.View;
 import android.widget.Button;
 import android.widget.LinearLayout;
@@ -42,12 +44,16 @@ final class MemoryCollectionDetailRenderer {
                 }
             }
         });
-        addActions(root);
+        addSummaryAndActionsCard(root, collection, detail);
 
         if (detail == null || detail.dates.isEmpty()) {
+            LinearLayout emptyCard = new LinearLayout(activity);
+            emptyCard.setOrientation(LinearLayout.VERTICAL);
+            emptyCard.setPadding(activity.dp(16), activity.dp(20), activity.dp(16), activity.dp(20));
+            activity.applyCardBackground(emptyCard);
             TextView empty = activity.bodyText("현재 볼 수 있는 사진이 없어요. 기억 모음과 장소별 메모는 보존되어 있어요.");
-            empty.setPadding(activity.dp(4), activity.dp(16), activity.dp(4), activity.dp(16));
-            root.addView(empty, activity.matchWidth());
+            emptyCard.addView(empty, activity.matchWidth());
+            root.addView(emptyCard, activity.matchWidth());
         } else {
             for (GroupMemoryDateSection date : detail.dates) {
                 root.addView(activity.sectionTitle(date.dateText),
@@ -60,7 +66,76 @@ final class MemoryCollectionDetailRenderer {
         activity.setContentViewWithBottomTabs(scroll, 1);
     }
 
-    private void addActions(LinearLayout root) {
+    private void addSummaryAndActionsCard(LinearLayout root, MemoryCollection collection, GroupMemoryDetail detail) {
+        LinearLayout card = new LinearLayout(activity);
+        card.setOrientation(LinearLayout.VERTICAL);
+        card.setPadding(activity.dp(16), activity.dp(14), activity.dp(16), activity.dp(14));
+        activity.applyCardBackground(card);
+
+        int totalPhotos = 0;
+        int totalVideos = 0;
+        if (detail != null && detail.dates != null) {
+            for (GroupMemoryDateSection date : detail.dates) {
+                if (date == null || date.places == null) continue;
+                for (GroupMemoryPlaceSection place : date.places) {
+                    if (place == null || place.photos == null) continue;
+                    for (MemoryPhotoItem item : place.photos) {
+                        if (item == null) continue;
+                        if (item.mediaKind == MediaKind.VIDEO) totalVideos++;
+                        else totalPhotos++;
+                    }
+                }
+            }
+        }
+        int memberCount = collection.members == null ? 0 : collection.members.size();
+        LinearLayout metaRow = new LinearLayout(activity);
+        metaRow.setOrientation(LinearLayout.HORIZONTAL);
+        metaRow.setGravity(Gravity.CENTER_VERTICAL);
+        TextView badge = new TextView(activity);
+        badge.setText("기억 모음 · " + memberCount + "곳");
+        badge.setTextSize(11.5f);
+        badge.setTypeface(Typeface.DEFAULT_BOLD);
+        badge.setTextColor(Color.rgb(104, 82, 226));
+        badge.setPadding(activity.dp(8), activity.dp(3), activity.dp(8), activity.dp(3));
+        GradientDrawable badgeBg = new GradientDrawable();
+        badgeBg.setColor(Color.rgb(245, 242, 255));
+        badgeBg.setCornerRadius(activity.dp(9));
+        badge.setBackground(badgeBg);
+        metaRow.addView(badge, new LinearLayout.LayoutParams(-2, -2));
+
+        TextView totalCount = MemoryCardCountRenderer.render(activity,
+                SingleAlbumCompletionResolver.formatMediaCount(totalPhotos, totalVideos));
+        totalCount.setPadding(activity.dp(10), 0, 0, 0);
+        metaRow.addView(totalCount, new LinearLayout.LayoutParams(0, -2, 1.0f));
+
+        if (totalPhotos + totalVideos > 0) {
+            TextView storyShareBtn = new TextView(activity);
+            storyShareBtn.setText("스토리 사진띠");
+            storyShareBtn.setTextSize(12.0f);
+            storyShareBtn.setTypeface(Typeface.DEFAULT_BOLD);
+            storyShareBtn.setTextColor(Color.rgb(104, 82, 226));
+            storyShareBtn.setGravity(Gravity.CENTER_VERTICAL);
+            storyShareBtn.setPadding(activity.dp(10), activity.dp(6), activity.dp(10), activity.dp(6));
+            int iconPx = activity.dp(14);
+            MediaVectorIconDrawable shareIcon = MediaVectorIconDrawable.share(Color.rgb(104, 82, 226), iconPx);
+            shareIcon.setBounds(0, 0, iconPx, iconPx);
+            storyShareBtn.setCompoundDrawablePadding(activity.dp(5));
+            storyShareBtn.setCompoundDrawables(shareIcon, null, null, null);
+            GradientDrawable shareBg = new GradientDrawable();
+            shareBg.setColor(Color.rgb(245, 242, 255));
+            shareBg.setCornerRadius(activity.dp(12));
+            shareBg.setStroke(activity.dp(1), Color.rgb(220, 212, 252));
+            storyShareBtn.setBackground(shareBg);
+            storyShareBtn.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View view) {
+                    MemoryStoryShareSheet.showForCollection(activity, collection, detail);
+                }
+            });
+            metaRow.addView(storyShareBtn, new LinearLayout.LayoutParams(-2, -2));
+        }
+        card.addView(metaRow, activity.matchWidthWithBottom(activity.dp(12)));
+
         LinearLayout actions = new LinearLayout(activity);
         actions.setOrientation(LinearLayout.HORIZONTAL);
         Button rename = new Button(activity);
@@ -73,45 +148,56 @@ final class MemoryCollectionDetailRenderer {
                 }
             }
         });
-        actions.addView(rename, new LinearLayout.LayoutParams(0, -2, 1.0f));
+        LinearLayout.LayoutParams renameParams = new LinearLayout.LayoutParams(0, -2, 1.0f);
+        renameParams.rightMargin = activity.dp(8);
+        actions.addView(rename, renameParams);
 
         Button dissolve = new Button(activity);
         activity.styleSubtleActionButton(dissolve, "기억 모음 해제");
         dissolve.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                new AlertDialog.Builder(activity)
-                        .setTitle("기억 모음을 해제할까요?")
-                        .setMessage("원래 장소와 사진, 날짜 메모는 삭제되지 않아요.")
-                        .setNegativeButton("취소", null)
-                        .setPositiveButton("해제", new DialogInterface.OnClickListener() {
+                MemoryActionDialog.show(
+                        activity,
+                        "기억 모음을 해제할까요?",
+                        "모음만 해제되며 원래 장소 기록과 사진, 날짜 메모는 삭제되지 않아요.",
+                        "해제",
+                        new Runnable() {
                             @Override
-                            public void onClick(DialogInterface dialog, int which) {
+                            public void run() {
                                 if (listener != null) {
                                     listener.onDissolveConfirmed();
                                 }
                             }
-                        }).show();
+                        },
+                        "취소",
+                        new Runnable() {
+                            @Override
+                            public void run() {
+                            }
+                        });
             }
         });
         actions.addView(dissolve, new LinearLayout.LayoutParams(0, -2, 1.0f));
-        root.addView(actions, activity.matchWidthWithBottom(activity.dp(14)));
+        card.addView(actions, activity.matchWidth());
+        root.addView(card, activity.matchWidthWithBottom(activity.dp(14)));
     }
 
     private void addPlace(LinearLayout root, GroupMemoryDateSection date, GroupMemoryPlaceSection place) {
         LinearLayout placeBlock = new LinearLayout(activity);
         placeBlock.setOrientation(LinearLayout.VERTICAL);
-        placeBlock.setPadding(activity.dp(12), activity.dp(10), activity.dp(12), activity.dp(12));
+        placeBlock.setPadding(activity.dp(14), activity.dp(12), activity.dp(14), activity.dp(12));
         activity.applyCardBackground(placeBlock);
-        TextView placeTitle = activity.bodyText(place.placeTitle);
-        placeTitle.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
-        placeTitle.setTextSize(15.0f);
-        placeBlock.addView(placeTitle, activity.matchWidth());
-        if (!place.noteText.isEmpty()) {
-            TextView note = activity.bodyText(place.noteText);
-            note.setPadding(0, activity.dp(4), 0, activity.dp(8));
-            placeBlock.addView(note, activity.matchWidth());
-        }
+
+        LinearLayout headerRow = new LinearLayout(activity);
+        headerRow.setOrientation(LinearLayout.HORIZONTAL);
+        headerRow.setGravity(Gravity.CENTER_VERTICAL);
+        TextView placeTitle = new TextView(activity);
+        placeTitle.setText(place.placeTitle);
+        placeTitle.setTypeface(Typeface.DEFAULT_BOLD);
+        placeTitle.setTextSize(16.0f);
+        placeTitle.setTextColor(Color.rgb(17, 24, 39));
+        headerRow.addView(placeTitle, new LinearLayout.LayoutParams(0, -2, 1.0f));
 
         int photos = 0;
         int videos = 0;
@@ -122,11 +208,24 @@ final class MemoryCollectionDetailRenderer {
                 photos++;
             }
         }
-        TextView photoCount = activity.bodyText(
+        TextView photoCount = MemoryCardCountRenderer.render(activity,
                 SingleAlbumCompletionResolver.formatMediaCount(photos, videos));
-        photoCount.setTextSize(12.0f);
-        photoCount.setPadding(0, activity.dp(4), 0, activity.dp(8));
-        placeBlock.addView(photoCount, activity.matchWidth());
+        headerRow.addView(photoCount, new LinearLayout.LayoutParams(-2, -2));
+        placeBlock.addView(headerRow, activity.matchWidthWithBottom(activity.dp(8)));
+
+        if (!place.noteText.isEmpty()) {
+            TextView note = new TextView(activity);
+            note.setText(place.noteText);
+            note.setTextSize(13.5f);
+            note.setTextColor(Color.rgb(64, 53, 106));
+            note.setPadding(activity.dp(12), activity.dp(8), activity.dp(12), activity.dp(8));
+            GradientDrawable noteBg = new GradientDrawable();
+            noteBg.setColor(Color.rgb(246, 244, 255));
+            noteBg.setCornerRadius(activity.dp(12));
+            note.setBackground(noteBg);
+            placeBlock.addView(note, activity.matchWidthWithBottom(activity.dp(10)));
+        }
+
         addPhotos(placeBlock, date, place);
         root.addView(placeBlock, activity.matchWidthWithBottom(activity.dp(10)));
     }

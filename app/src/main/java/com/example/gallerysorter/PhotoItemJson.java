@@ -26,6 +26,7 @@ final class PhotoItemJson {
         json.put("countryName", item.countryName);
         json.put("adminArea", item.adminArea);
         json.put("addressLine", item.addressLine);
+        json.put("manualAssigned",item.manualAssigned);
         return json;
     }
 
@@ -53,7 +54,7 @@ final class PhotoItemJson {
                 clean(json.optString("countryCode", "")),
                 clean(json.optString("countryName", "")),
                 clean(json.optString("adminArea", "")),
-                clean(json.optString("addressLine", "")));
+                clean(json.optString("addressLine", "")),json.optBoolean("manualAssigned",false));
     }
 
     static String clean(String value) {

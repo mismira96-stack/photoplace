@@ -14,6 +14,76 @@ import java.util.Collections;
 import java.util.List;
 
 public class MemoryBrowserStateTest {
+    @Test public void mixedPlaceWhoseDiscoveryNamesAlreadyExistDoesNotOfferAddition() {
+        MemoryRepository repository = new MemoryRepository(
+                snapshot(discoveryGroupWithVersions("discovery:삿포로", "삿포로", 1L, 2L)),
+                Collections.singletonList(organizedAlbum("삿포로에서", "Pictures/삿포로에서/", 10)));
+        MemoryBrowserState state = MemoryBrowserState.from(repository);
+        MemoryBrowserDetail detail = state.detail(state.items.get(0).memoryKey, repository,
+                (path, record) -> MemoryMediaStoreReader.Result.found(photoRefs(1, 0)));
+        assertEquals(MemorySourceType.MIXED, detail.record.sourceType);
+        // Both discovery refs and the Gallery fixture have IMG.jpg: the existing
+        // copy-skip projection already removed the original refs as duplicates.
+        assertFalse(detail.canOrganize);
+    }
+
+    @Test public void mixedPlaceShowsNewPhotosEvenAfterAnAlbumWasOrganized() {
+        DiscoveryMemoryGroup group = discoveryGroupWithVersions("discovery:삿포로", "삿포로", 1L, 2L);
+        MemoryRepository repository = new MemoryRepository(snapshot(group), Collections.singletonList(
+                organizedAlbum("삿포로에서", "Pictures/삿포로에서/", 10)));
+        MemoryBrowserItem item = MemoryBrowserState.from(repository).items.get(0);
+        assertEquals(MemorySourceType.MIXED, item.sourceType);
+        assertEquals(1, item.recentAddedCount);
+    }
+    @Test
+    public void legacyHanamAlbumWithoutOrganizationLinkOpensInsideApp() {
+        MemoryRepository repository = new MemoryRepository(null, Collections.singletonList(
+                organizedAlbum("하남에서", "Pictures/하남에서/", 105)));
+        MemoryBrowserState state = MemoryBrowserState.from(repository);
+        MemoryBrowserItem item = state.items.get(0);
+        MemoryBrowserDetail detail = state.detail(item.memoryKey, repository, (path, memory) -> {
+            assertEquals("Pictures/하남에서/", path);
+            return MemoryMediaStoreReader.Result.found(photoRefs(3, 0));
+        });
+        assertEquals(3, detail.sourceUris.size());
+        assertEquals("사진 3장", detail.item.countText);
+        assertFalse(detail.photoSections.isEmpty());
+        assertTrue(detail.canOpenPhotos);
+        assertFalse(detail.canOrganize);
+    }
+
+    @Test
+    public void missingOrFailedLegacyAlbumDoesNotInventPhotoUris() {
+        MemoryRepository repository = new MemoryRepository(null, Collections.singletonList(
+                organizedAlbum("하남에서", "Pictures/하남에서/", 105)));
+        MemoryBrowserState state = MemoryBrowserState.from(repository);
+        String key = state.items.get(0).memoryKey;
+        assertTrue(state.detail(key, repository,
+                (path, memory) -> MemoryMediaStoreReader.Result.missing()).sourceUris.isEmpty());
+        assertTrue(state.detail(key, repository,
+                (path, memory) -> MemoryMediaStoreReader.Result.failed()).sourceUris.isEmpty());
+        assertEquals("불러오기 필요", state.detail(key, repository,
+                (path, memory) -> MemoryMediaStoreReader.Result.failed()).item.countText);
+        assertFalse(state.detail(key, repository,
+                (path, memory) -> MemoryMediaStoreReader.Result.failed()).mediaResolved);
+        assertEquals("사진 0장", state.detail(key, repository,
+                (path, memory) -> MemoryMediaStoreReader.Result.missing()).item.countText);
+    }
+
+    @Test
+    public void exactLinkStillWinsOverLegacyAlbumPath() {
+        MemoryRecord record = MemoryRepository.fromOrganizedAlbum(
+                organizedAlbum("하남에서", "Pictures/하남에서/", 105));
+        OrganizationLink link = new OrganizationLink("link", OrganizationLink.SubjectType.MEMORY,
+                "mem_hanam", "request", "Exact", "Pictures/Exact/", 1L,
+                OrganizationLink.Status.SUCCESS, 3, 0, 0);
+        MemoryMediaResolution result = MemoryMediaResolver.resolve(record, link, (path, memory) -> {
+            assertEquals("Pictures/Exact/", path);
+            return MemoryMediaStoreReader.Result.missing();
+        });
+        assertTrue(result.refs.isEmpty());
+    }
+
     @Test
     public void buildsDiscoveryOnlyItemForAlbumBeforeOrganize() {
         MemoryRepository repository = new MemoryRepository(
@@ -51,7 +121,7 @@ public class MemoryBrowserStateTest {
 
         assertEquals("오타루에서", item.title);
         assertEquals("정리된 앨범", item.subtitle);
-        assertEquals("사진 5장", item.countText);
+        assertEquals("사진·동영상 5개", item.countText);
         assertEquals(MemorySourceType.ORGANIZED_ALBUM, item.sourceType);
         assertFalse(item.discoveryOnly);
         assertTrue(item.organizedAlbum);
@@ -105,6 +175,7 @@ public class MemoryBrowserStateTest {
 
         assertNotNull(detail);
         assertEquals(2, detail.sourceUris.size());
+        assertEquals("사진 2장", detail.item.countText);
         assertEquals("content://media/external/images/media/101", detail.sourceUris.get(0));
         assertEquals("content://media/external/images/media/102", detail.sourceUris.get(1));
         assertEquals(1, detail.photoSections.size());
@@ -128,6 +199,7 @@ public class MemoryBrowserStateTest {
 
         assertNotNull(detail);
         assertEquals(1, detail.sourceUris.size());
+        assertEquals("사진 1장", detail.item.countText);
         assertEquals("content://media/external/images/media/201", detail.sourceUris.get(0));
         assertEquals(1, detail.photoSections.size());
         assertEquals("content://media/external/images/media/201", detail.photoSections.get(0).photos.get(0).sourceUri);
@@ -153,6 +225,20 @@ public class MemoryBrowserStateTest {
         assertTrue(detail.photoSections.isEmpty());
         assertFalse(detail.canOpenPhotos);
         assertFalse(detail.canOrganize);
+        assertEquals("사진 0장", detail.item.countText);
+    }
+
+    @Test public void duplicateUriAppearsAndCountsOnceAcrossDates() {
+        DiscoveryPhotoRef first = photoRef("content://media/external/images/media/301", false);
+        DiscoveryPhotoRef duplicate = photoRefWithVersions(first.sourceUri, 2L, 2L);
+        MemoryRepository repository = new MemoryRepository(snapshot(discoveryGroupWithRefs(
+                "discovery:삿포로", "삿포로", Arrays.asList(first, duplicate))), null);
+        MemoryBrowserState state = MemoryBrowserState.from(repository);
+        MemoryBrowserDetail detail = state.detail("discovery:삿포로", repository);
+        assertEquals("사진 1장", state.items.get(0).countText);
+        assertEquals("사진 1장", detail.item.countText);
+        assertEquals(1, detail.sourceUris.size());
+        assertEquals(1, MemoryPhotoPage.totalItemCount(detail.photoSections));
     }
 
     @Test

@@ -17,6 +17,10 @@ final class MemoryBrowserSummary {
     }
 
     static MemoryBrowserSummary from(List<MemoryRecord> records) {
+        return from(records, java.util.Collections.emptyMap());
+    }
+
+    static MemoryBrowserSummary from(List<MemoryRecord> records, java.util.Map<String, Integer> resolvedTotals) {
         int placeCount = 0;
         int photoCount = 0;
         long firstDate = 0L;
@@ -27,7 +31,7 @@ final class MemoryBrowserSummary {
                     continue;
                 }
                 placeCount++;
-                photoCount += Math.max(0, record.itemCount);
+                photoCount += Math.max(0, resolvedTotals.getOrDefault(record.memoryKey, record.itemCount));
                 long start = record.startDateMillis > 0L ? record.startDateMillis : record.endDateMillis;
                 long end = record.endDateMillis > 0L ? record.endDateMillis : record.startDateMillis;
                 if (start > 0L && (firstDate <= 0L || start < firstDate)) {

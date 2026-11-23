@@ -11,6 +11,11 @@
 
     <queries>
         <package android:name="com.sec.android.gallery3d" />
+        <package android:name="com.instagram.android" />
+        <intent>
+            <action android:name="com.instagram.share.ADD_TO_STORY" />
+            <data android:mimeType="image/*" />
+        </intent>
     </queries>
 
     <application
@@ -19,6 +24,11 @@
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:theme="@style/AppTheme">
+        <activity android:name=".MemoryManagementActivity" android:exported="false"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|density" />
+        <activity android:name=".SettingsBackupActivity" android:exported="false"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|density" />
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -45,5 +55,14 @@
                 <action android:name="com.photoplace.app.REPAIR_DATES" />
             </intent-filter>
         </receiver>
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.storyfiles"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/story_file_paths" />
+        </provider>
     </application>
 </manifest>

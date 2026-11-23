@@ -37,6 +37,11 @@ final class SortResultStore {
         root.put("skippedCount", result == null ? 0 : result.skippedCount);
         root.put("failedCount", result == null ? 0 : result.failedCount);
         root.put("canceled", result != null && result.canceled);
+        root.put("evidenceJobId", result == null ? "" : result.evidenceJobId);
+        root.put("evidenceRecordedCount", result == null ? 0 : result.evidenceRecordedCount);
+        root.put("evidenceUnrecordedCount", result == null ? 0 : result.evidenceUnrecordedCount);
+        root.put("evidenceFailureCount", result == null ? 0 : result.evidenceFailureCount);
+        root.put("evidenceCheckpointMillis", result == null ? 0 : result.evidenceCheckpointMillis);
         root.put("sortedUris", uriArray(result == null ? null : result.sortedUris));
         root.put("sortedItems", itemArray(result == null ? null : result.sortedItems));
         root.put("copiedOriginalUris", uriArray(result == null ? null : result.copiedOriginalUris));

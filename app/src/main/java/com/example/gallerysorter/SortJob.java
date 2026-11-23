@@ -5,15 +5,20 @@ import android.net.Uri;
 import java.util.List;
 
 final class SortJob {
+    interface CopyEngine {
+        MediaCopyReceipt copy(PhotoItem item) throws Exception;
+        CleanupEvidenceSession newEvidenceSession();
+    }
+
     interface CancelSignal {
         boolean isCanceled();
     }
 
-    private final MediaCopyEngine copyEngine;
+    private final CopyEngine copyEngine;
     private final CancelSignal cancelSignal;
     private final SortJobProgressListener progressListener;
 
-    SortJob(MediaCopyEngine copyEngine, CancelSignal cancelSignal, SortJobProgressListener progressListener) {
+    SortJob(CopyEngine copyEngine, CancelSignal cancelSignal, SortJobProgressListener progressListener) {
         this.copyEngine = copyEngine;
         this.cancelSignal = cancelSignal;
         this.progressListener = progressListener;
@@ -24,22 +29,34 @@ final class SortJob {
         if (items == null) {
             return result;
         }
-        for (int i = 0; i < items.size(); i++) {
-            if (cancelSignal != null && cancelSignal.isCanceled()) {
-                result.canceled = true;
-                result.log.append("사용자 멈춤\n");
-                break;
+        CleanupEvidenceSession evidence = copyEngine.newEvidenceSession();
+        try {
+            for (int i = 0; i < items.size(); i++) {
+                if (cancelSignal != null && cancelSignal.isCanceled()) {
+                    result.canceled = true;
+                    result.log.append("사용자 멈춤\n");
+                    break;
+                }
+                PhotoItem item = items.get(i);
+                processItem(item, shouldMoveVideos, result, evidence);
+                evidence.tick();
+                if (progressListener != null) {
+                    progressListener.onItem(i + 1, items.size(), item);
+                }
             }
-            PhotoItem item = items.get(i);
-            processItem(item, shouldMoveVideos, result);
-            if (progressListener != null) {
-                progressListener.onItem(i + 1, items.size(), item);
-            }
+        } finally {
+            evidence.close();
+            result.evidenceJobId = evidence.jobId;
+            result.evidenceRecordedCount = evidence.recordedCount();
+            result.evidenceUnrecordedCount = evidence.unrecordedCount();
+            result.evidenceFailureCount = evidence.failureCount();
+            result.evidenceCheckpointMillis = evidence.checkpointMillis();
         }
         return result;
     }
 
-    private void processItem(PhotoItem item, boolean shouldMoveVideos, SortJobResult result) {
+    private void processItem(PhotoItem item, boolean shouldMoveVideos, SortJobResult result,
+                             CleanupEvidenceSession evidence) {
         if (item == null) {
             result.skippedCount++;
             return;
@@ -59,8 +76,9 @@ final class SortJob {
             result.log.append("복사본 있음, 건너뜀: ").append(item.name).append(" -> ").append(item.targetRelativePath).append("\n");
             return;
         }
+        MediaCopyReceipt receipt;
         try {
-            copyEngine.copy(item);
+            receipt = copyEngine.copy(item);
             result.copiedCount++;
             result.sortedUris.add(item.uri);
             result.sortedItems.add(item);
@@ -71,6 +89,14 @@ final class SortJob {
         } catch (Exception e) {
             result.failedCount++;
             result.log.append("실패: ").append(item.name).append(" / ").append(e.getMessage()).append("\n");
+            return;
+        }
+        // Outside the copy try/catch: evidence failure cannot relabel or retry a successful copy.
+        if (!item.video) {
+            evidence.observe(item.uri == null ? "" : item.uri.toString(),
+                    receipt.targetUri == null ? "" : receipt.targetUri.toString(),
+                    item.targetRelativePath, item.takenAt == null ? 0L : item.takenAt.getTime(),
+                    receipt.copiedBytes);
         }
     }
 

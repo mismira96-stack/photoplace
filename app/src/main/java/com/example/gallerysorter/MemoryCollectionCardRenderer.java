@@ -1,29 +1,21 @@
 package com.example.gallerysorter;
 
-import android.graphics.Typeface;
 import android.graphics.Color;
+import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.text.TextUtils;
+import android.view.Gravity;
 import android.view.View;
-import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
-import java.text.SimpleDateFormat;
-import java.util.Date;
-import java.util.HashSet;
-import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
-import java.util.Set;
 
 /** Renders the collection cards shown above the discovery browser. */
 final class MemoryCollectionCardRenderer {
     interface Listener {
         void onCollectionSelected(String collectionId);
-
-        void onCreateCollectionRequested();
     }
 
     private final MainActivity activity;
@@ -34,41 +26,11 @@ final class MemoryCollectionCardRenderer {
         this.listener = listener;
     }
 
-    void render(LinearLayout root, List<MemoryCollection> collections,
-                List<MemoryRecord> records, Map<String, String> aliases) {
-        render(root, collections, records, aliases, null, null);
-    }
-
-    void render(LinearLayout root, List<MemoryCollection> collections,
-                List<MemoryRecord> records, Map<String, String> aliases,
-                MemoryRepository repository,
-                MemoryMediaResolver.GalleryReader galleryReader) {
+    void renderPrepared(LinearLayout root, List<MemoryCollection> collections,
+                        Map<String, MemoryCollectionCardSummary> summaries) {
         if (root == null) {
             return;
         }
-        LinearLayout header = new LinearLayout(activity);
-        header.setOrientation(LinearLayout.HORIZONTAL);
-        header.setGravity(android.view.Gravity.CENTER_VERTICAL);
-        header.addView(activity.sectionTitle("내 기억 모음"),
-                new LinearLayout.LayoutParams(0, -2, 1.0f));
-        TextView createAction = activity.bodyText("＋ 모으기");
-        createAction.setTextSize(13.0f);
-        createAction.setTextColor(Color.rgb(104, 82, 190));
-        createAction.setGravity(android.view.Gravity.CENTER_VERTICAL);
-        createAction.setPadding(activity.dp(8), activity.dp(8), activity.dp(2), activity.dp(8));
-        createAction.setContentDescription("기억 모으기");
-        createAction.setClickable(true);
-        createAction.setFocusable(true);
-        createAction.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                if (listener != null) {
-                    listener.onCreateCollectionRequested();
-                }
-            }
-        });
-        header.addView(createAction, new LinearLayout.LayoutParams(-2, -2));
-        root.addView(header, activity.matchWidthWithBottom(activity.dp(4)));
         if (collections == null || collections.isEmpty()) {
             return;
         }
@@ -76,183 +38,115 @@ final class MemoryCollectionCardRenderer {
             if (collection == null) {
                 continue;
             }
-            Summary summary = summarize(collection, records, aliases, repository, galleryReader);
+            MemoryCollectionCardSummary summary = summaries.get(collection.collectionId);
+            if (summary == null) continue;
+            renderCard(root, collection.collectionId, collection.title, summary, "기억 모음",
+                    () -> { if (listener != null) listener.onCollectionSelected(collection.collectionId); });
+        }
+    }
+
+    void renderCountries(LinearLayout root, List<AutomaticCountryGroups.Group> groups,
+                         java.util.function.Consumer<AutomaticCountryGroups.Group> opened) {
+        for (AutomaticCountryGroups.Group group : groups)
+            renderCard(root, group.key, group.title, group.summary, "국가 모음", () -> opened.accept(group));
+    }
+
+    private void renderCard(LinearLayout root, String key, String titleText, MemoryCollectionCardSummary summary,
+                            String badgeText, Runnable opened) {
             LinearLayout card = new LinearLayout(activity);
+            MemoryBrowserScrollController.markCollection(card, key);
             card.setOrientation(LinearLayout.HORIZONTAL);
-            card.setGravity(android.view.Gravity.CENTER_VERTICAL);
-            card.setPadding(activity.dp(8), activity.dp(8), activity.dp(10), activity.dp(8));
+            card.setGravity(Gravity.CENTER_VERTICAL);
+            card.setPadding(activity.dp(12), activity.dp(10), activity.dp(12), activity.dp(10));
             activity.applyCardBackground(card);
             card.setClickable(true);
             card.setFocusable(true);
             card.setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View view) {
-                    if (listener != null) {
-                        listener.onCollectionSelected(collection.collectionId);
-                    }
+                    opened.run();
                 }
             });
 
             ImageView cover = new ImageView(activity);
             cover.setScaleType(ImageView.ScaleType.CENTER_CROP);
-            cover.setBackground(activity.thumbnailPlaceholder());
-            cover.setContentDescription(collection.title + " 대표 사진");
+            GradientDrawable coverBg = new GradientDrawable();
+            coverBg.setColor(Color.rgb(240, 242, 247));
+            coverBg.setCornerRadius(activity.dp(14));
+            cover.setBackground(coverBg);
+            cover.setClipToOutline(true);
+            cover.setContentDescription(titleText + " 대표 사진");
             LinearLayout.LayoutParams imageParams = new LinearLayout.LayoutParams(activity.dp(68), activity.dp(68));
-            imageParams.setMargins(0, 0, activity.dp(10), 0);
+            imageParams.setMargins(0, 0, activity.dp(12), 0);
             card.addView(cover, imageParams);
             if (!summary.coverUri.isEmpty()) {
-                activity.loadMemoryBrowserThumbnailInto(cover, summary.coverUri, activity.dp(96));
+                activity.loadMemoryBrowserThumbnailInto(cover, summary.coverUri, activity.dp(120));
             }
 
             LinearLayout labels = new LinearLayout(activity);
             labels.setOrientation(LinearLayout.VERTICAL);
             card.addView(labels, new LinearLayout.LayoutParams(0, -2, 1.0f));
-            TextView badge = activity.bodyText("기억 모음");
-            badge.setTextSize(10.0f);
-            badge.setTextColor(Color.rgb(104, 82, 190));
-            badge.setPadding(activity.dp(6), activity.dp(2), activity.dp(6), activity.dp(2));
+
+            LinearLayout metaRow = new LinearLayout(activity);
+            metaRow.setOrientation(LinearLayout.HORIZONTAL);
+            metaRow.setGravity(Gravity.CENTER_VERTICAL);
+            labels.addView(metaRow, activity.matchWidth());
+
+            TextView badge = new TextView(activity);
+            badge.setText(badgeText);
+            badge.setTextSize(10.5f);
+            badge.setTextColor(Color.rgb(104, 82, 226));
+            badge.setPadding(activity.dp(7), activity.dp(2), activity.dp(7), activity.dp(2));
             GradientDrawable badgeBackground = new GradientDrawable();
             badgeBackground.setColor(Color.rgb(245, 242, 255));
-            badgeBackground.setCornerRadius(activity.dp(9));
+            badgeBackground.setCornerRadius(activity.dp(8));
             badge.setBackground(badgeBackground);
-            labels.addView(badge, new LinearLayout.LayoutParams(-2, -2));
-            TextView title = activity.bodyText(collection.title);
+            metaRow.addView(badge, new LinearLayout.LayoutParams(-2, -2));
+
+            if (!summary.dateRange.isEmpty()) {
+                TextView date = new TextView(activity);
+                date.setText(summary.dateRange);
+                date.setTextSize(11.5f);
+                date.setTextColor(Color.rgb(120, 129, 147));
+                date.setPadding(activity.dp(8), 0, 0, 0);
+                date.setSingleLine(true);
+                date.setEllipsize(TextUtils.TruncateAt.END);
+                metaRow.addView(date, new LinearLayout.LayoutParams(0, -2, 1.0f));
+            }
+
+            TextView title = new TextView(activity);
+            title.setText(titleText);
             title.setTextSize(16.0f);
             title.setTypeface(Typeface.DEFAULT_BOLD);
-            title.setPadding(0, activity.dp(2), 0, 0);
+            title.setTextColor(Color.rgb(17, 24, 39));
+            title.setSingleLine(true);
+            title.setEllipsize(TextUtils.TruncateAt.END);
+            title.setPadding(0, activity.dp(3), 0, 0);
             labels.addView(title, activity.matchWidth());
 
-            TextView places = activity.bodyText(summary.placeNames.isEmpty()
+            TextView places = new TextView(activity);
+            places.setText(summary.placeNames.isEmpty()
                     ? "장소 정보를 불러올 수 없어요" : summary.placeNames);
+            places.setTextSize(12.5f);
+            places.setTextColor(Color.rgb(100, 111, 132));
             places.setSingleLine(true);
             places.setEllipsize(TextUtils.TruncateAt.END);
             places.setPadding(0, activity.dp(2), 0, 0);
             labels.addView(places, activity.matchWidth());
 
-            TextView count = activity.bodyText(SingleAlbumCompletionResolver.formatMediaCount(
-                    summary.photoCount, summary.videoCount)
-                    + (summary.dateRange.isEmpty() ? "" : " · " + summary.dateRange));
-            count.setTextSize(12.0f);
-            count.setPadding(0, activity.dp(2), 0, 0);
+            String countText = summary.complete
+                    ? summary.countText
+                    : "불러오기 필요";
+            TextView count = MemoryCardCountRenderer.render(activity, countText);
             labels.addView(count, activity.matchWidth());
-            TextView arrow = activity.bodyText("›");
-            arrow.setTextSize(26.0f);
+
+            TextView arrow = new TextView(activity);
+            arrow.setText("›");
+            arrow.setTextSize(22.0f);
+            arrow.setTypeface(Typeface.DEFAULT_BOLD);
+            arrow.setTextColor(Color.rgb(148, 156, 172));
+            arrow.setPadding(activity.dp(6), 0, 0, 0);
             card.addView(arrow, new LinearLayout.LayoutParams(-2, -2));
-            root.addView(card, activity.matchWidthWithBottom(activity.dp(6)));
-        }
-    }
-
-    Button createSelectionButton() {
-        Button button = new Button(activity);
-        button.setText("기억 모으기");
-        button.setTextSize(14.0f);
-        button.setTypeface(Typeface.DEFAULT_BOLD);
-        button.setTextColor(Color.rgb(104, 82, 190));
-        button.setAllCaps(false);
-        button.setMinHeight(activity.dp(42));
-        GradientDrawable background = new GradientDrawable();
-        background.setColor(Color.WHITE);
-        background.setCornerRadius(activity.dp(16));
-        background.setStroke(activity.dp(1), Color.rgb(231, 233, 239));
-        button.setBackground(background);
-        return button;
-    }
-
-    private Summary summarize(MemoryCollection collection, List<MemoryRecord> records,
-                              Map<String, String> aliases,
-                              MemoryRepository repository,
-                              MemoryMediaResolver.GalleryReader galleryReader) {
-        Set<String> memberIds = new HashSet<>();
-        for (MemoryCollection.Member member : collection.members) {
-            if (member != null) {
-                memberIds.add(member.stableMemoryId);
-            }
-        }
-        Set<String> names = new LinkedHashSet<>();
-        Set<String> uris = new HashSet<>();
-        String cover = "";
-        int photos = 0;
-        int videos = 0;
-        long firstDate = Long.MAX_VALUE;
-        long lastDate = 0L;
-        if (records != null) {
-            for (MemoryRecord record : records) {
-                if (record == null || aliases == null
-                        || !memberIds.contains(aliases.get(record.memoryKey))) {
-                    continue;
-                }
-                MemoryBrowserItem item = MemoryBrowserItem.from(record);
-                if (item != null) {
-                    names.add(item.title);
-                }
-                firstDate = Math.min(firstDate,
-                        record.startDateMillis > 0L ? record.startDateMillis : Long.MAX_VALUE);
-                lastDate = Math.max(lastDate, record.endDateMillis);
-                List<DiscoveryPhotoRef> refs;
-                if (repository == null) {
-                    refs = record.discoveryGroup == null
-                            ? java.util.Collections.<DiscoveryPhotoRef>emptyList()
-                            : record.discoveryGroup.photoRefs;
-                } else {
-                    MemoryMediaResolution resolution = MemoryMediaResolver.resolve(
-                            record, repository.usableMemoryLink(record), galleryReader);
-                    refs = resolution == null ? java.util.Collections.<DiscoveryPhotoRef>emptyList()
-                            : resolution.refs;
-                }
-                for (DiscoveryPhotoRef ref : refs) {
-                    if (ref == null || ref.stale || ref.sourceUri == null || !uris.add(ref.sourceUri)) {
-                        continue;
-                    }
-                    if (ref.mediaKind == MediaKind.VIDEO) {
-                        videos++;
-                    } else {
-                        photos++;
-                    }
-                    if (cover.isEmpty()) {
-                        cover = ref.sourceUri;
-                    }
-                }
-            }
-        }
-        String range = "";
-        if (firstDate != Long.MAX_VALUE && lastDate > 0L) {
-            SimpleDateFormat formatter = new SimpleDateFormat("yyyy.MM.dd", Locale.KOREA);
-            String startText = formatter.format(new Date(firstDate));
-            String endText = formatter.format(new Date(lastDate));
-            range = startText.equals(endText) ? startText : startText + " ~ " + endText;
-        }
-        StringBuilder placeNames = new StringBuilder();
-        int shownNameCount = 0;
-        for (String name : names) {
-            if (shownNameCount >= 3) {
-                break;
-            }
-            if (placeNames.length() > 0) {
-                placeNames.append(" · ");
-            }
-            placeNames.append(name);
-            shownNameCount++;
-        }
-        int remainingNames = Math.max(0, collection.members.size() - shownNameCount);
-        if (remainingNames > 0) {
-            placeNames.append(" 외 ").append(remainingNames).append("곳");
-        }
-        return new Summary(photos, videos, cover, placeNames.toString(), range);
-    }
-
-    private static final class Summary {
-        final int photoCount;
-        final int videoCount;
-        final String coverUri;
-        final String placeNames;
-        final String dateRange;
-
-        Summary(int photoCount, int videoCount, String coverUri, String placeNames, String dateRange) {
-            this.photoCount = Math.max(0, photoCount);
-            this.videoCount = Math.max(0, videoCount);
-            this.coverUri = coverUri == null ? "" : coverUri;
-            this.placeNames = placeNames == null ? "" : placeNames;
-            this.dateRange = dateRange == null ? "" : dateRange;
-        }
+            root.addView(card, activity.matchWidthWithBottom(activity.dp(8)));
     }
 }

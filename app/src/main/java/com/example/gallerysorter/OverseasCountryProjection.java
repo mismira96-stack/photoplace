@@ -37,6 +37,11 @@ final class OverseasCountryProjection {
         return !discoveryRecords.isEmpty();
     }
 
+    static OverseasCountryProjection fromUnified(String code, List<MemoryRecord> records) {
+        return new OverseasCountryProjection(code, AutomaticCountryGroups.recordsForCountry(records, code),
+                Collections.emptyList());
+    }
+
     boolean hasOrganizedAlbums() {
         return !organizedAlbums.isEmpty();
     }

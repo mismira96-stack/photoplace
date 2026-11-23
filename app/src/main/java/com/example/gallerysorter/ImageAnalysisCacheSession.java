@@ -58,6 +58,8 @@ final class ImageAnalysisCacheSession {
         return entries.values();
     }
 
+    void remove(String signature) { entries.remove(signature); }
+
     private static String clean(String value) {
         return value == null ? "" : value.trim();
     }

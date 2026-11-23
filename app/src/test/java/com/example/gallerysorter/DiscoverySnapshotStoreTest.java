@@ -3,6 +3,8 @@ package com.example.gallerysorter;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertNotSame;
 
 import org.json.JSONObject;
 import org.junit.Rule;
@@ -17,6 +19,56 @@ import java.util.Collections;
 public class DiscoverySnapshotStoreTest {
     @Rule
     public TemporaryFolder temporaryFolder = new TemporaryFolder();
+
+    @Test public void repeatedReadReusesDecodedSnapshotButStillReadsActualContents() throws Exception {
+        File dir = temporaryFolder.newFolder("decoded");
+        DiscoverySnapshotStore store = new DiscoverySnapshotStore(dir);
+        assertTrue(store.save(sampleSnapshot(7)));
+        DiscoverySnapshot before = store.read();
+        assertSame(before, store.read());
+        File target = new File(dir, "discovery_snapshot.json");
+        long stamp = target.lastModified();
+        long size = target.length();
+        writeText(target, DiscoverySnapshotJson.toJson(sampleSnapshot(8)).toString(2));
+        assertEquals(size, target.length());
+        assertTrue(target.setLastModified(stamp));
+        DiscoverySnapshot after = store.read();
+        assertEquals(8, after.snapshotVersion);
+        assertNotSame(before, after);
+    }
+
+    @Test public void cachedReadDoesNotHideCorruptionOrMakeItSafeToOverwrite() throws Exception {
+        File dir = temporaryFolder.newFolder("cached-corrupt");
+        DiscoverySnapshotStore store = new DiscoverySnapshotStore(dir);
+        assertTrue(store.save(sampleSnapshot(7)));
+        store.read();
+        writeText(new File(dir, "discovery_snapshot.json"), "{broken");
+        assertEquals(0, store.read().groupCount());
+        assertFalse(store.save(sampleSnapshot(9)));
+        assertEquals("{broken", readText(new File(dir, "discovery_snapshot.json")));
+    }
+
+    @Test public void cachedReadStillRestoresBackupAfterCorruptionAndHandlesDeletion() throws Exception {
+        File dir = temporaryFolder.newFolder("cached-backup");
+        DiscoverySnapshotStore store = new DiscoverySnapshotStore(dir);
+        assertTrue(store.save(sampleSnapshot(7)));
+        store.read();
+        writeText(new File(dir, "discovery_snapshot.json"), "{broken");
+        writeText(new File(dir, "discovery_snapshot.json.bak"), DiscoverySnapshotJson.toJson(sampleSnapshot(8)).toString(2));
+        assertEquals(8, store.read().snapshotVersion);
+        assertFalse(new File(dir, "discovery_snapshot.json.bak").exists());
+        assertTrue(store.clear());
+        assertEquals(0, store.read().groupCount());
+    }
+
+    @Test public void saveInvalidatesDecodedObjectAndPreservesNewVersion() throws Exception {
+        DiscoverySnapshotStore store = new DiscoverySnapshotStore(temporaryFolder.newFolder("cache-save"));
+        assertTrue(store.save(sampleSnapshot(7)));
+        DiscoverySnapshot previous = store.read();
+        assertTrue(store.save(sampleSnapshot(8)));
+        assertEquals(8, store.read().snapshotVersion);
+        assertNotSame(previous, store.read());
+    }
 
     @Test
     public void missingSnapshotReadsAsEmpty() throws Exception {

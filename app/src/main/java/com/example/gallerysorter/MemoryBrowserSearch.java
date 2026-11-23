@@ -12,6 +12,13 @@ final class MemoryBrowserSearch {
     }
 
     static List<MemoryRecord> filter(List<MemoryRecord> records, String query) {
+        return filter(records, query, null, null);
+    }
+
+    static List<MemoryRecord> filter(List<MemoryRecord> records,
+                                     String query,
+                                     android.content.Context context,
+                                     MemoryRepository repository) {
         if (records == null || records.isEmpty()) {
             return Collections.emptyList();
         }
@@ -21,7 +28,12 @@ final class MemoryBrowserSearch {
         }
         ArrayList<MemoryRecord> filtered = new ArrayList<>();
         for (MemoryRecord record : records) {
-            if (record != null && matches(record, normalizedQuery)) {
+            if (record == null) {
+                continue;
+            }
+            String stableId = repository == null ? "" : repository.stableId(record.memoryKey);
+            if (matches(record, normalizedQuery)
+                    || PersonalPlaceStore.matchesSearchQuery(context, stableId, record.memoryKey, normalizedQuery)) {
                 filtered.add(record);
             }
         }

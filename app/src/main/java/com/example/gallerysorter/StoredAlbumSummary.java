@@ -15,6 +15,9 @@ final class StoredAlbumSummary {
     final String countryName;
     final String adminArea;
     final String addressLine;
+    final int photoCount;
+    final int videoCount;
+    final boolean mediaSplitKnown;
 
     StoredAlbumSummary(String albumName, String relativePath, int itemCount, String startDate,
                        String endDate, String thumbnailUri, String createdAt,
@@ -28,6 +31,15 @@ final class StoredAlbumSummary {
                        String endDate, String thumbnailUri, String createdAt,
                        long createdAtMillis, String countryCode, String countryName,
                        String adminArea, String addressLine) {
+        this(albumName, relativePath, itemCount, startDate, endDate, thumbnailUri, createdAt,
+                createdAtMillis, countryCode, countryName, adminArea, addressLine, 0, 0, false);
+    }
+
+    StoredAlbumSummary(String albumName, String relativePath, int itemCount, String startDate,
+                       String endDate, String thumbnailUri, String createdAt,
+                       long createdAtMillis, String countryCode, String countryName,
+                       String adminArea, String addressLine,
+                       int photoCount, int videoCount, boolean mediaSplitKnown) {
         this.albumName = albumName == null ? "" : albumName;
         this.relativePath = relativePath == null ? "" : relativePath;
         this.itemCount = itemCount;
@@ -40,6 +52,16 @@ final class StoredAlbumSummary {
         this.countryName = CountryIdentityNormalizer.displayName(this.countryCode, countryName);
         this.adminArea = PhotoItemJson.clean(adminArea);
         this.addressLine = PhotoItemJson.clean(addressLine);
+        this.photoCount = Math.max(0, photoCount);
+        this.videoCount = Math.max(0, videoCount);
+        this.mediaSplitKnown = mediaSplitKnown;
+    }
+
+    StoredAlbumSummary withMediaCounts(int photoCount, int videoCount) {
+        return new StoredAlbumSummary(
+                albumName, relativePath, itemCount, startDate, endDate, thumbnailUri,
+                createdAt, createdAtMillis, countryCode, countryName, adminArea, addressLine,
+                photoCount, videoCount, true);
     }
 
     static StoredAlbumSummary fromJson(JSONObject json) {

@@ -10,7 +10,18 @@ final class AlbumSummary {
     String addressLine;
     final DateRange dateRange = new DateRange();
     int itemCount = 0;
+    int photoCount = 0;
+    int videoCount = 0;
     long thumbnailDateMillis = 0;
+
+    void recordMedia(boolean video) {
+        itemCount++;
+        if (video) {
+            videoCount++;
+        } else {
+            photoCount++;
+        }
+    }
 
     AlbumSummary(String albumName, String relativePath, String thumbnailUri) {
         this.albumName = albumName;

@@ -34,6 +34,19 @@ final class MemoryDateNoteStore {
                 notesFrom(readRoot()).optJSONObject(key));
     }
 
+    synchronized java.util.List<MemoryDateNote> readAll() {
+        java.util.List<MemoryDateNote> result=new java.util.ArrayList<>();
+        JSONObject notes=notesFrom(readRoot());
+        for(java.util.Iterator<String> keys=notes.keys();keys.hasNext();) {
+            String key=keys.next();int split=key.lastIndexOf('#');
+            if(!key.startsWith("memory-id:mem_")||split<0)continue;
+            MemoryDateNote note=MemoryDateNote.fromJson(key.substring("memory-id:".length(),split),
+                    key.substring(split+1),notes.optJSONObject(key));
+            if(note!=null&&!note.dateKey.isEmpty())result.add(note);
+        }
+        return java.util.Collections.unmodifiableList(result);
+    }
+
     synchronized boolean save(String stableMemoryId, String dateKey, String text, long nowMillis) {
         String id = clean(stableMemoryId);
         String date = MemoryDateNote.cleanDateKey(dateKey);

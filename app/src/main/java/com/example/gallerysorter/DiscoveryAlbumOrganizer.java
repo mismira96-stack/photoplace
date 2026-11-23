@@ -87,6 +87,7 @@ final class DiscoveryAlbumOrganizer {
         final String countryName;
         final String adminArea;
         final String addressLine;
+        final boolean manualAssigned;
 
         PreparedItem(DiscoveryPhotoRef ref,
                      String locationKey,
@@ -105,6 +106,7 @@ final class DiscoveryAlbumOrganizer {
             this.countryName = ref.countryName;
             this.adminArea = ref.adminArea;
             this.addressLine = ref.addressLine;
+            this.manualAssigned=ref.manualAssigned;
         }
     }
 
@@ -127,9 +129,7 @@ final class DiscoveryAlbumOrganizer {
             if (!plan.canOrganize()) {
                 continue;
             }
-            String targetRelativePath = lookup.resolveTargetRelativePath(
-                    plan.placeName,
-                    plan.targetRelativePath);
+            String targetRelativePath = ManualAlbumTargetPolicy.resolve(record,plan,lookup);
             if (targetRelativePath == null || targetRelativePath.trim().isEmpty()) {
                 skippedRefCount += plan.refs.size();
                 continue;
@@ -141,7 +141,10 @@ final class DiscoveryAlbumOrganizer {
                     continue;
                 }
                 boolean video = ref.mediaKind == MediaKind.VIDEO;
+                if(!ref.sourceRelativePath.isEmpty()&&ManualPlacePaths.normalize(ref.sourceRelativePath)
+                        .equals(ManualPlacePaths.normalize(targetRelativePath)))continue;
                 Match match = lookup.find(targetRelativePath, ref.displayName, video);
+                if(ref.manualAssigned)match=new Match(match.albumExists,false);
                 PreparedItem item = new PreparedItem(
                         ref,
                         firstNonEmpty(ref.locationKey, plan.placeName),

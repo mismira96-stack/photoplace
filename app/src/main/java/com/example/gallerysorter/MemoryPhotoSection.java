@@ -8,6 +8,8 @@ import java.util.Comparator;
 import java.util.Date;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.Locale;
 
 final class MemoryPhotoSection {
@@ -17,6 +19,21 @@ final class MemoryPhotoSection {
     final String dateText;
     final String placeText;
     final List<MemoryPhotoItem> photos;
+
+    static List<MemoryPhotoSection> withNotes(List<MemoryPhotoSection> sections,List<MemoryDateNote> notes) {
+        java.util.Map<String,MemoryPhotoSection> dates=new java.util.LinkedHashMap<>();
+        for(MemoryPhotoSection section:sections)dates.put(section.dateKey,section);
+        for(MemoryDateNote note:notes)if(!dates.containsKey(note.dateKey)) {
+            String text=note.dateKey;
+            try { text=new SimpleDateFormat("yyyy년 M월 d일",Locale.KOREA)
+                    .format(new SimpleDateFormat("yyyyMMdd",Locale.KOREA).parse(note.dateKey)); }
+            catch(Exception ignored){ }
+            dates.put(note.dateKey,new MemoryPhotoSection(note.dateKey,text,"",Collections.emptyList()));
+        }
+        List<MemoryPhotoSection> result=new ArrayList<>(dates.values());
+        Collections.sort(result,(a,b)->b.dateKey.compareTo(a.dateKey));
+        return Collections.unmodifiableList(result);
+    }
 
     private MemoryPhotoSection(String dateKey,
                                String dateText,
@@ -33,8 +50,10 @@ final class MemoryPhotoSection {
             return Collections.emptyList();
         }
         ArrayList<DiscoveryPhotoRef> validRefs = new ArrayList<>();
+        Set<String> seenUris = new HashSet<>();
         for (DiscoveryPhotoRef ref : refs) {
-            if (ref != null && !ref.stale && !clean(ref.sourceUri).isEmpty()) {
+            if (ref != null && !ref.stale && !clean(ref.sourceUri).isEmpty()
+                    && seenUris.add(ref.sourceUri)) {
                 validRefs.add(ref);
             }
         }
@@ -49,8 +68,9 @@ final class MemoryPhotoSection {
         });
 
         LinkedHashMap<String, SectionBuilder> builders = new LinkedHashMap<>();
+        SimpleDateFormat keyFormatter = new SimpleDateFormat("yyyyMMdd", Locale.KOREA);
         for (DiscoveryPhotoRef ref : validRefs) {
-            String key = dateKey(ref.takenAtMillis);
+            String key = dateKey(ref.takenAtMillis, keyFormatter);
             SectionBuilder builder = builders.get(key);
             if (builder == null) {
                 builder = new SectionBuilder(key, dateText(ref.takenAtMillis), placeText(ref));
@@ -95,11 +115,11 @@ final class MemoryPhotoSection {
         return ref == null || ref.takenAtMillis <= 0L ? 0L : ref.takenAtMillis;
     }
 
-    private static String dateKey(long millis) {
+    private static String dateKey(long millis, SimpleDateFormat formatter) {
         if (millis <= 0L) {
             return "unknown";
         }
-        return new SimpleDateFormat("yyyyMMdd", Locale.KOREA).format(new Date(millis));
+        return formatter.format(new Date(millis));
     }
 
     private static String dateText(long millis) {
@@ -160,11 +180,7 @@ final class MemoryPhotoSection {
         }
 
         void add(DiscoveryPhotoRef ref) {
-            photos.add(new MemoryPhotoItem(
-                    ref.sourceUri,
-                    ref.mediaKind,
-                    ref.mimeType,
-                    ref.takenAtMillis));
+            photos.add(new MemoryPhotoItem(ref));
         }
 
         MemoryPhotoSection build() {
@@ -178,11 +194,22 @@ final class MemoryPhotoItem {
     final MediaKind mediaKind;
     final String mimeType;
     final long takenAtMillis;
+    final long mediaStoreId;
+    final String sourceRelativePath,displayName;
+    final boolean manualAssigned;
 
     MemoryPhotoItem(String sourceUri, MediaKind mediaKind, String mimeType, long takenAtMillis) {
+        this(sourceUri,mediaKind,mimeType,takenAtMillis,-1,"","",false);
+    }
+    MemoryPhotoItem(DiscoveryPhotoRef ref) {
+        this(ref.sourceUri,ref.mediaKind,ref.mimeType,ref.takenAtMillis,ref.mediaStoreId,ref.sourceRelativePath,ref.displayName,ref.manualAssigned);
+    }
+    private MemoryPhotoItem(String sourceUri,MediaKind mediaKind,String mimeType,long takenAtMillis,
+                            long mediaStoreId,String path,String name,boolean manualAssigned) {
         this.sourceUri = sourceUri == null ? "" : sourceUri.trim();
         this.mediaKind = mediaKind == null ? MediaKind.PHOTO : mediaKind;
         this.mimeType = mimeType == null ? "" : mimeType.trim();
         this.takenAtMillis = Math.max(0L, takenAtMillis);
+        this.mediaStoreId=mediaStoreId;this.sourceRelativePath=path;this.displayName=name;this.manualAssigned=manualAssigned;
     }
 }

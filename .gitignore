@@ -25,3 +25,15 @@ scripts/
 # Local screenshots and UI drafts
 /*.png
 store-screenshots/
+
+# Device UI inspection dumps & traces
+/*.xml
+/device-*.json
+/device_*.json
+/album3_media_rows.txt
+/location_album_media_rows.txt
+/device_media_images.txt
+/REVIEW_*.json
+/.review/
+/verification/
+

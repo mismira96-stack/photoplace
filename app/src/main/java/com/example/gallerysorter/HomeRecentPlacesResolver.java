@@ -13,13 +13,19 @@ final class HomeRecentPlacesResolver {
         final String coverUri;
         final String countText;
         final boolean includeOrganizedSources;
+        final boolean complete;
 
-        private Card(String memoryKey, String title, String coverUri, String countText) {
+        Card(String memoryKey, String title, String coverUri, String countText) {
+            this(memoryKey, title, coverUri, countText, true);
+        }
+
+        Card(String memoryKey, String title, String coverUri, String countText, boolean complete) {
             this.memoryKey = memoryKey;
             this.title = title;
             this.coverUri = coverUri;
             this.countText = countText;
             this.includeOrganizedSources = true;
+            this.complete = complete;
         }
     }
 
@@ -48,29 +54,21 @@ final class HomeRecentPlacesResolver {
                     record, repository.usableMemoryLink(record), galleryReader);
             DiscoveryPhotoRef newest = null;
             DiscoveryPhotoRef newestPhoto = null;
-            int videos = 0;
             for (DiscoveryPhotoRef ref : media.refs) {
                 if (newest == null || ref.takenAtMillis > newest.takenAtMillis) newest = ref;
-                if (ref.mediaKind == MediaKind.VIDEO) {
-                    videos++;
-                } else if (newestPhoto == null || ref.takenAtMillis > newestPhoto.takenAtMillis) {
+                if (ref.mediaKind != MediaKind.VIDEO
+                        && (newestPhoto == null || ref.takenAtMillis > newestPhoto.takenAtMillis)) {
                     newestPhoto = ref;
                 }
             }
             String count = media.source == MemoryMediaSourcePolicy.Source.UNAVAILABLE
-                    ? "불러오기 필요" : countText(media.refs.size() - videos, videos);
+                    ? "불러오기 필요" : MemoryMediaCounts.fromRefs(media.refs).text();
             String cover = newestPhoto != null ? newestPhoto.sourceUri
                     : newest != null ? newest.sourceUri : record.coverUri;
             cards.add(new Card(record.memoryKey, MemoryBrowserItem.from(record).title,
-                    cover, count));
+                    cover, count, media.source != MemoryMediaSourcePolicy.Source.UNAVAILABLE));
         }
         return Collections.unmodifiableList(cards);
-    }
-
-    private static String countText(int photos, int videos) {
-        if (videos == 0) return "사진 " + photos + "장";
-        if (photos == 0) return "동영상 " + videos + "개";
-        return "사진 " + photos + "장 · 동영상 " + videos + "개";
     }
 
 }

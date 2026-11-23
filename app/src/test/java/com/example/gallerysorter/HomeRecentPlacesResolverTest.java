@@ -84,11 +84,32 @@ public class HomeRecentPlacesResolverTest {
         assertEquals(fresh.sourceUri, card.coverUri);
         MemoryBrowserDetail detail = MemoryBrowserState.from(repository).detail(card.memoryKey, repository, reader);
         assertEquals(2, detail.sourceUris.size());
+        assertEquals(card.countText, detail.item.countText);
     }
 
     private static StoredAlbumSummary album(String place) {
         return new StoredAlbumSummary(place + "에서", "Pictures/" + place + "에서/", 1,
                 "", "", "content://album/" + place, "", 1L, "KR", "대한민국", "경기", "");
+    }
+
+    @Test public void mixedDetailCountsResolvedUnionRatherThanMaximumOfStoredSummaries() {
+        DiscoveryPhotoRef copied = ref("성남", "old.jpg", 100L);
+        DiscoveryPhotoRef fresh = ref("성남", "new.jpg", 300L);
+        DiscoveryMemoryGroup group = new DiscoveryMemoryGroup("discovery:성남", "성남", "성남",
+                "KR", "대한민국", "경기", "", 2, 2, 0, 100L, 300L, copied.sourceUri,
+                Arrays.asList(copied, fresh), 0, 1L);
+        StoredAlbumSummary historical = new StoredAlbumSummary("성남에서", "Pictures/성남에서/", 10,
+                "", "", "content://cover", "", 1L, "KR", "대한민국", "경기", "");
+        MemoryRepository repository = new MemoryRepository(snapshot(group), Collections.singletonList(historical));
+        MemoryMediaResolver.GalleryReader reader = (path, memory) -> MemoryMediaStoreReader.Result.found(
+                Arrays.asList(ref("gallery", "old.jpg", 100L), ref("gallery", "album-only.jpg", 200L)));
+        HomeRecentPlacesResolver.Card card = HomeRecentPlacesResolver.build(repository, reader).get(0);
+        MemoryBrowserDetail detail = MemoryBrowserState.from(repository).detail(card.memoryKey, repository, reader);
+        assertEquals(MemorySourceType.MIXED, detail.record.sourceType);
+        assertEquals(10, detail.record.itemCount); // Historical estimate is intentionally not mutated.
+        assertEquals(3, detail.sourceUris.size()); // Two gallery items + one new item, copied old item deduped.
+        assertEquals("사진 3장", detail.item.countText);
+        assertEquals(card.countText, detail.item.countText);
     }
 
     private static DiscoveryMemoryGroup group(String place, long time) {

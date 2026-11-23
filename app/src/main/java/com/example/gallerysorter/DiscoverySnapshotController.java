@@ -15,12 +15,14 @@ final class DiscoverySnapshotController {
     private final MemoryIdentityRegistryStore identityRegistryStore;
     private final MemoryOrganizationLinkStore organizationLinkStore;
     private MemoryMediaResolver.GalleryReader galleryReader;
+    private Context manualContext;
 
     DiscoverySnapshotController(Context context) {
         this(new DiscoverySnapshotStore(context), new SystemClock(),
                 new DiscoverySnapshotLiveFilter(context.getContentResolver()),
                 new MemoryIdentityRegistryStore(context), new MemoryOrganizationLinkStore(context));
         this.galleryReader = new MemoryMediaStoreReader(context.getContentResolver());
+        this.manualContext=context.getApplicationContext();
     }
 
     DiscoverySnapshotController(DiscoverySnapshotStore store, Clock clock) {
@@ -61,7 +63,11 @@ final class DiscoverySnapshotController {
                 existing,
                 snapshot,
                 photoUris(snapshot));
-        return updateFor(store.save(merged), existing, snapshot);
+        boolean saved = store.save(merged);
+        if (saved && manualContext != null) {
+            PersonalPlaceStore.syncSnapshotOnRefresh(manualContext, merged, identityRegistryStore);
+        }
+        return updateFor(saved, existing, snapshot);
     }
 
     boolean saveSourceItems(List<DiscoverySnapshotMapper.SourceItem> items,
@@ -87,7 +93,11 @@ final class DiscoverySnapshotController {
                 existing,
                 snapshot,
                 photoUris(snapshot));
-        return updateFor(store.save(merged), existing, snapshot);
+        boolean saved = store.save(merged);
+        if (saved && manualContext != null) {
+            PersonalPlaceStore.syncSnapshotOnRefresh(manualContext, merged, identityRegistryStore);
+        }
+        return updateFor(saved, existing, snapshot);
     }
 
     private DiscoverySnapshotUpdate updateFor(boolean saved,
@@ -146,9 +156,12 @@ final class DiscoverySnapshotController {
     }
 
     MemoryBrowserState loadBrowserState(List<StoredAlbumSummary> organizedAlbums, String query) {
+        MemoryRepository repo = repository(organizedAlbums);
         return MemoryBrowserState.fromRecords(MemoryBrowserSearch.filter(
-                repository(organizedAlbums).discoveryMemories(),
-                query));
+                repo.discoveryMemories(),
+                query,
+                manualContext,
+                repo));
     }
 
     MemoryBrowserDetail loadBrowserDetail(String memoryKey,
@@ -163,12 +176,36 @@ final class DiscoverySnapshotController {
         List<MemoryRecord> records = includeOrganizedSources
                 ? repository.memories()
                 : repository.discoveryMemories();
-        return MemoryBrowserState.fromRecords(records)
-                .detail(memoryKey, repository, galleryReader);
+        MemoryBrowserState state=MemoryBrowserState.fromRecords(records);
+        String resolvedKey=includeOrganizedSources?repository.presentationKey(memoryKey):memoryKey;
+        if(state.item(resolvedKey)==null) {
+            String id=repository.stableId(memoryKey);
+            if(!id.isEmpty())for(MemoryRecord record:records)if(id.equals(repository.stableId(record.memoryKey))){resolvedKey=record.memoryKey;break;}
+        }
+        return withCurrentNotes(state.detail(resolvedKey, repository, galleryReader));
+    }
+
+    MemoryBrowserDetail loadBrowserCardDetail(MemoryBrowserEntry entry, String memoryKey, String revision) {
+        return withCurrentNotes(entry.detailForRevision(memoryKey, revision, galleryReader));
+    }
+
+    MemoryBrowserDetail loadPhysicalAlbumDetail(StoredAlbumSummary album, MemoryBrowserEntry entry) {
+        return withCurrentNotes(PhysicalAlbumDetail.buildFromRecords(album,
+                entry == null ? Collections.emptyList() : entry.records, galleryReader));
+    }
+
+    private MemoryBrowserDetail withCurrentNotes(MemoryBrowserDetail detail) {
+        if(detail!=null&&manualContext!=null) {
+            String id=new MemoryIdentityRegistryStore(manualContext).findStableId(detail.record.memoryKey);
+            detail=detail.withNotes(MemoryNoteProjection.forId(new MemoryDateNoteStore(manualContext).readAll(),id));
+        }
+        return detail;
     }
 
     MemoryRepository repository(List<StoredAlbumSummary> organizedAlbums) {
         DiscoverySnapshot snapshot = store.read();
+        DiscoverySnapshot rawSnapshot=snapshot;
+        if(manualContext!=null)organizedAlbums=MemoryManagementAlbums.withLinks(organizedAlbums,new MemoryOrganizationLinkStore(manualContext).readAll());
         if (liveFilter != null) {
             snapshot = liveFilter.filter(snapshot, organizedAlbums);
         }
@@ -178,7 +215,24 @@ final class DiscoverySnapshotController {
         List<OrganizationLink> links = organizationLinkStore == null
                 ? Collections.<OrganizationLink>emptyList()
                 : organizationLinkStore.readAll();
-        return new MemoryRepository(snapshot, organizedAlbums, aliases, links);
+        ManualGalleryPolicy galleryPolicy=null;
+        if(manualContext!=null) {
+            try {
+                ManualPlaceSnapshot manual=new ManualPlaceStore(manualContext).readAssignments();
+                organizedAlbums=MemoryManagementAlbums.withManual(organizedAlbums,manual);
+                List<UnresolvedMediaRecord> expected=new java.util.ArrayList<>();
+                for(ManualMediaAssignment a:manual.assignments())expected.add(a.media);
+                Map<String,UnresolvedMediaRecord> live=new MemoryMediaAccess(manualContext).available(expected,false);
+                snapshot=EffectiveMediaPlaceResolver.project(snapshot,manual,live,false);
+                aliases=new java.util.LinkedHashMap<>(manual.mergedAliases(aliases));
+                snapshot=MemoryNoteProjection.retain(rawSnapshot,snapshot,aliases,new MemoryDateNoteStore(manualContext).readAll());
+                galleryPolicy=new ManualGalleryPolicy(manual,live,aliases);
+                if(new ManualPlaceStore(manualContext).revision()!=manual.revision)
+                    throw new IllegalStateException("위치기록이 바뀌었어요. 다시 불러와 주세요.");
+            } catch(Exception error) { throw new IllegalStateException("수동 위치기록을 불러오지 못했어요.",error); }
+        }
+        return new MemoryRepository(snapshot, organizedAlbums, aliases, links,galleryPolicy,
+                manualContext==null?null:new RecoveredAlbumGeoReader(manualContext));
     }
 
     MemoryMediaResolver.GalleryReader galleryReader() {

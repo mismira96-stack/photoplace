@@ -16,8 +16,8 @@ android {
         applicationId "com.photoplace.app"
         minSdk 29
         targetSdk 36
-        versionCode 36
-        versionName "1.3.6"
+        versionCode 83
+        versionName "1.3.47"
     }
 
     signingConfigs {
@@ -30,6 +30,9 @@ android {
     }
 
     buildTypes {
+        debug {
+            applicationIdSuffix ".dev"
+        }
         release {
             signingConfig signingConfigs.release
             minifyEnabled false

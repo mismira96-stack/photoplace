@@ -1,11 +1,10 @@
 package com.example.gallerysorter;
 
 import android.content.Context;
-import android.graphics.Color;
 import android.view.View;
-import android.widget.TextView;
 
 import java.util.List;
+import java.util.Locale;
 
 final class MemoryBrowserSummaryRenderer {
     private final Context context;
@@ -15,17 +14,20 @@ final class MemoryBrowserSummaryRenderer {
     }
 
     View render(List<MemoryRecord> records) {
-        MemoryBrowserSummary summary = MemoryBrowserSummary.from(records);
-        TextView dateRange = new TextView(context);
-        dateRange.setText(summary.yearRange);
-        dateRange.setTextSize(12.0f);
-        dateRange.setTextColor(Color.rgb(120, 129, 147));
-        dateRange.setIncludeFontPadding(false);
-        dateRange.setPadding(dp(2), 0, 0, 0);
-        return dateRange;
+        return render(records, null, null);
     }
 
-    private int dp(int value) {
-        return Math.round(value * context.getResources().getDisplayMetrics().density);
+    View render(List<MemoryRecord> records, View addPlaceAction, View collectAction) {
+        return render(MemoryBrowserSummary.from(records), addPlaceAction, collectAction);
+    }
+
+    View render(MemoryBrowserEntry entry, View addPlaceAction, View collectAction) {
+        return render(entry.summary, addPlaceAction, collectAction);
+    }
+
+    private View render(MemoryBrowserSummary summary, View addPlaceAction, View collectAction) {
+        return MemoryListChrome.summary(context, "장소 " + summary.placeCount + "곳",
+                String.format(Locale.KOREA, "사진·동영상 %,d개 · %s", summary.photoCount, summary.yearRange),
+                addPlaceAction, collectAction);
     }
 }

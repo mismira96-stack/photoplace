@@ -26,15 +26,26 @@ final class MemoryMediaResolver {
                 ? Collections.<DiscoveryPhotoRef>emptyList()
                 : memory.discoveryGroup.photoRefs);
         MemoryMediaStoreReader.Result gallery = null;
+        // Older/bulk-created albums have a known path but no OrganizationLink. Read that
+        // existing association without creating aliases or guessing a new album by name.
+        boolean legacyOutput = galleryReader != null && exactMemoryLink == null && memory.organizedAlbum != null
+                && !memory.organizedAlbum.relativePath.trim().isEmpty();
         if (galleryReader != null && exactMemoryLink != null
                 && exactMemoryLink.subjectType == OrganizationLink.SubjectType.MEMORY) {
             gallery = galleryReader.read(exactMemoryLink.relativePath, memory);
+        } else if (galleryReader != null && legacyOutput) {
+            gallery = galleryReader.read(memory.organizedAlbum.relativePath, memory);
         }
+        if(gallery!=null&&memory.galleryPolicy!=null)gallery=memory.galleryPolicy.filter(gallery,memory);
         MemoryMediaSourcePolicy.GalleryLookup lookup = gallery == null
                 ? MemoryMediaSourcePolicy.GalleryLookup.UNKNOWN
                 : gallery.lookup;
-        MemoryMediaSourcePolicy.Source source = MemoryMediaSourcePolicy.choose(
-                exactMemoryLink, lookup, !discoveryRefs.isEmpty());
+        if(lookup==MemoryMediaSourcePolicy.GalleryLookup.MISSING&&discoveryRefs.isEmpty()
+                &&memory.discoveryGroup!=null&&memory.discoveryGroup.hasUserNotes)
+            return MemoryMediaResolution.fromDiscovery(Collections.emptyList());
+        MemoryMediaSourcePolicy.Source source = legacyOutput
+                ? MemoryMediaSourcePolicy.chooseKnownOutput(true, lookup, !discoveryRefs.isEmpty())
+                : MemoryMediaSourcePolicy.choose(exactMemoryLink, lookup, !discoveryRefs.isEmpty());
         if (source == MemoryMediaSourcePolicy.Source.GALLERY_OUTPUT) {
             return MemoryMediaResolution.fromGallery(withNewDiscovery(gallery.refs, discoveryRefs));
         }
@@ -77,7 +88,7 @@ final class MemoryMediaResolver {
             }
             String uri = ref.sourceUri;
             String fileKey = mediaFileKey(ref);
-            if (!seenUris.add(uri) || (skipKnownFiles && !fileKey.isEmpty() && knownFiles.contains(fileKey))) {
+            if (!seenUris.add(uri) || (skipKnownFiles && !ref.manualAssigned && !fileKey.isEmpty() && knownFiles.contains(fileKey))) {
                 continue;
             }
             output.add(ref);

@@ -33,7 +33,7 @@ public class SortWorker extends Worker {
         SortProgressStore.start(context, label);
         setForegroundAsync(foregroundInfo(label, 0, input.items.size(), ""));
         SortNotificationHelper.notifyProgress(context, label, 0, input.items.size(), "");
-        SortJob sortJob = new SortJob(new MediaCopyEngine(context), new SortJob.CancelSignal() {
+        SortJob sortJob = new SortJob(new MediaCopyEngine(context,input.organizationRequest), new SortJob.CancelSignal() {
             @Override
             public boolean isCanceled() {
                 return SortWorker.this.isStopped();

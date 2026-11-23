@@ -40,7 +40,7 @@ final class DiscoveryAlbumItemAdapter {
                     item.countryCode,
                     item.countryName,
                     item.adminArea,
-                    item.addressLine));
+                    item.addressLine,item.manualAssigned));
         }
         return items;
     }

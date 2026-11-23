@@ -14,4 +14,9 @@ final class SortJobResult {
     int skippedCount;
     int failedCount;
     boolean canceled;
+    String evidenceJobId = "";
+    int evidenceRecordedCount;
+    int evidenceUnrecordedCount;
+    int evidenceFailureCount;
+    long evidenceCheckpointMillis;
 }

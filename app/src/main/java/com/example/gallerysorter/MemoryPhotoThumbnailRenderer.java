@@ -22,13 +22,20 @@ final class MemoryPhotoThumbnailRenderer {
     private final Context context;
     private final Listener listener;
     private final ThumbnailLoader thumbnailLoader;
+    private final String originKey;
+    private final MemoryDetailSelection selection;
 
     MemoryPhotoThumbnailRenderer(Context context,
                                  Listener listener,
                                  ThumbnailLoader thumbnailLoader) {
+        this(context,listener,thumbnailLoader,"",null);
+    }
+    MemoryPhotoThumbnailRenderer(Context context,Listener listener,ThumbnailLoader thumbnailLoader,String originKey, MemoryDetailSelection selection) {
         this.context = context;
         this.listener = listener;
         this.thumbnailLoader = thumbnailLoader;
+        this.originKey=originKey;
+        this.selection=selection;
     }
 
     View render(final MemoryPhotoItem item, int thumbnailSizePx) {
@@ -50,29 +57,29 @@ final class MemoryPhotoThumbnailRenderer {
         frame.setClipToOutline(true);
 
         if (item != null && item.mediaKind == MediaKind.VIDEO) {
-            TextView play = new TextView(context);
-            play.setText("▶");
-            play.setTextSize(12.0f);
-            play.setTypeface(Typeface.DEFAULT_BOLD);
-            play.setTextColor(Color.WHITE);
-            play.setGravity(Gravity.CENTER);
+            ImageView play = new ImageView(context);
+            play.setScaleType(ImageView.ScaleType.CENTER);
+            play.setImageDrawable(MediaVectorIconDrawable.play(Color.WHITE, dp(13)));
             GradientDrawable badge = new GradientDrawable();
-            badge.setColor(Color.argb(185, 24, 31, 43));
+            badge.setColor(Color.argb(175, 18, 22, 32));
+            badge.setStroke(dp(1), Color.argb(65, 255, 255, 255));
             badge.setShape(GradientDrawable.OVAL);
             play.setBackground(badge);
-            FrameLayout.LayoutParams badgeParams = new FrameLayout.LayoutParams(dp(30), dp(30), Gravity.END | Gravity.BOTTOM);
+            FrameLayout.LayoutParams badgeParams = new FrameLayout.LayoutParams(dp(28), dp(28), Gravity.END | Gravity.BOTTOM);
             badgeParams.setMargins(0, 0, dp(7), dp(7));
             frame.addView(play, badgeParams);
         }
 
-        frame.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                if (listener != null && item != null) {
-                    listener.onOpen(item);
-                }
-            }
-        });
+        Runnable open = () -> { if (listener != null && item != null) listener.onOpen(item); };
+        if (selection != null && item != null) {
+            selection.bind(frame, item, open);
+        } else {
+            frame.setOnClickListener(view -> open.run());
+            frame.setOnLongClickListener(view -> {
+                MemoryManagementEntry.openSingle(context, item, originKey);
+                return true;
+            });
+        }
         return frame;
     }
 

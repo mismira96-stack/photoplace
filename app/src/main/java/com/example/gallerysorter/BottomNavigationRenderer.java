@@ -5,6 +5,7 @@ import android.graphics.Color;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.GradientDrawable;
 import android.graphics.Typeface;
+import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.View;
 import android.widget.LinearLayout;
@@ -19,8 +20,8 @@ final class BottomNavigationRenderer {
         Drawable create(String iconName, int color, int sizePx);
     }
 
-    private static final String[] ICONS = {"home", "photoLibrary", "grid", "settings"};
-    private static final String[] LABELS = {"홈", "발견 기록", "위치 앨범", "설정"};
+    private static final String[] ICONS = {"home", "photoLibrary", "settings"};
+    private static final String[] LABELS = {"홈", "발견 기록", "설정"};
 
     private final Context context;
     private final IconFactory iconFactory;
@@ -38,21 +39,23 @@ final class BottomNavigationRenderer {
         bar.setBackground(barBackground());
 
         for (int index = 0; index < LABELS.length; index++) {
-            final int tabIndex = index;
+            final int tabIndex = DiscoveryTabDestinations.destinationAt(index);
             TextView tab = new TextView(context);
-            boolean selected = selectedIndex == index;
+            boolean selected = DiscoveryTabDestinations.selected(index, selectedIndex);
             tab.setText(LABELS[index]);
             tab.setTextSize(12.0f);
             tab.setTypeface(Typeface.DEFAULT_BOLD);
             tab.setGravity(Gravity.CENTER);
-            tab.setSingleLine(true);
+            tab.setMaxLines(1);
+            tab.setAutoSizeTextTypeUniformWithPresetSizes(new int[]{9, 10, 11, 12}, TypedValue.COMPLEX_UNIT_SP);
             tab.setTextColor(selected ? Color.rgb(109, 87, 218) : Color.rgb(100, 111, 132));
-            tab.setCompoundDrawablePadding(dp(5));
+            tab.setCompoundDrawablePadding(dp(3));
             if (iconFactory != null) {
                 int color = selected ? Color.rgb(109, 87, 218) : Color.rgb(100, 111, 132);
-                tab.setCompoundDrawables(iconFactory.create(ICONS[index], color, dp(18)), null, null, null);
+                Drawable icon = iconFactory.create(ICONS[index], color, dp(18));
+                tab.setCompoundDrawables(icon, null, null, null);
             }
-            tab.setPadding(dp(4), dp(9), dp(4), dp(9));
+            tab.setPadding(dp(2), dp(9), dp(2), dp(9));
             if (selected) {
                 tab.setBackground(selectedBackground());
             }

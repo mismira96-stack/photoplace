@@ -16,19 +16,31 @@ import java.util.Calendar;
 import java.util.Date;
 import java.util.Locale;
 
-final class MediaCopyEngine {
+final class MediaCopyEngine implements SortJob.CopyEngine {
     private static final int MIN_VALID_TAKEN_YEAR = 2000;
     private static final int MAX_VALID_TAKEN_YEAR = 2035;
 
     private final Context context;
+    private final ManualPlaceCopyBridge manualBridge;
 
     MediaCopyEngine(Context context) {
+        this(context,null);
+    }
+    MediaCopyEngine(Context context,OrganizationRequest request) {
         this.context = context.getApplicationContext();
+        this.manualBridge=new ManualPlaceCopyBridge(context,request);
     }
 
-    Uri copy(PhotoItem item) throws Exception {
+    @Override public CleanupEvidenceSession newEvidenceSession() {
+        return new CleanupEvidenceSession(new CleanupEvidenceStore(context));
+    }
+
+    @Override public MediaCopyReceipt copy(PhotoItem item) throws Exception {
+        String manualReceipt=manualBridge.begin(item);
+        try {
         if (item.video) {
-            return moveVideoItem(item);
+            Uri moved=moveVideoItem(item);manualBridge.complete(manualReceipt,moved);
+            return new MediaCopyReceipt(moved, -1L);
         }
         ContentValues values = new ContentValues();
         values.put("_display_name", safeName(item.name));
@@ -42,6 +54,8 @@ final class MediaCopyEngine {
         if (insertedUri == null) {
             throw new IllegalStateException("사진 복사 위치를 만들 수 없습니다.");
         }
+        manualBridge.target(manualReceipt,insertedUri);
+        long copiedBytes = 0L;
         try (InputStream input = resolver.openInputStream(item.uri);
              OutputStream output = resolver.openOutputStream(insertedUri)) {
             if (input == null || output == null) {
@@ -51,6 +65,7 @@ final class MediaCopyEngine {
             int read;
             while ((read = input.read(buffer)) != -1) {
                 output.write(buffer, 0, read);
+                copiedBytes += read;
             }
         }
 
@@ -60,7 +75,9 @@ final class MediaCopyEngine {
         putMediaDates(doneValues, item.takenAt);
         resolver.update(insertedUri, doneValues, null, null);
         setCopiedFileModifiedTime(insertedUri, item.takenAt);
-        return insertedUri;
+        manualBridge.complete(manualReceipt,insertedUri);
+        return new MediaCopyReceipt(insertedUri, copiedBytes);
+        } catch(Exception error){manualBridge.failed(manualReceipt);throw error;}
     }
 
     private Uri moveVideoItem(PhotoItem item) throws Exception {

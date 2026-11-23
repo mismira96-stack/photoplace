@@ -16,6 +16,8 @@ final class MemoryOrganizationCompletionRenderer {
         void onReturnToMemory();
 
         void onOpenAlbums();
+
+        default void onOpenCleanup() {}
     }
 
     interface ButtonStyler {
@@ -165,6 +167,20 @@ final class MemoryOrganizationCompletionRenderer {
             arrow.setTextSize(27);
             arrow.setTextColor(0xFF8A94A8);
             albumRow.addView(arrow, new LinearLayout.LayoutParams(dp(28), -2));
+        }
+
+        if (copiedCount > 0) {
+            Button cleanup = new Button(context);
+            buttonStyler.styleSecondary(cleanup, "정리한 원본 정리 검토");
+            cleanup.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View view) {
+                    listener.onOpenCleanup();
+                }
+            });
+            LinearLayout.LayoutParams cleanupParams = new LinearLayout.LayoutParams(-1, dp(46));
+            cleanupParams.topMargin = dp(12);
+            content.addView(cleanup, cleanupParams);
         }
 
         Button back = new Button(context);

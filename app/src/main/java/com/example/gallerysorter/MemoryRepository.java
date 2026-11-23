@@ -21,6 +21,10 @@ final class MemoryRepository {
     private final List<StoredAlbumSummary> organizedAlbums;
     private final Map<String, String> stableIdByAlias;
     private final List<OrganizationLink> organizationLinks;
+    private final ManualGalleryPolicy galleryPolicy;
+    private final RecoveredAlbumLinkResolver.GeoReader recoveryReader;
+    private Map<String,RecoveredAlbumLinkResolver.Match> recoveryMatches;
+    private final Map<String,MemoryRecord> recoveredAliases=new LinkedHashMap<>();
 
     MemoryRepository(DiscoverySnapshot discoverySnapshot, List<StoredAlbumSummary> organizedAlbums) {
         this(discoverySnapshot, organizedAlbums, Collections.<String, String>emptyMap(),
@@ -31,6 +35,16 @@ final class MemoryRepository {
                      List<StoredAlbumSummary> organizedAlbums,
                      Map<String, String> stableIdByAlias,
                      List<OrganizationLink> organizationLinks) {
+        this(discoverySnapshot,organizedAlbums,stableIdByAlias,organizationLinks,null);
+    }
+    MemoryRepository(DiscoverySnapshot discoverySnapshot,List<StoredAlbumSummary> organizedAlbums,
+                     Map<String,String> stableIdByAlias,List<OrganizationLink> organizationLinks,ManualGalleryPolicy galleryPolicy) {
+        this(discoverySnapshot,organizedAlbums,stableIdByAlias,organizationLinks,galleryPolicy,null);
+    }
+    MemoryRepository(DiscoverySnapshot discoverySnapshot,List<StoredAlbumSummary> organizedAlbums,
+                     Map<String,String> stableIdByAlias,List<OrganizationLink> organizationLinks,ManualGalleryPolicy galleryPolicy,
+                     RecoveredAlbumLinkResolver.GeoReader recoveryReader) {
+        this.recoveryReader=recoveryReader;
         this.discoverySnapshot = discoverySnapshot;
         this.organizedAlbums = immutableCopy(organizedAlbums);
         this.stableIdByAlias = stableIdByAlias == null
@@ -39,9 +53,10 @@ final class MemoryRepository {
         this.organizationLinks = organizationLinks == null
                 ? Collections.<OrganizationLink>emptyList()
                 : Collections.unmodifiableList(new ArrayList<>(organizationLinks));
+        this.galleryPolicy=galleryPolicy;
     }
 
-    List<MemoryRecord> memories() {
+    synchronized List<MemoryRecord> memories() {
         LinkedHashMap<String, MemoryRecord> records = new LinkedHashMap<>();
         LinkedHashMap<String, List<MemoryRecord>> organizedByPlaceKey = new LinkedHashMap<>();
         LinkedHashMap<String, MemoryRecord> organizedByPath = new LinkedHashMap<>();
@@ -58,6 +73,7 @@ final class MemoryRepository {
                 }
             }
         }
+        Map<String,RecoveredAlbumLinkResolver.Match> recovered=recoveredMatches(new ArrayList<>(records.values()),latestLinksByMemoryId);
         if (discoverySnapshot != null) {
             for (DiscoveryMemoryGroup group : discoverySnapshot.groups) {
                 MemoryRecord discoveryRecord = fromDiscoveryGroup(group);
@@ -75,14 +91,44 @@ final class MemoryRepository {
                         existing = findCompatibleOrganizedRecord(organizedByPlaceKey, discoveryRecord);
                     }
                 }
+                RecoveredAlbumLinkResolver.Match recovery=null;
+                if(existing==null&&exactLink==null) {
+                    recovery=recovered.get(discoveryRecord.memoryKey);
+                    if(recovery!=null)existing=records.get(recovery.albumKey);
+                }
                 if (existing == null) {
                     records.put(discoveryRecord.memoryKey, discoveryRecord);
+                } else if(recovery!=null) {
+                    MemoryRecord combined=recovery.primaryKey.equals(discoveryRecord.memoryKey)
+                            ?merge(discoveryRecord,existing):merge(existing,discoveryRecord);
+                    records.remove(existing.memoryKey);
+                    records.put(combined.memoryKey,combined);
+                    recoveredAliases.put(recovery.albumKey,combined);
+                    recoveredAliases.put(recovery.discoveryKey,combined);
                 } else {
                     records.put(existing.memoryKey, merge(existing, discoveryRecord));
                 }
             }
         }
-        return Collections.unmodifiableList(new ArrayList<>(records.values()));
+        List<MemoryRecord> result=new ArrayList<>();for(MemoryRecord record:records.values())result.add(record.withGalleryPolicy(galleryPolicy));
+        return Collections.unmodifiableList(result);
+    }
+
+    private synchronized Map<String,RecoveredAlbumLinkResolver.Match> recoveredMatches(List<MemoryRecord> albums,Map<String,OrganizationLink> links) {
+        if(recoveryMatches!=null)return recoveryMatches;
+        List<MemoryRecord> sources=new ArrayList<>();
+        if(discoverySnapshot!=null)for(DiscoveryMemoryGroup group:discoverySnapshot.groups) {
+            MemoryRecord source=fromDiscoveryGroup(group);if(source!=null)sources.add(source);
+        }
+        java.util.Set<String> paths=new java.util.HashSet<>();
+        for(OrganizationLink link:links.values())paths.add(normalizedRelativePath(link.relativePath));
+        recoveryMatches=RecoveredAlbumLinkResolver.resolve(albums,sources,stableIdByAlias,paths,recoveryReader);
+        return recoveryMatches;
+    }
+
+    synchronized String presentationKey(String alias) {
+        memories();MemoryRecord recovered=recoveredAliases.get(clean(alias));
+        return recovered==null?clean(alias):recovered.memoryKey;
     }
 
     private Map<String, OrganizationLink> latestUsableLinksByMemoryId() {
@@ -116,19 +162,44 @@ final class MemoryRepository {
         }
         ArrayList<MemoryRecord> records = new ArrayList<>();
         for (DiscoveryMemoryGroup group : discoverySnapshot.groups) {
-            MemoryRecord discoveryRecord = fromDiscoveryGroup(group);
-            if (discoveryRecord == null) {
-                continue;
-            }
-            records.add(discoveryRecord);
+            MemoryRecord record = discoveryRecord(group);
+            if (record != null) records.add(record);
         }
         return Collections.unmodifiableList(records);
     }
 
-    MemoryRecord memory(String memoryKey) {
+    private MemoryRecord discoveryRecord(DiscoveryMemoryGroup group) {
+        MemoryRecord record = fromDiscoveryGroup(group);
+        if (record == null) return null;
+        for (DiscoveryPhotoRef ref : group.photoRefs) {
+            if (ref.manualAssigned) {
+                record = record.withKnownOutput(usableMemoryLink(record));
+                break;
+            }
+        }
+        return record.withGalleryPolicy(galleryPolicy);
+    }
+
+    /** Use the record already returned by memories(), preserving detail lookup precedence. */
+    synchronized MemoryRecord detailRecordForBrowserCard(MemoryRecord card) {
+        MemoryRecord recovered = recoveredAliases.get(card.memoryKey);
+        if (recovered != null) return recovered.withGalleryPolicy(galleryPolicy);
+        if (discoverySnapshot != null) {
+            for (DiscoveryMemoryGroup group : discoverySnapshot.groups) {
+                if (group != null && card.memoryKey.equals(clean(group.memoryKey))) return discoveryRecord(group);
+            }
+        }
+        return card;
+    }
+
+    synchronized MemoryRecord memory(String memoryKey) {
         String key = clean(memoryKey);
         if (key.isEmpty()) {
             return null;
+        }
+        if(recoveryReader!=null) {
+            memories();MemoryRecord recovered=recoveredAliases.get(key);
+            if(recovered!=null)return recovered.withGalleryPolicy(galleryPolicy);
         }
         for (MemoryRecord record : discoveryMemories()) {
             if (key.equals(record.memoryKey)) {
@@ -146,21 +217,23 @@ final class MemoryRepository {
     List<DiscoveryPhotoRef> discoveryPhotoRefs(String memoryKey) {
         MemoryRecord record = memory(memoryKey);
         if (record == null || record.discoveryGroup == null) {
-            return Collections.emptyList();
-        }
-        return record.discoveryGroup.photoRefs;
+        return Collections.emptyList();
     }
+    return record.discoveryGroup.photoRefs;
+}
 
-    OrganizationLink usableMemoryLink(MemoryRecord record) {
-        if (record == null) {
-            return null;
-        }
-        String stableId = stableIdByAlias.get(record.memoryKey);
-        if (stableId == null || stableId.trim().isEmpty()) {
-            return null;
-        }
-        return latestUsableLinksByMemoryId().get(stableId);
+String stableId(String memoryKey) {String id=stableIdByAlias.get(memoryKey);return id==null?"":id;}
+
+OrganizationLink usableMemoryLink(MemoryRecord record) {
+    if (record == null) {
+        return null;
     }
+    String stableId = stableIdByAlias.get(record.memoryKey);
+    if (stableId == null || stableId.trim().isEmpty()) {
+        return null;
+    }
+    return latestUsableLinksByMemoryId().get(stableId);
+}
 
     static MemoryRecord fromDiscoveryGroup(DiscoveryMemoryGroup group) {
         if (group == null || clean(group.memoryKey).isEmpty()) {
@@ -188,7 +261,7 @@ final class MemoryRepository {
                 null,
                 group.staleCount,
                 availableCount,
-                availableCount > 0,
+                availableCount > 0 || group.hasUserNotes,
                 false,
                 availableCount > 0,
                 false);
@@ -211,7 +284,10 @@ final class MemoryRepository {
                 normalizedCountryCode,
                 normalizedCountryName,
                 parseDateMillis(summary.startDate),
-                parseDateMillis(summary.endDate));
+                parseDateMillis(summary.endDate),
+                summary.photoCount,
+                summary.videoCount,
+                summary.mediaSplitKnown);
         boolean hasGalleryAlbum = !organizedAlbum.relativePath.isEmpty();
         return new MemoryRecord(
                 organizedMemoryKey(summary),
@@ -224,8 +300,8 @@ final class MemoryRepository {
                 summary.adminArea,
                 summary.addressLine,
                 summary.itemCount,
-                summary.itemCount,
-                0,
+                summary.mediaSplitKnown ? summary.photoCount : summary.itemCount,
+                summary.mediaSplitKnown ? summary.videoCount : 0,
                 organizedAlbum.startDateMillis,
                 organizedAlbum.endDateMillis,
                 summary.thumbnailUri,
@@ -271,16 +347,26 @@ final class MemoryRepository {
         int availableCount = discoveryGroup == null
                 ? Math.max(existing.availableCount, incoming.availableCount)
                 : Math.max(0, discoveryGroup.itemCount - discoveryGroup.staleCount);
-        int itemCount = Math.max(existing.itemCount, incoming.itemCount);
         int photoCount = Math.max(existing.photoCount, incoming.photoCount);
         int videoCount = Math.max(existing.videoCount, incoming.videoCount);
+        int itemCount = Math.max(existing.itemCount, incoming.itemCount);
+        // A legacy album's total is not a known photo count; summing would double-count its videos.
+        if (organizedAlbum != null && organizedAlbum.mediaSplitKnown) {
+            itemCount = Math.max(itemCount, photoCount + videoCount);
+        }
         long startDateMillis = minPositive(existing.startDateMillis, incoming.startDateMillis);
         long endDateMillis = Math.max(existing.endDateMillis, incoming.endDateMillis);
+        String canonicalPlaceName = canonicalPlaceName(firstNonEmpty(
+                discoveryGroup == null ? "" : discoveryGroup.placeName,
+                firstNonEmpty(existing.canonicalPlaceName, incoming.canonicalPlaceName)));
+        String title = canonicalPlaceName(firstNonEmpty(
+                discoveryGroup == null ? "" : discoveryGroup.placeName,
+                firstNonEmpty(incoming.title, existing.title)));
         return new MemoryRecord(
                 existing.memoryKey,
                 firstNonEmpty(existing.placeKey, incoming.placeKey),
-                firstNonEmpty(existing.title, incoming.title),
-                firstNonEmpty(existing.canonicalPlaceName, incoming.canonicalPlaceName),
+                title,
+                canonicalPlaceName,
                 firstNonEmpty(existing.displayName, incoming.displayName),
                 firstNonEmpty(existing.countryCode, incoming.countryCode),
                 firstNonEmpty(existing.countryName, incoming.countryName),

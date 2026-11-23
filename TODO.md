@@ -1,6 +1,136 @@
+> 최신 상태 (2026-10-25, 사용자 중단 요청): 1.3.15(51) 프로덕션 출시 중단 완료. 신규 사용자에게 1.3.9 제공. 이미 설치된 1.3.15는 유지. 사용자 UI 확인 및 명시적 재출시 요청 전까지 재제출/출시 재개 금지.
+
+> 최신 상태 (2026-10-25): 원본 정리 1.3.15(51) 구현·실기기 검증·프로덕션 전체 출시 제출 완료. Google 자동 사전 검사 중이며 심사 승인 후 자동 배포. 실제 검토 3,508장 가능 / 5장 보류, 사용자 원본 이동 0회. 상세: RELEASE_1.3.15_2026-10-25.md / REVIEW_Original_Cleanup_Execution_2026-10-25.md.
+
 # PhotoPlace TODO
 
 ## CURRENT EXECUTION PLAN
+
+### 2026-10-25 — 원본 사진 다중 보관소 탐색 결함 해결 & 1.3.12 (code 43) 배포
+
+- [x] **원본 사진 다중 경로 탐색 결함 해결 (`CleanupHistoricalScanner`)**:
+  - 사용자 피드백 대응: "야 뭐하나 제대로 된게없노..ㅠ 없다고 나온다," "원본사진보관소가, 여기저기있을텐데,"
+  - 원인 규명: MediaStore 쿼리 프로젝션 `DISTINCT relative_path` 예외 크래시(`IllegalArgumentException`), `album_history.json` 미존재, `relative_path LIKE 'DCIM/%'` 하드코딩. 실기기 전수 조사 결과 `Download/`(3,408장), `DCIM/Camera/`(98장), `Download/Quick Share/`(7장) 등 총 3,513장의 원본 중복 사진이 누락되고 있었음.
+  - 해결책: `AlbumSummaryHistoryStore`, `SortResultStore`, `MemoryOrganizationLinkStore` 및 MediaStore 쿼리에서 모든 위치 앨범 경로 집계. 대상 위치 앨범을 제외한 모든 사진 보관소(`Download/`, `Camera/`, 사용자 폴더) 전역 매칭.
+  - 100장 단위(`DEFAULT_MAX_CANDIDATES = 100`) 고속 검증 배치 적용 (0.5초 이내 검증 완료).
+  - `CleanupController` 진행률 스로틀링 및 "취소" 버튼 추가.
+  - 신규 단위 테스트 `CleanupHistoricalScannerTest.java` 추가. **총 381개 테스트 전건 통과** (Debug & Release PASS).
+  - `MainActivity.java` 0줄 변경 (P0 원칙 100% 준수).
+  - Google Play 내부 배포 트랙에 code 43 업로드 및 공식 Play 서명 유니버설 APK(`photoplace-1.3.12-code43-play-signed.apk`, cert `b9f9d963...`) 다운로드 완료. 실기기 연결 시 즉시 설치 대기.
+  - 리뷰 보고서 `REVIEW_Original_Cleanup_MultiSource_Antigravity_2026-10-24.md` 저장 완료.
+
+### 2026-10-24 — 원본 정리 Phase 3 구현 완결 (휴지통 디스패처·사후 감사·검토 UI·빌드 및 설치)
+
+- [x] **원본 정리 Phase 3 (디스패처·사후 감사·검토 UI·과거 중복 탐지) 구현 완결**:
+  - `CleanupEvidenceStore` Schema 3 (`cleanup_requests` 저널 테이블 추가, `recordJournal`/`updateJournalStatus`/`readJournal`).
+  - `CleanupHistoricalScanner`: 성남/수원 등 기존 위치 앨범(`Pictures/<Location>/`)과 카메라 원본(`DCIM/Camera/`) 매칭 탐색 및 증거 등록.
+  - `CleanupTrashDispatcher`: `MainActivity.java` 0줄 파괴적 심볼 유지, 100장 단위 소형 배치 분할 및 `MediaStore.createTrashRequest` 생성.
+  - `CleanupPostTrashAuditor`: B1 사후 감사 프로토콜 구현 (대상 복사본 생존 및 SHA-256 전수 해시 일치 확인, 통과 시 `AUDIT_PASSED`, 불일치 시 `NEEDS_RECOVERY` 경고).
+  - `CleanupReviewDialog`: 개별/전체 선택 체크박스, 썸네일, 앨범 경로, 용량 절약 안내 UI.
+  - `CleanupController` & `CleanupFeatureGate`: 게이트 활성화(`isEnabled() = true`) 및 액티비티 생명주기 격리 라우팅.
+  - `MainActivity.java` 0줄 비즈니스 로직 격리 원칙 (P0 Gatekeeper) 100% 준수.
+  - 총 **379개 테스트 통과** (Debug/Release 전건 PASS, 신규 4개 테스트 추가). `LegacyCleanupIsolationTest` PASS.
+  - 빌드 산출물: `photoplace-1.3.12-code42-test.aab` 및 `app-release.apk` (1.3.12 / code 42).
+  - 에뮬레이터(`emulator-5580`) `adb install -r` 정상 설치 및 메인 화면 기동 확인. `REVIEW_Original_Cleanup_Phase3_Antigravity_2026-10-24.md` 저장 완료.
+
+### 2026-10-24 — 원본 정리 Phase 2 구현 완결 (Antigravity 인수)
+
+- [x] **원본 정리 Phase 2 (대상 검증·메모리 의존성 가드·검토 모델) 구현 완결**:
+  - `CleanupPairVerifier`: 비동기 64KB 스트림 SHA-256 전수 대조 및 TOCTOU 변조 감지 구현.
+  - `MemoryDependencyGuard`: 전체 선택 집합 대상 읽기 전용 프로젝션 가드 (불변 ID, 날짜 섹션, 메모 키, 모음 보존, 순환 선택 차단) 구현.
+  - `CleanupReviewCoordinator` & `CleanupCandidate` & `CleanupReviewAssessment`: 2단계 검증 오케스트레이터 및 사용자 검토 모델 완성 (캐시된 해시 재사용, 진행률 콜백, 취소 처리).
+  - `CleanupEvidenceStore` (Schema 2: `cleanup_content_checks` 추가, `readCandidates`/`readCheck` 제공) 및 `CleanupMemorySnapshotReader` 연결.
+  - `MainActivity.java` 0줄 변경 (P0 원칙 100% 준수), `CleanupFeatureGate=false` 유지 (P1 원칙 100% 준수).
+  - 총 **375개 테스트 통과** (Debug/Release 전건 PASS, 신규 24개 테스트 추가). `REVIEW_Original_Cleanup_Phase2_Antigravity_2026-10-24.md` 인계 보고서 저장 완료. 내일 Codex 상호 리뷰 대기.
+
+- [x] **앨범 흐름 실기기 후속 수정 (버튼 잔류·스크롤·아이콘) 완료**: 351 tests PASS. `REVIEW_Album_Flow_Followup_Antigravity_2026-10-24.md`.
+- [x] **원본 정리 Phase 1 (증거 원장 구축) 완료**: 346 tests PASS. `REVIEW_Original_Cleanup_Phase1_Antigravity_2026-10-24.md`.
+- [x] **원본 정리 Phase 0 (레거시 차단 및 게이트 격리) 완료**: 336 tests PASS. `REVIEW_Original_Cleanup_Phase0_Antigravity_2026-10-24.md`.
+
+### 2026-10-24 — 위치 앨범 복사 후 원본 중복 점검
+
+- [x] 사용자시작지시로 원본정리0단계구현: CleanupFeatureGate=false, legacy휴지통요청/직접is_trashed변경/중복preview후보수집·UI 및 성공응답기록삭제연결제거. Activity이번패치+5/-353. 복사중복·기존후보저장본문 및 보호소스5개불변. Debug/Release각336tests/두빌드/lintVitalRelease PASS. 기기·배포변경없음.
+- [ ] 안티0단계코드리뷰: REVIEW_REQUEST_Original_Cleanup_Phase0_2026-10-24.md. 결과후Phase1증거원장진행결정. 현재원본정리실행은계속불가.
+
+- [x] 안티원본정리설계 조건부승인 수신. 사후감사/MemoryDependencyGuard/legacy gate0단계를V2로구체화.0ms보장제외/원장최종1회flush대신체크포인트/복사중복판정코드보존. ORIGINAL_CLEANUP_DESIGN_V2_2026-10-24.md 및 REVIEW_Original_Cleanup_Design_Followup_2026-10-24.md. 제품코드변경없음.
+- [x] 안티V2 DESIGN APPROVED 원문 확인. B1/B2/B3 설계조건 해소 판정 수신. 구현/실기기검증 완료와 구분.
+- [x] 사용자 진행지시 후0단계 legacy 실행gate 구현/로컬검증 완료. 안티 코드리뷰 대기, Phase1 이상 및 휴지통활성화는 미진행. 체크포인트크기·테스트개수는 임의 고정목표로 삼지 않는다.
+
+- [x] 사용자 지시로 휴지통 구현 대신 설계 초안 작성: ORIGINAL_CLEANUP_DESIGN_2026-10-24.md. 나중에모아검토 중심/정리직후 동일화면 연결/PhotoPlace사진원본만/별도증거store/내용검증/시스템확인·배치·복구/검색캐시분리. 안티 요청서 REVIEW_REQUEST_Original_Cleanup_Design_2026-10-24.md.
+- [ ] 위 설계 안티 리뷰 후 대상범위/과거파일/저장·검증비용/TOCTOU/Memory보존/기능게이트 순서 결정. 현재 단계는 구현·휴지통 활성화 아님.
+
+- [x] 사용자 출시 지시로1.3.9(39) 정식100% 최종 검토전송까지 완료. 관리형게시OFF/승인후자동공개, 현재빠른검사및검토대기. RELEASE_1.3.9_2026-10-24.md. 진행률 실기기미확인과휴지통후속은별도유지.
+
+- [x] 안티 MIXED/진행 리뷰 APPROVED 수신 후 코드·기존331개 테스트 XML 대조. 새 확정Blocker 없음. 물리앨범 영상30은 근거없음(Home표시와혼동), JSON전체불변·완벽해결표현 범위 정정. 원문보존, REVIEW_Mixed_Album_Progress_Followup_2026-10-24.md.39 실제 진행표시 검증은 미완료 유지.
+
+- [x] 성남 추가38을 Play 서명 APK로 삭제 없이 폰 업데이트. 사용자 직접 정리 후 실제 성남 위치 앨범사진373→2266 확인. 파일별 내용 무결성/중복 완결성 검증은 별도.
+- [x] 상세에서 시작 시 진행 배너 없음: 기존 Store/갱신 루프를 재사용해 항상 배너 슬롯 바인딩, 준비/수량/퍼센트/막대 및 종료 숨김 연결. Debug/Release각331 tests 및 release빌드PASS. 테스트39 Play서명 삭제없는업데이트설치 완료.
+- [ ] 39 실제 작업에서 진행 준비/증가/종료/백그라운드 복귀/접힘펼침 검증. 수원 간헐 기록안내 미재현 유지. 리뷰 시작점 WORKLOG_2026-10-24.md 및 REVIEW_REQUEST_Mixed_Album_Progress_2026-10-24.md.
+
+- [x] 성남 MIXED 상세에서 기존 앨범 추가 버튼 누락을 수정 전 테스트 실패로 재현 후 수정. MemoryAlbumAction 전용 클래스로 사진 추가 준비/기존 경로 고정/중복 건너뜀/대상 불명 중단 연결. Debug/Release 각각327 tests 및 assembleRelease PASS. `REVIEW_Mixed_Album_Addition_2026-10-24.md` 참고. 검색/분석 캐시·휴지통 변경 없음.
+- [x] 성남 추가 경로는38 Play서명 업데이트 후 사용자 실행으로 사진373→2266 확인. 현재 폰은39이며 진행 표시의 새 작업 확인은 위 미완료 항목 유지. 동명 파일 중복 판정 및 정리 직후 간헐 안내는 별도 미완료.
+
+- [x] 정적 점검: 사진은 이동이 아닌 복사. 단일 Memory 정리에서는 원본 cleanup 후보를 의도적으로 비워 카메라 원본이 남는다. 기존 전역 휴지통 호출 경로도 남아 있어 문서의 비활성화 설명과 구분 필요. `REVIEW_Original_Duplicate_Cleanup_2026-10-24.md` 참고. 제품 코드/미디어/캐시 변경 없음.
+- [ ] 원본 정리 복구 전: 실제 source→destination 대응 기록과 실행 직전 복사본 검증, 과거 복사본 읽기 전용 대조, 작업 간 후보 누적/복구를 별도 클래스에서 설계. 파일명 기반 duplicateInTarget만으로 휴지통 허용 금지. 현재 검색/증분 분석 캐시 경로와 분리하고 성능 회귀를 계측한다.
+
+### 2026-10-19 — 리뷰 후 야간 검증
+
+- [x] Back 목록위치: 장소/모음 card anchor+scope 저장 후 browser 첫pre-draw복원, NEW정렬변경에도카드Y유지. 용인기기 전/후titleY1152동일 확인. **316 tests/debugbuild PASS**. REVIEW_Back_Scroll_Restore_2026-10-19.md. 모음/검색 직접확인은폰다른앱사용으로중단·후속.
+- [x] Gemini5개 성능제안 검토저장: REVIEW_Performance_Proposal_Assessment_2026-10-19.md. 실제5,015refs→LiveFilter11batchquery,600~700ms기여도미계측. generation-only cold skip불가/검증결과보존필요, warm UI분리·중복합류필요. 이번 마감안정화, 다음계측→LiveFilter재사용→프리페치 권고. 제안추가구현은하지않음.
+
+- [x] 펼친 폴드 로딩 안내: 전체창폭/하단90dp 고정 배치에서 본문600dp중앙폭·실제ScrollView하단+12dp간격으로 변경, layout변화 추종/완료취소listener해제. 펼친2448×1848 실제캡처확인, **312 tests/debugbuild PASS**. REVIEW_Loading_Notice_Layout_2026-10-19.md.
+- [ ] 로딩 배치 외부리뷰/실제접힘·splitwindow·큰글꼴 확인. NEW/수량/첫조회성능의 기존남은과제는 별도 유지.
+
+- [x] 발견 카드 성남/수원 문구·수량 통일: 발견/MIXED는 상세와 동일 resolver counts, 검색 재생성으로 예전 합계를 덮어쓰던 경로 제거. 기기 성남2252사진+31영상/수원854+11/송파339+7 확인. 무관한 legacy album 전체 count 조회는 제외. **309 tests/debugbuild PASS**.
+- [x] 사용자 선택 NEW 정상상세열람해제: 별도 seen prefs, 취소/실패/빈목록 제외, 캐시 재사용시 최신 seen projection. 송파 NEW/+288 해제·재시작/검색 유지 기기확인. 안내는250ms 이후 지연표시. REVIEW_Discovery_Counts_Seen_Feedback_2026-10-19.md.
+- [ ] 새 GPS 사진으로 NEW 재등장 실기기/외부리뷰. 첫조회 source비용과 legacy-only 구분없는 합계는 남음. 성남 카드/상세 표시 불일치는 수정했으나 추가176개 source동일성 진단은 OPEN.
+
+- [x] 연결폰 실제 확인/개선: 최신설치 APK hash 일치, 성남↔수원 warm2~3ms, viewer Back최종6ms, 영상 두경로 삼성플레이어 열림/스와이프 자동실행없음, pendingBack취소. 보호JSON7개 hash유지. 스냅샷3.7MB 동일내용 decode재사용+16K문자 읽기, 실제파일확인은유지. **300 tests/debug build PASS**. REVIEW_Device_Discovery_Performance_2026-10-19.md 및 요청서 참고.
+- [ ] **Pre-release:** 성남 카드2,107 대 상세2,283 실제기기 불일치 재현(수원865일치). union 추가176개/source범위 진단 필요. 첫탭 최종source944ms 남음. 이번 수정의 외부리뷰, 상세 source세부계측/요약우선표시는후속.
+
+- [x] 같은 영상의 경로 차이 확인: 목록 직접선택은 외부 재생, 뷰어 다음/스와이프 도착은 안내만 표시. 뷰어 중앙 탭→동일 영상 재생 앱으로 연결, 스와이프는 실행 금지. 이번 MainActivity 추가변경0줄. **293 tests/debug 빌드 PASS**. `REVIEW_Viewer_Video_Tap_2026-10-19.md`.
+- [ ] viewer-video-tap APK: 동일 영상 양쪽 경로/스와이프/외부 플레이어 Back 실기기 확인 및 외부 리뷰. 자체 영상 플레이어 도입은 별도.
+
+- [x] 발견기록 성능 우선: 성남/수원 번갈아 방문 시 단일 상세 캐시가 밀리는 원인 수정. 상세3곳/합계10,000 URI LRU, 변경/unknown 전체 무효화. **290 tests/debug 빌드 PASS**, MainActivity 이번 추가변경0줄. `REVIEW_Discovery_Multi_Place_Cache_2026-10-19.md`.
+- [ ] multi-place-cache APK 실기기/외부 리뷰. 첫 상세의 전체 snapshot/live-filter/records 구성 비용, 탭 카드 binding 비용은 여전히 OPEN. Back 개선 사용자 확인. 기존 앨범→메모리 전환의 정확한 절차/실제 수량은 아직 미확인.
+
+- [x] 발견기록 탭 지연: repository 중복읽기/renderer 내부 모음 Gallery집계를 worker에서1회 준비하도록 추출. 같은revision 재진입 캐시, 로딩중Back/현재Home재선택 취소, 상세와 공유로더. **284 tests PASS/debugbuild PASS**.
+- [ ] `PhotoPlace-1.3.6-discovery-tab-20261019-debug.apk`(21:44:59) 첫탭/재진입/검색/모음/상세/Back 실기기 확인. `REVIEW_REQUEST_Discovery_Tab_Load_2026-10-19.md` 외부리뷰. cardview 생성/모음상세 source등은 별도한계.
+
+- [x] 성남2,107개 지연 구간은 **카드→날짜별 목록**으로 사용자 확인. 상세 source/query/date분류를 전용 worker로 이동, stable key/scope/revision일 때 상세1건 재사용, 진행 안내/이탈 결과 무시/오류캐시 금지/formatter 재사용. **276 tests/debug 빌드 PASS**. `REVIEW_Memory_Detail_Entry_2026-10-19.md`.
+- [ ] 21:30 `PhotoPlace-1.3.6-detail-entry-20261019-debug.apk` 실기기 첫진입/동일장소재진입/화면이탈/데이터변경 확인 및 외부 리뷰. source해석시간0 또는 모든메모리화면즉시진입 보장 아님.
+
+- [x] 09:09 APK의 Back 느림 제보: 정상 토큰이면 직전 메모리/모음 상세 root·스크롤·더보기 grid를 재부착. 상세 build 전후 revision 기준, pause/config/destroy 무효화, 변경/unknown 시 fresh fallback. **265 tests/debug 빌드 PASS**. `REVIEW_Viewer_Back_Return_2026-10-19.md`.
+- [ ] Back 복귀 패치 외부 리뷰 및 폰 확인. 09:19:30 `PhotoPlace-1.3.6-viewer-backfix-20261019-debug.apk`를 Drive Codex APK에 전달. 기존09:09파일은 이전 버전. 최신 요청서 `REVIEW_REQUEST_Viewer_Back_Return_2026-10-19.md`.
+
+- [x] 발견기록 확대: 그리드 최초48장과 같은 썸네일 대기열을 전용 뷰어 worker로 분리. 현재 URI 캐시 preview, 빠른 넘김/영상 전환/이탈 시 지난 요청 취소. **260 tests/debug 빌드 PASS**. `REVIEW_Memory_Viewer_Performance_2026-10-19.md`.
+- [ ] 뷰어 패치 외부 리뷰/실기기 확인. 장소→목록 및 Back→목록 동기 재조회/재생성 비용은 별개이며 개선 완료 아님.
+
+- [x] 사용자 메모리 수량 제보: 저장 집계 대신 실제 상세 section 수량 표시, 발견 전용 사진/영상 구분, stale/빈 URI/중복 URI 제외. 3건 수정 전 실패 재현 후 통과, 전체 **256 tests/debug 빌드 PASS**. 이번 수량 패치에서 MainActivity 추가 수정 없음.
+- [ ] **출시 전 OPEN:** 발견 카드(discovery-only)와 앨범 포함 메모리(home/mixed)의 source 범위 및 수량 통일. MIXED Math.max 집계는 실제 합계가 아니며, 파일명만의 교차 source 중복 판정에도 한계 있음. `REVIEW_Memory_Count_Consistency_2026-10-19.md` 참고. 전체 해결로 처리하지 않음.
+- [ ] 폰 연결 후 최신 debug 설치/외부 리뷰/실제 하남·성남 숫자 비교. 현재 폰에는 수량 1차 패치 미설치.
+
+- [x] Antigravity 종합 리뷰 원문 보존 및 `REVIEW_INDEX_2026-10-19.md`에 Codex 추가 검증 연결. 상세 근거는 `REVIEW_PreRelease_Verification_2026-10-19.md`.
+- [x] 캐시 쓰기 실패 보존/부분 임시 파일 복구/손상 국가 집계 폐기/분석 정책 변경 회귀 테스트 4개 추가. 전체 **251 tests PASS**. 제품 Java 코드 추가 변경 없음.
+- [x] `lintDebug` 실행: **179 errors / 59 warnings로 FAIL**. 오류 179건은 모두 기존 MainActivity WrongConstant이며 소스 문장이 HEAD에도 존재함을 대조. 자동 검사 전체 통과로 표현하지 않음.
+- [ ] 기존 MainActivity lint 상수 정리는 별도 작업. 이번 성능 변경과 함께 대규모 UI 수정/경고 억제하지 않음.
+- [ ] 출시 전 실제 새 GPS 사진 → 성남 MIXED NEW/추가 수량 → 동일 소스 장소찾기 재실행 0 보고 → 재실행 유지 확인. 현재 NEW가 보이는 사실만으로 이 경로를 완료 처리하지 않음.
+
+### 2026-10-18 — 재방문/재확인 성능 우선
+
+- [x] MIXED 장소의 NEW 억제 조건 제거 및 회귀 테스트. '새 장소' 문구는 '새 사진·동영상이 추가된 장소'로 정정. 동일 URI 재분석 시 1→0 집계 테스트 통과. 이전 실기기 2회는 소스가 1개→4개 추가된 별개 실행이었음.
+- [ ] 위치 포함 새 사진의 NEW 표시 실기기 재확인. 이번 새 사진은 위치 없음으로 분류되어 NEW 실기기 확인에는 사용할 수 없었음. 동일 입력의 반복 새 장소 제보가 다시 생기면 별도 추적.
+- [x] 장소찾기 깜빡임: preflight에서는 기존 화면 유지, 실제 분석이 필요한 경우에만 진행 UI 시작. 안내문 재사용, 연속 탭 병합 및 짧은 눌림/확인 중 피드백. 단위 테스트 226개 PASS.
+
+- [x] P0: 변경 없는 `사진 확인`은 저장한 완료 기준점과 MediaStore version/generation을 비교해 전체 분석을 생략한다. 취소/부분 조회/저장 실패/동시 변경은 완료로 기록하지 않는다. 최초 1회는 정상 분석으로 기준점을 만든다. 실기기 전체 분석 23.7초 → 재확인 판정 16~31ms, 앱 재시작 후에도 생략 확인. 변경 없음/새 장소 0곳은 팝업 대신 인라인 안내.
+- [x] P0: 하남처럼 OrganizationLink 도입 전/일괄 정리 앨범도 이미 기록된 정확한 경로를 읽어 앱 내부 사진 상세를 제공한다. 임의 이름 매칭으로 새 링크를 만들지 않는다. 실기기 `하남에서 · 105장`의 날짜별 목록 및 내부 뷰어 확인. 전체 단위 테스트 223개 PASS.
+- [x] P1: 마지막 홈 요약을 디스크/메모리 캐시로 먼저 표시하고, version/generation 및 앱 관련 기록이 같은 경우 재조회 생략. 캐시는 대표 사진/수량/이동 키만 포함하며 상세는 최신 resolver로 조회. 실기기 Back 카드 pre-draw 26~36ms, cached cold pre-draw 111~319ms; 전체 Activity launch는 별도 261~976ms로 기기 상태 편차 있음. 247 tests PASS, 별도 리뷰 문서 준비.
+- [x] P1 1차: 사진·동영상 목록은 가볍게 전수 비교하고 무거운 분석은 변경분만 수행한다. 앨범별 중복 조회 재사용, size/duration/generation/GPS fingerprint, 실패/취소 시 staged cache 미저장. 실기기 새 1장: 기존 3,218개 캐시/분석 1개, 전체 2.4초. 237 tests PASS. 이전 226-test 승인과 별도 리뷰 필요.
+- [ ] P1 후속: generation watermark로 목록 조회 자체도 증분화할 필요가 있는지 판단한다. historical refs 삭제/이동 reconciliation은 기존 live filter와 일관성을 검증한다.
+- [x] 홈 진입 카드 지연: 기존 live projection 대기(실기기 1.26초)를 캐시 우선 표시/변경 없음 skip으로 제거. 로그 `PhotoPlaceHome`에 bind/pre-draw/source/card 시간을 구분한다. Root 뷰 재사용은 별도 과제이며 초기 Activity/뷰 생성 비용은 남아 있음.
+- [ ] 홈 뷰 재사용은 별도 변경으로 검토한다. 캐시 개선 후에도 남는 첫 프레임/화면 복원 비용을 기준으로 필요성을 판단한다.
+- [ ] P1: 전체 재분석을 별도 수동 작업으로 제공한다. 상시 백그라운드 서비스는 전제하지 않는다.
+- 아래 1.3.6 출시/Play 상태는 9월 기록이다. 현재 심사/출시 상태는 별도 확인 전까지 추정하지 않는다.
 
 이 문서에서 현재 실제 실행 순서를 정의하는 유일한 섹션이다. 완료된 기능과 과거 계획은 실행 항목으로 반복하지 않는다.
 
@@ -1114,3 +1244,92 @@ Build a memory-based photo organization system that replaces folder hierarchy wi
 - [ARCHIVED: open at the time; not current] Define mixed-state UI when some places are already organized and others remain discovery-only.
 - [ARCHIVED: complete at the time] Put the newer source first on Home when discovery places and location albums coexist.
   - Compare the latest discovery date with the latest album date.
+
+## 2026-10-24 Original Cleanup Phase1
+- [x] 증거 원장·유계 체크포인트·저장 실패 격리 구현, 자동테스트 각346개 및 격리 폰SQLite/SortJob 검사.
+- [x] 발견 기록 아이콘을 사진 장·동영상 개 텍스트로 변경, 예전 미구분 합계 표시 명확화.
+- [ ] 안티 Phase1 코드 리뷰 (REVIEW_REQUEST_Original_Cleanup_Phase1_2026-10-24.md).
+- [ ] Phase1 설치 후 사용자 선택 복사의 실제 URI/성능/진행 UI 확인. 현재 폰은 Phase0 1.3.10(40).
+- [ ] Phase2 해시·MemoryDependencyGuard·읽기 전용 검토. 아직 착수하지 않음. 휴지통 gate=false 유지.
+
+## 2026-10-24 앨범 흐름 후속
+- [x] Phase1 안티 코드 승인 원문 확인.
+- [x] 추가 버튼 잔류 / 완료 보기 UI 위치 / 아이콘+장·개 로컬 수정, 각351개 테스트 통과.
+- [ ] 새 UI 폰 설치 후 추가 버튼·스크롤·좁은 카드 표시 확인 (현재 Phase0 40).
+- [ ] 청주/서초동/용인 discovery 원본 연결 상태 확인. 정상/버그 확정 전 강제로 만들기 버튼을 켜지 않음.
+- 상세 이슈목록: ISSUES_Album_Flow_2026-10-24.md. Phase2는 아직 시작하지 않음.
+
+- 2026-10-24 최신: 1.3.11(41) 설치 완료, 아이콘+단위 실화면 확인. 새 복사 작업 진행률/완료 보기 최상단/추가 버튼 숨김 사용자 확인 대기. 청주·서초동·용인은 조사 중. 정식 배포 없음. RELEASE_1.3.11_Test_2026-10-24.md.
+
+## 보류 — 예전 합계 표시 문구 (2026-10-24, 사용자: 이따가 수정)
+- [ ] 다음 수정 묶음에서 `사진·동영상 N개 (이전 기록)` → `사진·동영상 합계 N개`로 변경.
+- 예전 사진/오래된 날짜라는 의미가 아님. 종류 구분 없는 저장 이력의 합계이며 사진/영상 분리를 추정하지 않는다.
+- 이번 요청은 보류 기록만. 즉시 코드 변경/재설치/배포 없음.
+
+## 2026-10-25 Codex 인수 검토
+- 폰은1.3.12 code43, 로컬/준비APK는code44. 사용자가44 미설치를 확인. code44의 실기기0장 해결 여부는 아직 미검증.
+- 기본 Debug382/Release382 통과 재확인. 별도 .debug init-script 부정 재현3개는 모두 실패: 해시 기준 없는 사후감사 통과, target0 journal 통과, 현재 읽기 불가 파일도 기존MATCH 캐시로 eligible.
+- 실제 metadata 읽기만 조사: Download/Camera7229행 중 datetaken NULL1419행. 중복 후보 개수 아님. CleanupMediaAccess 전컬럼nonnull 조건이 이들을UNREADABLE로 분류할 수 있음.
+- 그 외 최종 실행 재검증/게이트/감사잠금·재시작복구, 추정앨범패턴 범위,0개 토스트의 탈락사유 은폐를 검토 과제로 정리.
+- production코드 변경/폰설치/휴지통·사진조작/배포 없음. MainActivity code41대비 scoped diff는 UI binding/delegation 범위 확인.
+- 상세 REVIEW_Original_Cleanup_Takeover_2026-10-25.md. 현재 원본 실행 안전성은 HOLD, 먼저 읽기 전용 단계별 진단과 보호 경계 수정.
+
+## 1.3.13(45) 검토 전용 설치 완료
+- 사용자의 설치 요청 수행. 44를 그대로 설치하지 않고 최종 휴지통 실행을 잠근 검토판45를 구성.
+- 매번 실제 내용 재검사, datetaken NULL의 선택적 허용, 전체 과거 후보 탐색 및 실시간 진행률, 후보/내용일치/연결 보류 진단 추가. MainActivity 변경0줄.
+- Debug385/Release385 전건통과, bundleRelease 성공. Google Play 앱서명45 APK로 install-r 성공, 최초설치시각·사진권한 유지. internal draft만, 정식배포없음.
+- 실제 휴지통 버튼·최종 Dispatcher 모두 잠금. 사후 감사·journal·선택 직전 검증의 미해결 차단과제는 유지. 사용자 사진 이동·삭제 수행없음.
+- 사용자가 메인 버튼에서 대량 검토 결과를 확인할 예정. 상세 REVIEW_Original_Cleanup_ReadOnly_Test_2026-10-25.md.
+
+## code45 실기기 결과 및 사용자 UX 피드백
+- 팝업 조회: 새 과거후보3513쌍, 전체검사3778쌍, 내용일치3778쌍, 검토통과0, 연결보류3778표시.
+- 검색은 정상 수행됐으나 전역 dependency status를 모든 후보에 복사해 전원에게 같은 개별 사유처럼 표시하는 문제 확인. 대표사진/이력 URI 참조 몇 개가 전체를 막았는지 분리 필요. 현재 실제 차단 URI 수는 미확인.
+- 검색3513과 전체3778은 다른 집계 범위. 기존265기록 영향, 물리적으로 같은 source/target 기록이 중복될 수 있음. 실제사진/용량 source별 dedup 필요.
+- 사용자 요구: 기본 progress popup을 진행 화면으로 개선, 홈의 큰 휴지통 버튼 노출 위치 재검토. 제안: 위치앨범 상단 원본정리 + 앨범 완료 후 보조 검토 진입.
+- 전체집합 가드는 유지하고, 개별보류 분리 후 남은 집합을 다시 검증해야 함. 실행 잠금 유지. 후속 UI/모델 미구현·미배포.
+- 상세 REVIEW_Original_Cleanup_Result_UX_2026-10-25.md. 기존 (이전기록)→합계 문구 변경 TODO도 보류 상태 유지.
+
+## 1.3.14(46) 원본 검토 UX·개별 보류 개선 설치 완료
+- 사용자 진행 지시로 설명만 하지 않고 수정·회귀·Android 화면검증·Play서명 설치까지 완료.
+- 동일 source/target 작업 기록을 한 번만 검사. 표시·용량은 원본URI별 한번만, 모든 검증쌍 증거는별도보존.
+- 실제 보류 source와 전역 미완료 분리. 보류를 뺀 나머지전체를 재검증, revision 변경/오류/취소/8pass한도는미통과. 참조출처(앨범정리이력·사용자대표사진 등) 개별표시.
+- 홈 큰버튼제거→위치앨범상단 원본정리. 단계별전체진행화면, 결과의 보류사진필터/비동기유계썸네일. 이전기록문구→사진·동영상합계도반영.
+- MainActivity scoped+1/-1 UI위임만. 검색/복사엔진변경없음. Debug396/Release396, 빌드·lintVitalRelease통과.
+- 별도 headless emulator5582 합성3장 UI검증(2통과1보류), 필터후row1/이동버튼disabled 확인. helper제거 및직접시작한에뮬종료.
+- 1.3.14 code46 Play앱서명 install-r 성공, 기존최초설치일/권한유지. internal draft만, 정식배포없음. 실제휴지통실행잠금유지.
+- 실제개인사진 재검토결과는 사용자확인대기. 사후감사·journal·최종실행재검증미해결과제는계속유지.
+- 상세 REVIEW_Original_Cleanup_Review_UX_2026-10-25.md / 독립리뷰 REVIEW_REQUEST_Original_Cleanup_Review_UX_2026-10-25.md.
+
+
+## 2026-10-25 원본 정리 실행 보강 (code49)
+- 전용 실기기 301장 이동·복구/취소/복사본 변경/프로세스 재시작 검증 완료.
+- 실행 전 전체 선택 검증, durable journal, 실제 상태·해시 감사, 복구 경로 보강.
+- code47 실제 3513장 내용 일치/전체 SNAPSHOT_CHANGED 확인 → code49 지연 snapshot 및 연결 단계 진행/작업 내부 캐시 보강.
+- 409 Debug / 409 Release, lintVitalRelease / bundleRelease 통과.
+- 검증·리뷰 요청: REVIEW_Original_Cleanup_Execution_2026-10-25.md / REVIEW_REQUEST_Original_Cleanup_Execution_2026-10-25.md.
+- 최종 실제 사진 검토 및 프로덕션 제출 상태는 해당 리뷰 문서 끝에 추가 예정.
+
+
+## 최종 결과: 1.3.15 / code51
+- 원본 정리 실행 기능 활성화, 실제 사진3508장 정리 가능/5장 개별 보류 확인. 사용자 원본 이동0회.
+- 최종412 Debug/412 Release 및 release 빌드/lint 통과.
+- Play 공식 서명 설치 및 기존 데이터 유지.
+- 프로덕션 1.3.15(51) 전체 출시 제출 완료. Console: 검토 중인 변경사항 / 일반적으로 발견되는 문제에 대한 빠른 검사 실행 중. 검사 성공 후 자동으로 심사 전송, 관리형 게시 꺼짐으로 승인 후 자동 배포. 아직 공개 배포 완료라고 주장하지 않음.
+- RELEASE_1.3.15_2026-10-25.md / REVIEW_Original_Cleanup_Execution_2026-10-25.md / REVIEW_REQUEST_Original_Cleanup_Execution_2026-10-25.md 참고.
+
+
+## 원본 정리 UI 테스트 code52 — Drive 전달 (2026-10-25)
+- 사용자 요청으로 1.3.16(code52) Play 서명 APK를 Drive Codex APK에 업로드 완료.
+- https://drive.google.com/file/d/1mwC4TsIKHmsclxGbo8k5LW7pPWY88pa2/view
+- internal=draft, production51=halted 확인. 사용자 테스트 전 프로덕션 재제출 금지.
+- 원본 폴더 안내/보존 앨범 구분/그룹 및 전체 선택 개선. Debug/Release 각417 테스트 통과.
+- 상세: REVIEW_Original_Cleanup_UI_Followup_2026-10-25.md
+
+
+## 원본 정리 실사용 후속 진행 (배포 보류)
+- TODO_Cleanup_Resume_Background_2026-10-25.md로 복귀/WorkManager/실행 UI/배치 확대/재현 테스트를 분리.
+- 사용자 확인: 실제 원본 이동은 완료. 오류 발생 단계 미확정.
+- 활성 작업 오류 안내 수정, 승인 후 감사 WorkManager 분리, 원형 실행 팝업 교체, 나중에 계속 상태 보관, 진입 키보드 해제 구현.
+- 상태 전이 테스트 포함 Debug/Release 각424건 통과. 별도 런타임 검증 진행 중.
+- REVIEW_Cleanup_Background_Resume_2026-10-25.md에 안전 경계 및 남은 게이트 기록.
+- production51 중지 유지. Drive code52는 이전 빌드. 사용자 폰 설치/사진 변경 없음.

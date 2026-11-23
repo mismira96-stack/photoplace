@@ -75,7 +75,7 @@ final class DiscoveryOrganizeConfirmDialog {
         root.setBackground(rounded(Color.WHITE, 24, 0, Color.TRANSPARENT));
 
         TextView title = text(singlePlace
-                        ? "이 장소를 위치 앨범으로 만들까요?"
+                        ? MemoryAlbumAction.confirmationTitle(preparation)
                         : "위치 앨범을 만들까요?",
                 21, Color.rgb(17, 24, 39), true);
         title.setGravity(Gravity.CENTER);
@@ -83,7 +83,9 @@ final class DiscoveryOrganizeConfirmDialog {
 
         String summaryText;
         if (singlePlace && preparation != null) {
-            summaryText = "새로 넣을 사진 " + preparation.actionableCount(moveVideos) + "장";
+            int photos=0,videos=0;
+            for(DiscoveryAlbumOrganizer.PreparedItem item:preparation.items)if(!item.duplicateInTarget){if(item.video)videos++;else photos++;}
+            summaryText=MemoryAlbumConfirmationText.added(photos,videos,moveVideos);
             if (preparation.duplicateCount > 0) {
                 summaryText += " · 기존 앨범에 있음 " + preparation.duplicateCount + "개";
             }
@@ -112,7 +114,9 @@ final class DiscoveryOrganizeConfirmDialog {
             info.setBackground(rounded(
                     Color.rgb(247, 247, 252), 16, 1, Color.rgb(230, 228, 241)));
             addInfoRow(info, "사진", "앨범에 복사 · 원본은 그대로", true);
-            if (preparation.excludedVideoCount(false) > 0) {
+            if(moveVideos&&preparation.items.stream().anyMatch(item->item.video&&!item.duplicateInTarget)) {
+                addInfoRow(info,"동영상","위치 앨범으로 이동",true);
+            } else if (preparation.excludedVideoCount(moveVideos) > 0) {
                 addInfoRow(info, "동영상", "발견 기록에 남겨요 · 앨범 제외", true);
             }
             addInfoRow(info, "중복", "이미 있는 항목은 다시 넣지 않아요", false);
@@ -155,7 +159,7 @@ final class DiscoveryOrganizeConfirmDialog {
         cancel.setOnClickListener(view -> dialog.dismiss());
         actions.addView(cancel, weightedButton(true));
 
-        Button confirm = button(singlePlace ? "이 장소만 만들기" : "위치 앨범 만들기", true);
+        Button confirm = button(singlePlace ? MemoryAlbumAction.confirmationLabel(preparation) : "위치 앨범 만들기", true);
         confirm.setOnClickListener(view -> {
             dialog.dismiss();
             if (listener != null) {

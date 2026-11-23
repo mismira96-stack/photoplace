@@ -19,19 +19,25 @@ final class PhotoItem {
     final String countryName;
     final String adminArea;
     final String addressLine;
+    final boolean manualAssigned;
 
     PhotoItem(Uri uri, String name, String mimeType, Date takenAt, String locationKey,
               boolean noLocation, boolean targetExists, boolean duplicateInTarget,
               String targetRelativePath, boolean video, String countryName,
               String adminArea, String addressLine) {
-        this(uri, name, mimeType, takenAt, locationKey, noLocation, targetExists,
-                duplicateInTarget, targetRelativePath, video, "", countryName, adminArea, addressLine);
+        this(uri,name,mimeType,takenAt,locationKey,noLocation,targetExists,duplicateInTarget,targetRelativePath,video,
+                "",countryName,adminArea,addressLine,false);
     }
-
     PhotoItem(Uri uri, String name, String mimeType, Date takenAt, String locationKey,
               boolean noLocation, boolean targetExists, boolean duplicateInTarget,
               String targetRelativePath, boolean video, String countryCode, String countryName,
               String adminArea, String addressLine) {
+        this(uri,name,mimeType,takenAt,locationKey,noLocation,targetExists,duplicateInTarget,targetRelativePath,video,
+                countryCode,countryName,adminArea,addressLine,false);
+    }
+    PhotoItem(Uri uri,String name,String mimeType,Date takenAt,String locationKey,boolean noLocation,
+              boolean targetExists,boolean duplicateInTarget,String targetRelativePath,boolean video,String countryCode,
+              String countryName,String adminArea,String addressLine,boolean manualAssigned) {
         this.uri = uri;
         this.name = name;
         this.mimeType = mimeType;
@@ -46,5 +52,6 @@ final class PhotoItem {
         this.countryName = CountryIdentityNormalizer.displayName(this.countryCode, countryName);
         this.adminArea = adminArea == null ? "" : adminArea;
         this.addressLine = addressLine == null ? "" : addressLine;
+        this.manualAssigned=manualAssigned;
     }
 }

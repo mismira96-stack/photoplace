@@ -3,7 +3,6 @@ package com.example.gallerysorter;
 import android.content.Context;
 import android.graphics.Color;
 import android.graphics.Typeface;
-import android.graphics.drawable.Drawable;
 import android.graphics.drawable.GradientDrawable;
 import android.text.Editable;
 import android.text.TextWatcher;
@@ -20,40 +19,38 @@ final class MemorySearchHeaderRenderer {
         void onQueryChanged(String query);
     }
 
-    interface IconFactory {
-        Drawable create(String iconName, int color, int backgroundColor, int sizePx);
-    }
-
     private final Context context;
-    private final IconFactory iconFactory;
     private final Listener listener;
 
-    MemorySearchHeaderRenderer(Context context, IconFactory iconFactory, Listener listener) {
+    MemorySearchHeaderRenderer(Context context, Listener listener) {
         this.context = context;
-        this.iconFactory = iconFactory;
         this.listener = listener;
     }
 
-    View header(boolean searchVisible, boolean searchEnabled) {
+    View header(boolean searchVisible, boolean searchEnabled, Runnable makeAlbum) {
+        return header(searchVisible, searchEnabled, makeAlbum, null, null, false);
+    }
+
+    View header(boolean searchVisible, boolean searchEnabled, Runnable makeAlbum,
+                View addPlaceAction, Runnable collectMemories, boolean wide) {
         LinearLayout header = new LinearLayout(context);
         header.setOrientation(LinearLayout.HORIZONTAL);
         header.setGravity(Gravity.CENTER_VERTICAL);
 
-        TextView title = text(searchVisible ? "발견 기록 검색" : "발견 기록", 24.0f, true);
+        TextView title = text("발견 기록", 24.0f);
         header.addView(title, new LinearLayout.LayoutParams(0, -2, 1.0f));
-        if (searchEnabled) {
-            TextView action = new TextView(context);
-            action.setGravity(Gravity.CENTER);
-            action.setClickable(true);
-            action.setFocusable(true);
-            action.setContentDescription(searchVisible ? "검색 닫기" : "검색 열기");
-            if (iconFactory != null) {
-                action.setCompoundDrawables(
-                        iconFactory.create(searchVisible ? "close" : "search", Color.rgb(109, 88, 222), Color.rgb(241, 238, 255), dp(38)),
-                        null,
-                        null,
-                        null);
+
+        if (wide && searchEnabled) {
+            if (addPlaceAction != null) {
+                header.addView(addPlaceAction);
             }
+            if (collectMemories != null) {
+                header.addView(MemoryAddActionIcon.collectMemories(context, collectMemories));
+            }
+        }
+
+        if (searchEnabled) {
+            View action = MemoryIconButton.search(context, searchVisible, false);
             action.setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View view) {
@@ -62,7 +59,8 @@ final class MemorySearchHeaderRenderer {
                     }
                 }
             });
-            header.addView(action, new LinearLayout.LayoutParams(dp(44), dp(44)));
+            header.addView(action);
+            header.addView(MemoryAddActionIcon.albumMenu(context, makeAlbum));
         }
         return header;
     }
@@ -78,9 +76,8 @@ final class MemorySearchHeaderRenderer {
         input.setPadding(dp(16), 0, dp(16), 0);
         input.setMinHeight(dp(48));
         input.setCompoundDrawablePadding(dp(10));
-        if (iconFactory != null) {
-            input.setCompoundDrawables(iconFactory.create("search", Color.rgb(128, 136, 153), 0, dp(22)), null, null, null);
-        }
+        input.setCompoundDrawablesWithIntrinsicBounds(
+                MediaVectorIconDrawable.search(CleanupUiStyle.MUTED, dp(22)), null, null, null);
         GradientDrawable background = new GradientDrawable();
         background.setColor(Color.WHITE);
         background.setCornerRadius(dp(16));
@@ -107,14 +104,12 @@ final class MemorySearchHeaderRenderer {
         return input;
     }
 
-    private TextView text(String value, float sizeSp, boolean bold) {
+    private TextView text(String value, float sizeSp) {
         TextView text = new TextView(context);
         text.setText(value);
         text.setTextSize(sizeSp);
         text.setTextColor(Color.rgb(17, 24, 39));
-        if (bold) {
-            text.setTypeface(Typeface.DEFAULT_BOLD);
-        }
+        text.setTypeface(Typeface.create(Typeface.DEFAULT, 500, false));
         return text;
     }
 

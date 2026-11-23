@@ -21,6 +21,7 @@ final class DiscoveryMemoryGroup {
     final List<DiscoveryPhotoRef> photoRefs;
     final int staleCount;
     final long snapshotVersion;
+    final boolean hasUserNotes;
 
     DiscoveryMemoryGroup(String memoryKey,
                          String placeKey,
@@ -38,6 +39,13 @@ final class DiscoveryMemoryGroup {
                          List<DiscoveryPhotoRef> photoRefs,
                          int staleCount,
                          long snapshotVersion) {
+        this(memoryKey,placeKey,placeName,countryCode,countryName,adminArea,addressLine,itemCount,photoCount,
+                videoCount,startDateMillis,endDateMillis,coverUri,photoRefs,staleCount,snapshotVersion,false);
+    }
+    DiscoveryMemoryGroup(String memoryKey,String placeKey,String placeName,String countryCode,String countryName,
+                         String adminArea,String addressLine,int itemCount,int photoCount,int videoCount,
+                         long startDateMillis,long endDateMillis,String coverUri,List<DiscoveryPhotoRef> photoRefs,
+                         int staleCount,long snapshotVersion,boolean hasUserNotes) {
         this.memoryKey = clean(memoryKey);
         this.placeKey = clean(placeKey);
         this.placeName = clean(placeName);
@@ -54,6 +62,7 @@ final class DiscoveryMemoryGroup {
         this.photoRefs = immutableCopy(photoRefs);
         this.staleCount = Math.max(0, staleCount);
         this.snapshotVersion = snapshotVersion;
+        this.hasUserNotes=hasUserNotes;
     }
 
     private static List<DiscoveryPhotoRef> immutableCopy(List<DiscoveryPhotoRef> refs) {

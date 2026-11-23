@@ -41,6 +41,33 @@ final class MemoryBrowserState {
         return new MemoryBrowserState(Collections.<MemoryBrowserItem>emptyList());
     }
 
+    MemoryBrowserState withCounts(java.util.Map<String, String> counts) {
+        ArrayList<MemoryBrowserItem> projected = new ArrayList<>();
+        for (MemoryBrowserItem item : items) {
+            String count = counts.get(item.memoryKey);
+            projected.add(count == null ? item : item.withCountText(count));
+        }
+        return new MemoryBrowserState(projected);
+    }
+
+    MemoryBrowserState retainingRecords(List<MemoryRecord> records) {
+        java.util.Set<String> keys = new java.util.HashSet<>();
+        for (MemoryRecord record : records) if (record != null) keys.add(record.memoryKey);
+        ArrayList<MemoryBrowserItem> selected = new ArrayList<>();
+        for (MemoryBrowserItem item : items) if (keys.contains(item.memoryKey)) selected.add(item);
+        return new MemoryBrowserState(selected);
+    }
+
+    MemoryBrowserState withRecentCounts(java.util.Map<String, Integer> counts) {
+        ArrayList<MemoryBrowserItem> projected = new ArrayList<>();
+        for (MemoryBrowserItem item : items) {
+            Integer count = counts.get(item.memoryKey);
+            projected.add(count == null ? item : item.withRecentAddedCount(count));
+        }
+        Collections.sort(projected, MemoryBrowserItem.BY_RECENT_THEN_TITLE);
+        return new MemoryBrowserState(projected);
+    }
+
     boolean isEmpty() {
         return items.isEmpty();
     }
@@ -69,10 +96,18 @@ final class MemoryBrowserState {
         if (item == null || repository == null) {
             return null;
         }
-        MemoryRecord record = repository.memory(memoryKey);
+        return detail(item, repository.memory(memoryKey), repository, galleryReader);
+    }
+
+    static MemoryBrowserDetail detail(MemoryBrowserItem item, MemoryRecord record,
+                                     MemoryRepository repository, MemoryMediaResolver.GalleryReader galleryReader) {
+        if (item == null || record == null) return null;
         OrganizationLink exactLink = repository.usableMemoryLink(record);
+        record=record.withKnownOutput(exactLink);
         MemoryMediaResolution resolution = MemoryMediaResolver.resolve(record, exactLink, galleryReader);
-        return MemoryBrowserDetail.from(item, record, resolution.refs);
+        MemoryBrowserDetail detail = MemoryBrowserDetail.from(item, record, resolution.refs);
+        return resolution.source == MemoryMediaSourcePolicy.Source.UNAVAILABLE
+                ? detail.withUnavailableCount() : detail;
     }
 
     private static List<MemoryBrowserItem> immutableCopy(List<MemoryBrowserItem> items) {
@@ -168,7 +203,7 @@ final class MemoryBrowserItem {
                 record.memoryKey,
                 title,
                 subtitle(record),
-                countText(record.itemCount),
+                MemoryMediaCounts.forRecord(record),
                 dateText(record.startDateMillis, record.endDateMillis),
                 monthRangeText(record.startDateMillis, record.endDateMillis),
                 record.coverUri,
@@ -193,13 +228,20 @@ final class MemoryBrowserItem {
         return "정리된 앨범";
     }
 
-    private static String countText(int itemCount) {
-        return "사진 " + Math.max(0, itemCount) + "장";
+    MemoryBrowserItem withCountText(String value) {
+        return new MemoryBrowserItem(memoryKey, title, subtitle, value, dateText, cardDateText,
+                coverUri, sourceType, discoveryOnly, organizedAlbum, canOpenPhotos,
+                canOpenGalleryAlbum, canOrganize, canAddNewItems, recentAddedCount, sortDateMillis);
+    }
+
+    MemoryBrowserItem withRecentAddedCount(int value) {
+        return new MemoryBrowserItem(memoryKey, title, subtitle, countText, dateText, cardDateText,
+                coverUri, sourceType, discoveryOnly, organizedAlbum, canOpenPhotos,
+                canOpenGalleryAlbum, canOrganize, canAddNewItems, value, sortDateMillis);
     }
 
     private static int recentAddedCount(MemoryRecord record) {
-        if (record == null || record.sourceType != MemorySourceType.DISCOVERED_ONLY
-                || record.discoveryGroup == null) {
+        if (record == null || record.discoveryGroup == null) {
             return 0;
         }
         int count = 0;
@@ -263,6 +305,7 @@ final class MemoryBrowserItem {
 }
 
 final class MemoryBrowserDetail {
+    final List<MemoryDateNote> notes;
     final MemoryBrowserItem item;
     final MemoryRecord record;
     final List<String> sourceUris;
@@ -270,6 +313,7 @@ final class MemoryBrowserDetail {
     final boolean canOpenPhotos;
     final boolean canOpenGalleryAlbum;
     final boolean canOrganize;
+    final boolean mediaResolved;
 
     private MemoryBrowserDetail(MemoryBrowserItem item,
                                 MemoryRecord record,
@@ -277,7 +321,13 @@ final class MemoryBrowserDetail {
                                 List<MemoryPhotoSection> photoSections,
                                 boolean canOpenPhotos,
                                 boolean canOpenGalleryAlbum,
-                                boolean canOrganize) {
+                                boolean canOrganize,
+                                boolean mediaResolved) {
+        this(item,record,sourceUris,photoSections,canOpenPhotos,canOpenGalleryAlbum,canOrganize,mediaResolved,Collections.emptyList());
+    }
+    private MemoryBrowserDetail(MemoryBrowserItem item,MemoryRecord record,List<String> sourceUris,
+                                List<MemoryPhotoSection> photoSections,boolean canOpenPhotos,
+                                boolean canOpenGalleryAlbum,boolean canOrganize,boolean mediaResolved,List<MemoryDateNote> notes) {
         this.item = item;
         this.record = record;
         this.sourceUris = immutableCopy(sourceUris);
@@ -285,6 +335,13 @@ final class MemoryBrowserDetail {
         this.canOpenPhotos = canOpenPhotos;
         this.canOpenGalleryAlbum = canOpenGalleryAlbum;
         this.canOrganize = canOrganize;
+        this.mediaResolved = mediaResolved;
+        this.notes=Collections.unmodifiableList(new ArrayList<>(notes));
+    }
+
+    MemoryBrowserDetail withNotes(List<MemoryDateNote> notes) {
+        return new MemoryBrowserDetail(item,record,sourceUris,MemoryPhotoSection.withNotes(photoSections,notes),
+                canOpenPhotos||!notes.isEmpty(),canOpenGalleryAlbum,canOrganize,mediaResolved||!notes.isEmpty(),notes);
     }
 
     static MemoryBrowserDetail from(MemoryBrowserItem item,
@@ -296,13 +353,18 @@ final class MemoryBrowserDetail {
         List<MemoryPhotoSection> sections = MemoryPhotoSection.fromDiscoveryRefs(refs);
         List<String> sourceUris = MemoryPhotoSection.sourceUris(sections);
         return new MemoryBrowserDetail(
-                item,
+                item.withCountText(MemoryMediaCounts.fromSections(sections).text()),
                 record,
                 sourceUris,
                 sections,
-                record.canOpenPhotos && !sourceUris.isEmpty(),
+                !sourceUris.isEmpty(),
                 record.canOpenGalleryAlbum,
-                record.canOrganize && !sourceUris.isEmpty());
+                MemoryAlbumAction.canPrepare(record, refs) && !sourceUris.isEmpty(), true);
+    }
+
+    MemoryBrowserDetail withUnavailableCount() {
+        return new MemoryBrowserDetail(item.withCountText("불러오기 필요"), record, sourceUris,
+                photoSections, canOpenPhotos, canOpenGalleryAlbum, false, false,notes);
     }
 
     private static List<String> immutableCopy(List<String> values) {
