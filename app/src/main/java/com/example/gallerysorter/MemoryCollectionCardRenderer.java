@@ -51,6 +51,144 @@ final class MemoryCollectionCardRenderer {
             renderCard(root, group.key, group.title, group.summary, "국가 모음", () -> opened.accept(group));
     }
 
+    void renderDiscoveryTopRow(LinearLayout root, MemoryBrowserEntry entry,
+                               Runnable openCollections,
+                               java.util.function.Consumer<AutomaticCountryGroups.Group> openSingleCountry,
+                               Runnable openAllCountries) {
+        if (root == null || entry == null) return;
+        boolean hasCountries = entry.countries != null && entry.countries.groups != null && !entry.countries.groups.isEmpty();
+        boolean hasCollections = entry.collections != null && !entry.collections.isEmpty();
+
+        if (!hasCountries && !hasCollections) {
+            return;
+        }
+
+        LinearLayout row = new LinearLayout(activity);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        LinearLayout.LayoutParams rowParams = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        rowParams.setMargins(0, 0, 0, activity.dp(10));
+        row.setLayoutParams(rowParams);
+
+        // 1. Memory Collection tile
+        String collCoverUri = "";
+        String collSubtitle = "새 모음 만들기";
+        if (hasCollections) {
+            collSubtitle = entry.collections.size() + "개 모음";
+            MemoryCollection first = entry.collections.get(0);
+            if (first != null && entry.collectionSummaries != null) {
+                MemoryCollectionCardSummary s = entry.collectionSummaries.get(first.collectionId);
+                if (s != null && s.coverUri != null) {
+                    collCoverUri = s.coverUri;
+                }
+            }
+        }
+        View collCard = createTopTile(
+                "기억 모음",
+                collSubtitle,
+                collCoverUri,
+                hasCollections ? "모음" : "추가",
+                () -> {
+                    if (openCollections != null) openCollections.run();
+                });
+
+        // 2. Overseas Countries tile
+        View countryCard = null;
+        if (hasCountries) {
+            String countryCoverUri = "";
+            String countrySubtitle = entry.countries.groups.size() + "개국 모아보기";
+            if (entry.countries.groups.size() == 1) {
+                AutomaticCountryGroups.Group g = entry.countries.groups.get(0);
+                countrySubtitle = g.title + (g.summary != null && !g.summary.countText.isEmpty() ? " · " + g.summary.countText : "");
+                if (g.summary != null && g.summary.coverUri != null) countryCoverUri = g.summary.coverUri;
+            } else {
+                AutomaticCountryGroups.Group g = entry.countries.groups.get(0);
+                if (g.summary != null && g.summary.coverUri != null) countryCoverUri = g.summary.coverUri;
+            }
+            final boolean single = entry.countries.groups.size() == 1;
+            countryCard = createTopTile(
+                    "해외 기록",
+                    countrySubtitle,
+                    countryCoverUri,
+                    "해외",
+                    () -> {
+                        if (single && openSingleCountry != null) {
+                            openSingleCountry.accept(entry.countries.groups.get(0));
+                        } else if (openAllCountries != null) {
+                            openAllCountries.run();
+                        }
+                    });
+        }
+
+        if (countryCard != null) {
+            LinearLayout.LayoutParams p1 = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1.0f);
+            p1.setMargins(0, 0, activity.dp(4), 0);
+            row.addView(collCard, p1);
+
+            LinearLayout.LayoutParams p2 = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1.0f);
+            p2.setMargins(activity.dp(4), 0, 0, 0);
+            row.addView(countryCard, p2);
+        } else {
+            row.addView(collCard, new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
+        }
+
+        root.addView(row);
+    }
+
+    private View createTopTile(String titleText, String subtitleText, String coverUri,
+                               String badgeText, Runnable opened) {
+        LinearLayout card = new LinearLayout(activity);
+        card.setOrientation(LinearLayout.HORIZONTAL);
+        card.setGravity(Gravity.CENTER_VERTICAL);
+        card.setPadding(activity.dp(10), activity.dp(8), activity.dp(10), activity.dp(8));
+        activity.applyCardBackground(card);
+        card.setClickable(true);
+        card.setFocusable(true);
+        card.setOnClickListener(v -> opened.run());
+
+        ImageView cover = new ImageView(activity);
+        cover.setScaleType(ImageView.ScaleType.CENTER_CROP);
+        GradientDrawable coverBg = new GradientDrawable();
+        coverBg.setColor(Color.rgb(240, 242, 247));
+        coverBg.setCornerRadius(activity.dp(10));
+        cover.setBackground(coverBg);
+        cover.setClipToOutline(true);
+        cover.setContentDescription(titleText);
+        LinearLayout.LayoutParams imgParams = new LinearLayout.LayoutParams(activity.dp(44), activity.dp(44));
+        imgParams.setMargins(0, 0, activity.dp(8), 0);
+        card.addView(cover, imgParams);
+        if (coverUri != null && !coverUri.isEmpty()) {
+            activity.loadMemoryBrowserThumbnailInto(cover, coverUri, activity.dp(88));
+        }
+
+        LinearLayout texts = new LinearLayout(activity);
+        texts.setOrientation(LinearLayout.VERTICAL);
+        texts.setGravity(Gravity.CENTER_VERTICAL);
+        card.addView(texts, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1.0f));
+
+        TextView title = new TextView(activity);
+        title.setText(titleText);
+        title.setTextSize(13.5f);
+        title.setTypeface(Typeface.DEFAULT_BOLD);
+        title.setTextColor(Color.rgb(26, 32, 44));
+        title.setSingleLine(true);
+        title.setEllipsize(TextUtils.TruncateAt.END);
+        texts.addView(title, activity.matchWidth());
+
+        TextView sub = new TextView(activity);
+        sub.setText(subtitleText);
+        sub.setTextSize(11.0f);
+        sub.setTextColor(Color.rgb(104, 82, 226));
+        sub.setSingleLine(true);
+        sub.setEllipsize(TextUtils.TruncateAt.END);
+        sub.setPadding(0, activity.dp(2), 0, 0);
+        texts.addView(sub, activity.matchWidth());
+
+        return card;
+    }
+
     private void renderCard(LinearLayout root, String key, String titleText, MemoryCollectionCardSummary summary,
                             String badgeText, Runnable opened) {
             LinearLayout card = new LinearLayout(activity);

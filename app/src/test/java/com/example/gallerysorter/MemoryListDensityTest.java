@@ -45,4 +45,37 @@ public class MemoryListDensityTest {
         assertFalse(density.scaleBy(0.95f, false));
         assertEquals(2, density.columns(false));
     }
+
+    @Test public void detailDensityCanScaleToFourOnNarrowAndFiveOnWide() {
+        MemoryListDensity density = MemoryListDensity.forDetail();
+        assertEquals(3, density.columns(false));
+        assertEquals(3, density.columns(true));
+
+        // Narrow pinch out to 4 columns
+        density.beginPinch();
+        assertTrue(density.scaleBy(0.80f, false));
+        assertEquals(4, density.columns(false));
+        // Max 4 on narrow
+        assertFalse(density.scaleBy(0.80f, false));
+        assertEquals(4, density.columns(false));
+
+        // Wide pinch out to 4 then 5 columns
+        density.beginPinch();
+        assertTrue(density.scaleBy(0.80f, true));
+        assertEquals(4, density.columns(true));
+        assertTrue(density.scaleBy(0.80f, true));
+        assertEquals(5, density.columns(true));
+        // Max 5 on wide
+        assertFalse(density.scaleBy(0.80f, true));
+        assertEquals(5, density.columns(true));
+
+        // Wide pinch in to 3 columns
+        density.beginPinch();
+        assertTrue(density.scaleBy(1.25f, true));
+        assertEquals(4, density.columns(true));
+        assertTrue(density.scaleBy(1.25f, true));
+        assertEquals(3, density.columns(true));
+        assertFalse(density.scaleBy(1.25f, true));
+        assertEquals(3, density.columns(true));
+    }
 }

@@ -203,6 +203,11 @@ public class MainActivity extends Activity {
     private String memoryBrowserSearchQuery = "";
     private final MemoryListDensity memoryListDensity = new MemoryListDensity();
     private final MemoryListDensity locationAlbumDensity = new MemoryListDensity();
+    private final MemoryListDensity memoryDetailDensity = MemoryListDensity.forDetail();
+    private boolean overseasCountryListMode = false;
+    private boolean memoryCollectionListMode = false;
+    private List<AutomaticCountryGroups.Group> activeCountryGroups = null;
+    private MemoryBrowserEntry activeCollectionListEntry = null;
     private final MemoryBrowserScrollController memoryBrowserScrollController = new MemoryBrowserScrollController();
     private boolean memoryBrowserShowsOrganizedSources;
     private boolean memoryDetailReturnsHome;
@@ -535,7 +540,22 @@ public class MainActivity extends Activity {
             closeMemoryPhotoViewer();
             return;
         }
-        if (this.memoryCollectionSelectionMode || this.memoryCollectionDetailMode) {
+        if (this.memoryCollectionDetailMode) {
+            this.selectedMemoryCollectionKeys.clear();
+            if (this.memoryCollectionListMode && this.activeCollectionListEntry != null) {
+                showMemoryCollectionsScreen(this.activeCollectionListEntry);
+            } else {
+                showMemoryBrowserScreen(this.memoryBrowserShowsOrganizedSources);
+            }
+            return;
+        }
+        if (this.memoryCollectionListMode || this.overseasCountryListMode) {
+            this.memoryCollectionListMode = false;
+            this.overseasCountryListMode = false;
+            showMemoryBrowserScreen(this.memoryBrowserShowsOrganizedSources);
+            return;
+        }
+        if (this.memoryCollectionSelectionMode) {
             this.selectedMemoryCollectionKeys.clear();
             showMemoryBrowserScreen(this.memoryBrowserShowsOrganizedSources);
             return;
@@ -6522,6 +6542,10 @@ public class MainActivity extends Activity {
     }
 
     private void returnFromCountryMemory() {
+        if (this.activeCountryGroups != null && this.activeCountryGroups.size() > 1) {
+            showOverseasCountriesScreen(this.activeCountryGroups);
+            return;
+        }
         this.countryMemoryLoadController.back(this.activeOverseasCountryProjection, this::returnToMainScreen,
                 () -> showMemoryBrowserScreen(true));
     }
@@ -7999,6 +8023,8 @@ public class MainActivity extends Activity {
         this.recentPlacesScreenMode = false;
         this.recentPlaceDetailMode = false;
         this.overseasMemoryScreenMode = false;
+        this.overseasCountryListMode = false;
+        this.memoryCollectionListMode = false;
         this.memoryBrowserScreenMode = true;
         this.memoryBrowserDetailMode = false;
         this.memoryCollectionSelectionMode = false;
@@ -8125,8 +8151,120 @@ public class MainActivity extends Activity {
     }
 
     private void addMemoryCollectionCards(LinearLayout root, MemoryBrowserEntry entry) {
-        new MemoryCollectionCardRenderer(this, null).renderCountries(root, entry.countries.groups,
+        new MemoryCollectionCardRenderer(this, null).renderDiscoveryTopRow(root, entry,
+                () -> {
+                    if (entry.collections == null || entry.collections.isEmpty()) {
+                        beginMemoryCollectionSelection();
+                    } else if (entry.collections.size() == 1) {
+                        memoryBrowserScrollController.captureCollection(entry.collections.get(0).collectionId,
+                                memoryBrowserShowsOrganizedSources, memoryBrowserSearchQuery);
+                        showMemoryCollectionDetailScreen(entry.collections.get(0).collectionId);
+                    } else {
+                        showMemoryCollectionsScreen(entry);
+                    }
+                },
+                this::showCountryMemoryFromDiscovery,
+                () -> showOverseasCountriesScreen(entry.countries.groups));
+    }
+
+    private void showOverseasCountriesScreen(final List<AutomaticCountryGroups.Group> groups) {
+        if (groups == null || groups.isEmpty()) {
+            showMemoryBrowserScreen(this.memoryBrowserShowsOrganizedSources);
+            return;
+        }
+        this.activeCountryGroups = groups;
+        this.overseasCountryListMode = true;
+        this.memoryCollectionListMode = false;
+        this.memoryDetailReturnsHome = false;
+        this.resultScreenMode = false;
+        this.recentPlacesScreenMode = false;
+        this.recentPlaceDetailMode = false;
+        this.overseasMemoryScreenMode = false;
+        this.memoryBrowserScreenMode = false;
+        this.memoryBrowserDetailMode = false;
+        this.memoryCollectionDetailMode = false;
+        this.memoryCollectionSelectionMode = false;
+        this.memoryPhotoViewerMode = false;
+        this.memoryOrganizationCompletionMode = false;
+
+        ScrollView scrollView = new ScrollView(this);
+        scrollView.setBackgroundColor(-197377);
+        LinearLayout root = new LinearLayout(this);
+        root.setOrientation(LinearLayout.VERTICAL);
+        root.setPadding(dp(18), dp(56), dp(18), dp(REQUEST_WRITE_VIDEOS));
+        scrollView.addView(root, scrollContentLayoutParams());
+
+        addMemoryHeader(root, "해외 기록", () -> {
+            this.overseasCountryListMode = false;
+            showMemoryBrowserScreen(this.memoryBrowserShowsOrganizedSources);
+        });
+        addWorkingBanner(root);
+
+        TextView intro = new TextView(this);
+        intro.setText("방문한 나라별 장소 기록 (" + groups.size() + "개국)");
+        intro.setTextSize(13.0f);
+        intro.setTextColor(Color.rgb(100, 111, 132));
+        intro.setPadding(dp(2), 0, 0, dp(12));
+        root.addView(intro, matchWidth());
+
+        LinearLayout cardsContainer = new LinearLayout(this);
+        cardsContainer.setOrientation(LinearLayout.VERTICAL);
+        root.addView(cardsContainer, matchWidth());
+
+        new MemoryCollectionCardRenderer(this, null).renderCountries(cardsContainer, groups,
                 this::showCountryMemoryFromDiscovery);
+
+        setContentViewWithBottomTabs(scrollView, DiscoveryTabDestinations.ALL);
+    }
+
+    private void showMemoryCollectionsScreen(final MemoryBrowserEntry entry) {
+        if (entry == null || entry.collections == null || entry.collections.isEmpty()) {
+            beginMemoryCollectionSelection();
+            return;
+        }
+        this.activeCollectionListEntry = entry;
+        this.memoryCollectionListMode = true;
+        this.overseasCountryListMode = false;
+        this.memoryDetailReturnsHome = false;
+        this.resultScreenMode = false;
+        this.recentPlacesScreenMode = false;
+        this.recentPlaceDetailMode = false;
+        this.overseasMemoryScreenMode = false;
+        this.memoryBrowserScreenMode = false;
+        this.memoryBrowserDetailMode = false;
+        this.memoryCollectionDetailMode = false;
+        this.memoryCollectionSelectionMode = false;
+        this.memoryPhotoViewerMode = false;
+        this.memoryOrganizationCompletionMode = false;
+
+        ScrollView scrollView = new ScrollView(this);
+        scrollView.setBackgroundColor(-197377);
+        LinearLayout root = new LinearLayout(this);
+        root.setOrientation(LinearLayout.VERTICAL);
+        root.setPadding(dp(18), dp(56), dp(18), dp(REQUEST_WRITE_VIDEOS));
+        scrollView.addView(root, scrollContentLayoutParams());
+
+        Button addCollectionBtn = new Button(this);
+        styleActionButton(addCollectionBtn, "+ 새 모으기", "add", -1050881, -4203522, -14326805);
+        addCollectionBtn.setOnClickListener(v -> beginMemoryCollectionSelection());
+
+        addMemoryHeader(root, "기억 모음", () -> {
+            this.memoryCollectionListMode = false;
+            showMemoryBrowserScreen(this.memoryBrowserShowsOrganizedSources);
+        }, addCollectionBtn);
+        addWorkingBanner(root);
+
+        TextView intro = new TextView(this);
+        intro.setText("직접 묶어둔 기억 모음 (" + entry.collections.size() + "개)");
+        intro.setTextSize(13.0f);
+        intro.setTextColor(Color.rgb(100, 111, 132));
+        intro.setPadding(dp(2), 0, 0, dp(12));
+        root.addView(intro, matchWidth());
+
+        LinearLayout cardsContainer = new LinearLayout(this);
+        cardsContainer.setOrientation(LinearLayout.VERTICAL);
+        root.addView(cardsContainer, matchWidth());
+
         new MemoryCollectionCardRenderer(this,
                 new MemoryCollectionCardRenderer.Listener() {
                     @Override
@@ -8135,7 +8273,9 @@ public class MainActivity extends Activity {
                                 memoryBrowserShowsOrganizedSources, memoryBrowserSearchQuery);
                         showMemoryCollectionDetailScreen(collectionId);
                     }
-                }).renderPrepared(root, entry.collections, entry.collectionSummaries);
+                }).renderPrepared(cardsContainer, entry.collections, entry.collectionSummaries);
+
+        setContentViewWithBottomTabs(scrollView, DiscoveryTabDestinations.ALL);
     }
 
     private void beginMemoryCollectionSelection() {
@@ -8622,7 +8762,7 @@ public class MainActivity extends Activity {
         this.activeMemoryPhotoViewerIndex = 0;
         this.activeMemoryKey = detail.item.memoryKey;
 
-        ScrollView scrollView = new ScrollView(this);
+        MemoryDensityScrollView scrollView = new MemoryDensityScrollView(this, this.memoryDetailDensity, this::isWideListWindow);
         this.activeMemoryDetailScrollView = scrollView;
         this.memoryDetailSelection = new MemoryDetailSelection(this, scrollView, this.worker, detail);
         scrollView.setBackgroundColor(-197377);
@@ -8635,9 +8775,10 @@ public class MainActivity extends Activity {
                 this::closeMemoryDetailSelectionOrReturn,
                 detail.canOrganize ? () -> showSingleMemoryOrganizeConfirmation(detail.item.memoryKey, detail.record) : null);
         this.memoryDetailLoadController.bindAlbumActions(root, this::openAlbumInGallery, this::showPhysicalAlbumManagementScreen);
-        MemoryDetailPhotosRenderer.bind(this, root, detail, MAX_RESULT_DETAIL_THUMBNAILS,
+        Runnable refreshPhotos = MemoryDetailPhotosRenderer.bind(this, root, detail, MAX_RESULT_DETAIL_THUMBNAILS,
                 this::addMemoryPhotoPage, section -> showMemoryDateNoteDialog(detail.item.memoryKey, section),
                 this.memoryDetailSelection);
+        scrollView.setOnDensityChanged(refreshPhotos);
 
         Button back = new Button(this);
         back.setOnClickListener(new View.OnClickListener() {
@@ -9057,16 +9198,18 @@ public class MainActivity extends Activity {
                                     int count, MemoryDetailSelection selection) {
         int index = Math.max(0, startIndex);
         int max = Math.min(photos == null ? 0 : photos.size(), index + Math.max(0, count));
+        int columns = this.memoryDetailDensity.columns(isWideListWindow());
+        int photoHeight = dp(columns == 3 ? 112 : (columns == 4 ? 86 : 70));
         while (index < max) {
             LinearLayout row = new LinearLayout(this);
             row.setOrientation(0);
-            parent.addView(row, matchWidthWithBottom(dp(8)));
-            for (int column = 0; column < 3; column++) {
+            parent.addView(row, matchWidthWithBottom(dp(columns >= 4 ? 4 : 8)));
+            for (int column = 0; column < columns; column++) {
                 if (index < max) {
                     MemoryPhotoItem photo = photos.get(index);
                     View card = memoryPhotoThumbnailRenderer(section, selection).render(photo, dp(180));
-                    LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(0, dp(112), 1.0f);
-                    params.setMargins(column == 0 ? 0 : dp(4), 0, column == 2 ? 0 : dp(4), 0);
+                    LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(0, photoHeight, 1.0f);
+                    params.setMargins(column == 0 ? 0 : dp(2), 0, column == columns - 1 ? 0 : dp(2), 0);
                     row.addView(card, params);
                     index++;
                 } else {

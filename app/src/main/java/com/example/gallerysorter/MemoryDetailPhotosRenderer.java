@@ -11,10 +11,11 @@ import java.util.function.Consumer;
 /** Search and pagination stay scoped to one displayed record, without another source query. */
 final class MemoryDetailPhotosRenderer {
     interface Page { int add(LinearLayout parent,List<MemoryPhotoSection> sections,int offset,int limit,String key); }
-    static void bind(Activity a,LinearLayout parent,MemoryBrowserDetail detail,int limit,Page page,Consumer<MemoryPhotoSection> editNote, MemoryDetailSelection selection) {
+    static Runnable bind(Activity a,LinearLayout parent,MemoryBrowserDetail detail,int limit,Page page,Consumer<MemoryPhotoSection> editNote, MemoryDetailSelection selection) {
         final PersonalPlaceDetailPresenter[] placePresenter={null};
         LinearLayout results=new LinearLayout(a);results.setOrientation(1);
         final EditText[] field={null};
+        final int[] currentLimit = {limit};
         MemorySearchHeaderRenderer controls=new MemorySearchHeaderRenderer(a,new MemorySearchHeaderRenderer.Listener(){
             public void onSearchVisibilityChanged(boolean visible){}
             public void onQueryChanged(String query){render(query);}
@@ -32,10 +33,16 @@ final class MemoryDetailPhotosRenderer {
                     return;
                 }
                 LinearLayout photos=new LinearLayout(a);photos.setOrientation(1);results.addView(photos);
-                int[] shown={page.add(photos,filtered,0,limit,detail.item.memoryKey)};
+                int shownCount = Math.max(limit, currentLimit[0]);
+                int[] shown={page.add(photos,filtered,0,shownCount,detail.item.memoryKey)};
                 Button more=MemorySelectionStyle.action(a,"사진 더 보기",false);
                 if(shown[0]<total)results.addView(more);
-                more.setOnClickListener(v->{shown[0]+=page.add(photos,filtered,shown[0],limit,detail.item.memoryKey);if(shown[0]>=total)results.removeView(more);});
+                more.setOnClickListener(v->{
+                    int added = page.add(photos,filtered,shown[0],limit,detail.item.memoryKey);
+                    shown[0] += added;
+                    currentLimit[0] = shown[0];
+                    if(shown[0]>=total)results.removeView(more);
+                });
             }
         });
         placePresenter[0]=PersonalPlaceDetailPresenter.attach(a,parent,detail,selection,()->{
@@ -49,5 +56,11 @@ final class MemoryDetailPhotosRenderer {
 
         // Initial render uses the same query path, including note-only sections.
         field[0].setText("");
+        return () -> {
+            if (field[0] != null && !a.isFinishing() && !a.isDestroyed()) {
+                String q = field[0].getText() == null ? "" : field[0].getText().toString();
+                field[0].setText(q);
+            }
+        };
     }
 }
